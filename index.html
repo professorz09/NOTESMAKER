@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Made by Professor UPSC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Merriweather', 'serif'],
+            },
+            colors: {
+              sidebar: '#0f172a', // Slate 900
+              paper: '#ffffff',
+            },
+            screens: {
+                'print': {'raw': 'print'},
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      /* --- GLOBAL SCROLLBAR --- */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8; 
+      }
+
+      /* --- BACKGROUND PATTERN --- */
+      .dot-pattern {
+        background-color: #f1f5f9; /* Slate 100 */
+        background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+        background-size: 24px 24px;
+      }
+
+      /* --- EDITOR STYLES (Screen View) --- */
+      
+      .a4-page {
+          width: 100%;
+          max-width: 210mm;
+          min-height: 297mm;
+          padding: 20mm; /* Normal padding */
+          margin: 0 auto;
+          background: white;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          border: 1px solid #e2e8f0;
+          overflow-wrap: break-word;
+      }
+      
+      @media (max-width: 640px) {
+          .a4-page {
+              padding: 15px 10px; /* Smaller padding on mobile */
+              min-height: auto; /* Allow it to shrink if needed */
+          }
+          
+          .editor-content table {
+              display: block;
+              overflow-x: auto;
+              -webkit-overflow-scrolling: touch;
+          }
+      }
+      
+      /* Base Typography */
+      .editor-content {
+          font-family: 'Inter', sans-serif; /* CHANGED TO SIMPLE FONT */
+          font-size: 12pt; /* Normal Size */
+          line-height: 1.6; /* Normal Line Height */
+          color: #1e293b; 
+      }
+
+      /* Headings (Inter) */
+      .editor-content h1 { 
+          font-family: 'Inter', sans-serif;
+          font-size: 2.25em; 
+          font-weight: 800; 
+          margin-bottom: 0.8em; 
+          color: #0f172a; 
+          position: relative; 
+          border-bottom: 3px solid #0f172a; 
+          padding-bottom: 10px;
+          line-height: 1.2;
+          letter-spacing: -0.02em;
+      }
+      
+      .editor-content h2 { 
+          font-family: 'Inter', sans-serif;
+          font-size: 1.75em; 
+          font-weight: 700; 
+          margin-top: 1.5em; 
+          margin-bottom: 0.75em; 
+          color: #1e3a8a; 
+          position: relative; 
+          border-bottom: 1px solid #e2e8f0; 
+          padding-bottom: 6px;
+          line-height: 1.3;
+      }
+      
+      .editor-content h3 { 
+          font-family: 'Inter', sans-serif;
+          font-size: 1.4em; 
+          font-weight: 600; 
+          margin-top: 1.25em; 
+          margin-bottom: 0.5em; 
+          color: #334155; 
+          position: relative; 
+          line-height: 1.3;
+      }
+      
+      .editor-content h4 { 
+          font-family: 'Inter', sans-serif;
+          font-size: 1.15em; 
+          font-weight: 600; 
+          margin-top: 1em; 
+          margin-bottom: 0.5em; 
+          color: #475569; 
+      }
+
+      /* Body Text */
+      .editor-content p { 
+          margin-bottom: 1em; 
+          color: #334155; 
+          text-align: justify; 
+      }
+      
+      .editor-content ul { 
+          list-style-type: disc; 
+          margin-left: 24px; 
+          margin-bottom: 1em; 
+          color: #334155; 
+      }
+      
+      .editor-content ol { 
+          list-style-type: decimal; 
+          margin-left: 24px; 
+          margin-bottom: 1em; 
+          color: #334155; 
+      }
+      
+      .editor-content li { 
+          margin-bottom: 0.5em; 
+          padding-left: 4px;
+          position: relative; 
+      }
+      
+      .editor-content strong {
+          color: #0f172a;
+          font-weight: 700;
+      }
+
+      /* --- RICH ELEMENTS --- */
+      
+      /* Key Point (Blue Sidebar) */
+      .editor-content .key-point {
+          background-color: #f8fafc; 
+          border-left: 4px solid #3b82f6; 
+          padding: 16px;
+          margin: 1.5em 0;
+          border-radius: 0 8px 8px 0;
+          font-family: 'Inter', sans-serif;
+          font-size: 0.95em;
+          color: #1e293b;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      }
+      .editor-content .key-point strong {
+          color: #2563eb; 
+      }
+
+      /* Note Box (Yellow Style) */
+      .editor-content .note-box {
+          background-color: #fefce8; /* Yellow 50 */
+          border: 1px solid #facc15; /* Yellow 400 */
+          border-left: 4px solid #eab308; /* Yellow 500 */
+          padding: 16px;
+          margin: 1.5em 0;
+          border-radius: 6px;
+          font-family: 'Inter', sans-serif;
+          font-size: 0.95em;
+          color: #854d0e; /* Yellow 800 */
+          position: relative;
+      }
+      .editor-content .note-box::before {
+          content: '💡 Note';
+          display: block;
+          font-weight: 700;
+          font-size: 0.85em;
+          text-transform: uppercase;
+          margin-bottom: 6px;
+          color: #a16207; /* Yellow 700 */
+          letter-spacing: 0.05em;
+      }
+
+      /* Professional Tables (Xerox Friendly) */
+      .editor-content table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin: 1.5em 0; 
+          font-size: 0.95em; 
+          border: 2px solid #000000; 
+          border-radius: 0px;
+          overflow: visible;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+          position: relative; 
+      }
+      
+      .editor-content th { 
+          background-color: #f1f5f9; /* Light Gray for Xerox */
+          color: #0f172a; /* Dark Text */
+          padding: 12px 16px; 
+          text-align: left; 
+          font-weight: 700; 
+          font-family: 'Inter', sans-serif;
+          border: 1px solid #000000; 
+      }
+      
+      .editor-content td { 
+          border: 1px solid #000000; 
+          padding: 12px 16px; 
+          vertical-align: top; 
+          color: #334155; 
+      }
+
+      /* Bullet points inside tables should not be too indented */
+      .editor-content td ul {
+          margin-left: 16px;
+          margin-bottom: 0;
+      }
+      
+      .editor-content tr:nth-child(even) {
+          background-color: #f8fafc;
+      }
+      
+      .editor-content caption {
+          position: relative;
+          padding: 0;
+          height: 0;
+      }
+
+      /* --- VISUALIZATIONS & IMAGES --- */
+      .editor-content .flowchart-container { 
+        display: flex; 
+        justify-content: center; 
+        margin: 1.5em 0; 
+        padding: 4px; 
+        background: transparent;
+        border: none; 
+        border-radius: 8px; 
+        overflow-x: auto;
+        position: relative;
+      }
+
+      .editor-content svg {
+          max-width: none; 
+          height: auto;
+          display: block;
+      }
+      
+      .editor-content svg text {
+          font-family: 'Inter', sans-serif;
+          font-weight: 500;
+      }
+
+      /* Generated Images (Figures) */
+      .editor-content figure {
+          margin: 2em 0;
+          text-align: center;
+          background: #f8fafc;
+          padding: 16px;
+          border-radius: 8px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+      }
+      
+      .editor-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 4px;
+          display: inline-block;
+          border: 1px solid #cbd5e1;
+      }
+
+      .editor-content figcaption {
+          font-family: 'Inter', sans-serif;
+          font-size: 0.9em;
+          color: #64748b;
+          margin-top: 8px;
+          font-style: italic;
+      }
+
+      /* --- EDIT BUTTON --- */
+      .ai-edit-trigger {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          margin-left: 8px;
+          border-radius: 50%;
+          background-color: #f3e8ff; 
+          color: #7e22ce; 
+          font-size: 14px;
+          cursor: pointer;
+          opacity: 0.6;
+          transition: all 0.2s;
+          vertical-align: middle;
+          border: 1px solid #d8b4fe;
+          z-index: 50;
+      }
+      
+      .editor-content li .ai-edit-trigger {
+         margin-left: 0;
+         margin-right: 8px;
+         transform: scale(0.8);
+      }
+
+      .ai-edit-trigger:hover {
+          opacity: 1;
+          transform: scale(1.1);
+          background-color: #d8b4fe;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+
+      /* --- PRINT STYLES --- */
+      @media print {
+        @page { size: A4; margin: 5mm; }
+        
+        html, body, #root, main {
+          width: 100% !important; height: auto !important; min-height: auto !important;
+          overflow: visible !important; display: block !important; margin: 0 !important; padding: 0 !important;
+          background: white !important; position: static !important;
+        }
+
+        aside, button, header, .no-print, .ai-edit-trigger, .toolbar-container { display: none !important; }
+        .flex { display: block !important; }
+        .w-full { width: 100% !important; }
+
+        .editor-container {
+           width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important;
+           box-shadow: none !important; border: none !important;
+        }
+
+        .editor-content { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .editor-content * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+        h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
+        
+        .note-box {
+          background-color: #fefce8 !important;
+          border: 1px solid #facc15 !important;
+          border-left: 4px solid #eab308 !important;
+          page-break-inside: avoid;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; border: 2px solid #000 !important; page-break-inside: avoid; font-size: 9.5pt; }
+        th { background-color: #f1f5f9 !important; color: #000 !important; padding: 10px; border: 1px solid #000 !important; font-weight: bold !important; }
+        td { border: 1px solid #000 !important; padding: 10px; vertical-align: top; }
+
+        figure, .flowchart-container, svg, .key-point, img { page-break-inside: avoid; break-inside: avoid; }
+        .flowchart-container { border: 2px solid #000 !important; }
+        figure { border: none !important; box-shadow: none !important; }
+        p, li { orphans: 3; widows: 3; }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "path": "https://esm.sh/path@^0.12.7",
+    "vite": "https://esm.sh/vite@^7.3.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-100 text-gray-900 h-screen overflow-hidden">
+    <div id="root"></div>
+  <script type="module" src="/src/index.tsx"></script>
+</body>
+</html>

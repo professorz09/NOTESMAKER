@@ -1,0 +1,558 @@
+import { GoogleGenAI } from "@google/genai";
+
+export const createAIClient = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key not found");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+// Helper to clean AI output
+const cleanHtmlOutput = (text: string): string => {
+  if (!text) return "";
+  // Remove markdown code blocks (```html ... ```)
+  return text
+    .replace(/^```html\s*/i, '') // Remove start block
+    .replace(/^```\s*/i, '')     // Remove start block generic
+    .replace(/\s*```$/i, '')      // Remove end block
+    .trim();                      // Trim whitespace
+};
+
+// Generate Detailed Content directly from a Topic
+export const generateTopicContent = async (
+  topic: string,
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Academic Expert & Educator.
+    Task: Write HIGH-DENSITY, EXHAUSTIVE, and HIGHLY STRUCTURED Detailed Notes.
+    Model Config: Maximize information density. Minimal fluff.
+    
+    Topic: "${topic}"
+    Language: ${language}
+
+    **STRICT NUMBERING & STRUCTURE RULES:**
+    Use strict hierarchical numbering for ALL headings. The structure must be logical and deeply detailed according to the specific topic.
+    - <h1>1. [Main Title]</h1>
+    - <h2>1.1 [Major Section]</h2>
+    - <h3>1.1.1 [Sub-Section]</h3>
+    - <h4>1.1.1.1 [Detailed Point]</h4>
+    
+    **CONTENT REQUIREMENTS:**
+    1. **Density:** "More facts, fewer filler words." Fit as much information as possible concisely.
+    2. **Depth:** Every sub-section (1.1.1) must contain substantial academic value.
+    3. **Key Concepts:** Wrap vital definitions in: <div class="key-point"><strong>Key Concept:</strong> ...text...</div>
+    4. **Notes (Optional):** Use <div class="note-box">...text...</div> for extra facts or interesting trivia only if relevant.
+    5. **Tables (Optional):** Use strict HTML tables with <thead> for complex data comparisons or data-heavy sections.
+
+    **VISUALIZATION LOGIC (Optional):**
+    Analyze the topic and generate ONE detailed SVG diagram inside <div class="flowchart-container"> ONLY IF it significantly aids understanding (e.g., for processes, cycles, or hierarchies). If not needed, do not include it.
+    *Rules for SVG (if included):*
+    - Must be highly detailed, educational, and visually appealing.
+    - Use a clean, professional color palette (e.g., #f8fafc background, #0f172a text, #3b82f6 accents).
+    - **NO BORDERS** on the SVG itself or its main container.
+    - Ensure all text inside the SVG is readable (use font-family: sans-serif, font-size: 14px or larger).
+    - Use proper viewBox attributes for responsiveness.
+    - Include meaningful connections, labels, and icons if possible.
+    
+    **Output:** Return ONLY raw HTML.
+  `;
+
+  // Deep Dive creation still needs Pro for initial structure
+  const response = await ai.models.generateContent({
+    model: modelName, 
+    contents: prompt
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Generate UPSC Mains Answer
+export const generateUPSCAnswer = async (
+  question: string,
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: UPSC Topper & Expert Evaluator.
+    Task: Write a high-scoring, perfectly structured UPSC Mains answer for the given question.
+    
+    Question: "${question}"
+    Language: ${language}
+
+    **STRICT STRUCTURE & FORMATTING RULES (Like a Topper's Copy):**
+    1. **Introduction (Bhumika):** Crisp, fact-based, or definition-based start. Connect with current affairs if relevant.
+    2. **Body (Mukhya Bhag):**
+       - Break down into clear sub-headings based on the question's demands. Adapt the structure to the specific requirements of the topic.
+       - Use bullet points for readability.
+       - Include **Pros/Cons (Sahi/Galat)**, **Challenges (Chunati)**, and **Solutions/Way Forward (Samadhan)** ONLY where applicable.
+       - Highlight key terms using <strong>.
+    3. **Data/Facts/Committees (Optional):** Sprinkle relevant data, articles of the constitution, or committee recommendations if they exist for this topic. Use <div class="note-box">...</div> for highlighting facts.
+    4. **Visual Elements (Optional):**
+       - Include a **Table** for comparison or data presentation if it adds value.
+       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it visually represents a process, hierarchy, or relationship that is complex. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
+    5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion (e.g., mentioning SDGs or constitutional ethos).
+
+    **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks. Use standard HTML tags (<h1>, <h2>, <ul>, <li>, <table>, <svg>, etc.).
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName, 
+    contents: prompt
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Generate Comparison Table directly from a Topic
+export const generateTopicComparisonTable = async (
+  topic: string,
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Data Analyst & Academic Expert.
+    Task: Create a highly detailed, comprehensive Comparison Matrix (Table) for the topic.
+    
+    Topic: "${topic}"
+    Language: ${language}
+
+    **TABLE REQUIREMENTS:**
+    1. **Structure:** Create a multi-column HTML table (<table>).
+    2. **Headers:** Use <thead> with <th> for clear category titles (e.g., "Parameters", "Entity 1", "Entity 2").
+    3. **Content:** 
+       - Inside <td> cells, use bullet points (<ul><li>...</li></ul>) if there are multiple points per cell.
+       - Be exhaustive and highly detailed. Do not just write 1-2 words if more context is needed.
+    4. **Formatting:**
+       - Use <strong> for key terms inside cells.
+       - Ensure the table covers all aspects of the topic exhaustively.
+
+    Output: Return ONLY the valid HTML <table> code. Do not wrap it in markdown blocks.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName, 
+    contents: prompt
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Generate Structured Notes from Raw Text
+export const generateFormattedNotes = async (
+  rawText: string,
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview",
+  outputStyle: 'notes' | 'upsc' = 'notes'
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = outputStyle === 'upsc' ? `
+    Role: UPSC Topper & Expert Evaluator.
+    Task: Format the provided notes into a high-scoring, perfectly structured UPSC Mains answer.
+    
+    Input Text: ${rawText}
+    Language: ${language}
+
+    **STRICT STRUCTURE & FORMATTING RULES (Like a Topper's Copy):**
+    1. **Introduction (Bhumika):** Crisp, fact-based, or definition-based start.
+    2. **Body (Mukhya Bhag):**
+       - Break down into clear sub-headings based on the content.
+       - Use bullet points for readability.
+       - Highlight key terms using <strong>.
+    3. **Data/Facts/Committees (Optional):** Sprinkle relevant data if applicable. Use <div class="note-box">...</div> for highlighting facts.
+    4. **Visual Elements (Optional):**
+       - Include a **Table** for comparison or data presentation if relevant.
+       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it helps visualize the content. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
+    5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion.
+
+    **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
+  ` : `
+    Role: Professional Editor.
+    Task: Format notes into a dense, numbered textbook format.
+    
+    Input Text: ${rawText}
+    Language: ${language}
+
+    **RULES:**
+    1. **Structure:** Strict tree (1. -> 1.1 -> 1.1.1).
+    2. **Density:** Remove conversational filler. Make it concise but complete.
+    3. **Formatting:** Use <div class="key-point"> and <div class="note-box">.
+    4. **Visuals:** Create an SVG diagram inside <div class="flowchart-container"> if complex logic exists.
+
+    **Output:** Return ONLY raw HTML.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Generate Structured Notes from Uploaded Files
+export const generateFileNotes = async (
+  files: { data: string; mimeType: string }[],
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview",
+  outputStyle: 'notes' | 'upsc' = 'notes'
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = outputStyle === 'upsc' ? `
+    Role: UPSC Topper & Expert Evaluator.
+    Task: Analyze the provided files and generate a high-scoring, perfectly structured UPSC Mains answer based on the content.
+    
+    Language: ${language}
+
+    **STRICT STRUCTURE & FORMATTING RULES (Like a Topper's Copy):**
+    1. **Introduction (Bhumika):** Crisp, fact-based, or definition-based start.
+    2. **Body (Mukhya Bhag):**
+       - Break down into clear sub-headings based on the content.
+       - Use bullet points for readability.
+       - Highlight key terms using <strong>.
+    3. **Data/Facts/Committees (Optional):** Sprinkle relevant data if relevant. Use <div class="note-box">...</div> for highlighting facts.
+    4. **Visual Elements (Optional):**
+       - Include a **Table** for comparison or data presentation if it adds value.
+       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it helps explain the content. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
+    5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion.
+
+    **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
+  ` : `
+    Role: Professional Academic Editor.
+    Task: Analyze the provided files and generate comprehensive, structured notes in a numbered textbook format.
+    
+    Language: ${language}
+
+    **RULES:**
+    1. **Structure:** Strict tree (1. -> 1.1 -> 1.1.1).
+    2. **Density:** Extract all key information. Make it concise but complete.
+    3. **Formatting:** Use <div class="key-point"> and <div class="note-box">.
+    4. **Visuals:** Create an SVG diagram inside <div class="flowchart-container"> if complex logic exists.
+
+    **Output:** Return ONLY raw HTML.
+  `;
+
+  const parts: any[] = files.map(f => ({
+    inlineData: {
+      data: f.data,
+      mimeType: f.mimeType
+    }
+  }));
+  parts.push({ text: prompt });
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: { parts }
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Rewrite specific text selection
+// CHANGED: Uses Flash for speed, focused on structure preservation
+export const rewriteContent = async (
+    textToRewrite: string,
+    instruction: string,
+    modelName: string = "gemini-3-flash-preview"
+  ): Promise<string> => {
+    const ai = createAIClient();
+  
+    const prompt = `
+      Role: Expert Academic Editor.
+      Task: Rewrite and EXPAND the selected text into a HIGHLY DETAILED and EXHAUSTIVE explanation.
+      
+      Input: "${textToRewrite}"
+      User Instruction: ${instruction}
+      
+      **Rules:**
+      1. **Detail:** Do not just rephrase. Significantly increase the depth, adding facts, explanations, and sub-points.
+      2. **Structure:** Maintain and enhance hierarchical numbering (e.g., if input is 1.1, output should be a detailed 1.1 with sub-points 1.1.1, 1.1.2 etc. if relevant).
+      3. **Tone:** Professional, academic, and high-fact-density.
+      4. **Formatting:** Use <strong> for key terms. Use <div class="key-point"> for definitions.
+      
+      Return ONLY the HTML.
+    `;
+  
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+    });
+  
+    return cleanHtmlOutput(response.text || textToRewrite);
+};
+
+// Mode 1: REWRITE (Section Edits)
+// CHANGED: Uses Flash for speed. Explicit context handling for deep nesting.
+export const rewriteSection = async (
+  sectionContent: string,
+  instruction: string,
+  modelName: string = "gemini-3-flash-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+    const prompt = `
+    Role: Senior Editor.
+    Task: Rewrite and EXPAND the HTML section into a HIGHLY DETAILED version based on instruction.
+    
+    Input HTML Structure (Tree): 
+    ${sectionContent}
+    
+    Instruction: "${instruction}"
+    
+    **CRITICAL CONSTRAINTS:** 
+    1. **PRESERVE & ENHANCE HIERARCHY:** You MUST keep the exact numbering structure but you should ADD more sub-points (e.g., if input has 1.1, the output should have a much more detailed 1.1, 1.1.1, 1.1.2, etc.).
+    2. **Depth:** Provide a "Deep Dive" level of detail. Add more facts, historical context, or technical nuances.
+    3. **Tone:** Academic, high density, authoritative.
+    
+    Output: Valid HTML only.
+  `;
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Mode 2: EXPAND (Deep Dive)
+// CHANGED: Uses Pro for thinking. Focused on "High Density".
+export const expandSection = async (
+  sectionContent: string,
+  instruction: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+  const prompt = `
+    Role: Academic Researcher.
+    Task: DEEP DIVE & EXPAND the selected section.
+    
+    Input HTML:
+    ${sectionContent}
+
+    Instruction: "${instruction}"
+    
+    **Requirements:**
+    1. **High Density:** Maximize information per page. Avoid fluff.
+    2. **Structure:** Explode bullet points into full sub-sections (convert 1.1 into 1.1.1, 1.1.2, 1.1.3).
+    3. **Data:** Use tables for comparisons to save space and increase clarity.
+    4. **Volume:** Significantly increase depth of knowledge, not just word count.
+
+    Output: Valid HTML only.
+  `;
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Mode 3: CONTINUE (Add next content)
+// CHANGED: Uses Pro for logical continuity with specific detail instructions.
+export const generateNextContent = async (
+  previousContext: string,
+  instruction: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+    const prompt = `
+    Role: Expert Co-Author / Ghostwriter.
+    Task: Seamlessly continue the document by adding further sub-points and detailed explanations.
+    
+    **Context (The incomplete chapter):**
+    ${previousContext}
+
+    **User Request (What to add next):**
+    "${instruction}"
+
+    **Execution Rules:**
+    1. **Sub-point Continuity:** Focus on adding the "next" sub-points or deeper details for the current topic.
+    2. **Logical Flow:** Start writing exactly where the previous context ended.
+    3. **Smart Numbering:** 
+       - If the last point was 1.2.1, continue with 1.2.2, 1.2.3, etc.
+       - If the current section is finished, move to the next logical sub-heading (e.g., from 1.2 to 1.3).
+    4. **High Density:** Maintain a professional, academic, high-fact-density tone.
+    5. **Formatting:** Use <strong>, <div class="key-point">, or tables where appropriate.
+    
+    Output: Return ONLY the HTML for the NEW content.
+  `;
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Mode 5: NEXT TOPIC DETAILED (New Major Section)
+export const generateDetailedNextTopic = async (
+  previousContext: string,
+  topicName: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+    const prompt = `
+    Role: Senior Professor & Textbook Author.
+    Task: Create a completely NEW MAJOR TOPIC after the current sub-topics are finished.
+
+    **Previous Context (to ensure we don't repeat and for numbering):**
+    ${previousContext}
+
+    **Target New Topic:** "${topicName}"
+
+    **EXECUTION RULES:**
+    1. **New Topic Start:** This should be a fresh start. If the last context was about "Topic A", this should be about "Topic B".
+    2. **Numbering:** Detect the last MAJOR heading number (e.g., 1.0 or 2.0) and start this as the next major section (e.g., 2.0 or 3.0).
+    3. **Structure:** Use <h1> or <h2> for the new topic title, followed by detailed sub-sections (2.1, 2.1.1, etc.).
+    4. **Depth:** Provide comprehensive coverage of this new topic.
+    5. **Visual Aids:** Use <div class="key-point">, <div class="note-box">, and <table> where relevant.
+    6. **Tone:** Professional academic tone.
+
+    Output: HTML for the new MAJOR section only.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Mode 6: GENERATE COMPLEX TABLE (Matrix)
+export const generateComplexTable = async (
+  contextText: string,
+  instruction: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+  
+  const prompt = `
+    Role: Data Analyst & Academic Editor.
+    Task: Convert the provided text/concept into a **Complex Comparison Matrix (Table)**, OR if the input is ALREADY a table, EXTEND/MODIFY it based on the instruction.
+    
+    Input Text/Context: "${contextText}"
+    Specific Instruction: "${instruction}"
+    
+    **TABLE REQUIREMENTS:**
+    1. **Structure:** Create or update a multi-column HTML table (<table>).
+    2. **Headers:** Use <thead> with <th> for clear category titles.
+    3. **Content:** 
+       - Inside <td> cells, use bullet points (<ul><li>...</li></ul>) if there are multiple points per cell. 
+       - If extending an existing table, keep the existing data and add the new rows/columns as requested.
+    4. **Formatting:**
+       - Use <strong> for key terms inside cells.
+       - Ensure the table covers all aspects of the topic exhaustively.
+
+    Output: Return ONLY the valid HTML <table> code.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+  return cleanHtmlOutput(response.text || "");
+};
+
+// Mode 7: GENERATE DIAGRAM (SVG Flowchart/Mindmap)
+export const generateDiagram = async (
+  contextText: string,
+  instruction: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+  
+  const prompt = `
+    Role: Expert Information Designer & Data Visualizer.
+    Task: Create a highly detailed, visually appealing SVG Diagram (Flowchart, Mindmap, Hierarchy, Timeline, etc.) based on the user's instruction and context.
+    
+    Context: "${contextText}"
+    Instruction: "${instruction}"
+    
+    **SVG REQUIREMENTS:**
+    1. **Format:** Return ONLY valid, raw <svg> code. Do NOT wrap it in markdown blocks (\`\`\`html or \`\`\`svg).
+    2. **Responsiveness:** Use a proper \`viewBox\` (e.g., \`viewBox="0 0 800 600"\`). Do NOT use fixed width/height attributes on the <svg> tag.
+    3. **Styling:** 
+       - Background: Transparent or very light (e.g., #f8fafc).
+       - Text: Must be readable, use standard fonts (font-family="sans-serif"), and appropriate sizes.
+       - Colors: Use a professional palette (e.g., #3b82f6 for primary nodes, #1e293b for text, #cbd5e1 for lines).
+    4. **Layout:** Ensure nodes are well-spaced. Paths/lines connecting nodes should be clear.
+    5. **Content:** The diagram MUST accurately reflect the instruction (e.g., if asked for a mindmap, create a central node with branching paths).
+    
+    Output: ONLY the <svg>...</svg> code.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+  
+  const svgContent = response.text || "";
+  // Clean up markdown if the model accidentally included it
+  const cleanedSvg = svgContent.replace(/```xml\n?/g, '').replace(/```svg\n?/g, '').replace(/```html\n?/g, '').replace(/```\n?/g, '').trim();
+  
+  return `<div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">${cleanedSvg}</div>`;
+};
+export const generateSectionImage = async (
+  contextText: string,
+  instruction: string
+): Promise<string> => {
+  const ai = createAIClient();
+  
+  const cleanContext = contextText
+    .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, '\nHEAD: $1\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 2000);
+
+  const prompt = `
+    Create a high-quality, professional textbook illustration.
+    
+    Context: "${cleanContext}"
+    Instruction: ${instruction || "Illustrate the key concept."}
+    
+    Style: Educational, Detailed, Textbook Diagram, High Definition.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-image-preview',
+    contents: {
+        parts: [
+            { text: prompt }
+        ]
+    },
+    config: {
+        imageConfig: {
+            imageSize: '1K',
+            aspectRatio: '16:9'
+        }
+    }
+  });
+
+  let imageUrl = "";
+  if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+              imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+              break;
+          }
+      }
+  }
+
+  if (!imageUrl) {
+      throw new Error("No image generated");
+  }
+
+  return `
+    <figure>
+        <img src="${imageUrl}" alt="Generated Illustration" />
+        <figcaption>Figure: AI Generated Illustration</figcaption>
+    </figure>
+  `;
+};
