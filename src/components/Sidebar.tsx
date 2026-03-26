@@ -18,8 +18,6 @@ import { GenerationStatus } from '../types';
 interface SidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
-  pageSize: 'Portrait' | 'Landscape';
-  setPageSize: (size: 'Portrait' | 'Landscape') => void;
   mode: 'topic' | 'text' | 'file';
   setMode: (mode: 'topic' | 'text' | 'file') => void;
   outputStyle: 'notes' | 'upsc';
@@ -47,8 +45,6 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   sidebarOpen,
   setSidebarOpen,
-  pageSize,
-  setPageSize,
   mode,
   setMode,
   outputStyle,
@@ -233,22 +229,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             >
                                 Hindi
                             </button>
-                        </div>
-                    </div>
-
-                    <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Page Orientation</label>
-                        <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
-                            {['Portrait', 'Landscape'].map((size) => (
-                                <button 
-                                    key={size}
-                                    type="button"
-                                    onClick={() => setPageSize(size as any)}
-                                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 ${pageSize === size ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-                                >
-                                    {size === 'Portrait' ? 'Vertical (A4)' : 'Horizontal (A4)'}
-                                </button>
-                            ))}
                         </div>
                     </div>
 

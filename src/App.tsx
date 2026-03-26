@@ -96,7 +96,6 @@ const App: React.FC = () => {
   // --- UI STATE ---
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fontSize, setFontSize] = useState(12); // Default to 12pt (Normal)
-  const [pageSize, setPageSize] = useState<'Portrait' | 'Landscape'>('Portrait');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('ai_book_writer_dark') === 'true';
@@ -747,7 +746,6 @@ const App: React.FC = () => {
     
     // Pass the current fontSize to the print window or keep default 12pt for formal print
     const printFontSize = fontSize < 10 ? 10 : fontSize;
-    const isLandscape = pageSize === 'Landscape';
 
     const content = `
       <!DOCTYPE html>
@@ -757,7 +755,7 @@ const App: React.FC = () => {
           <title>Export Notes</title>
           <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
           <style>
-              @page { size: A4 ${isLandscape ? 'landscape' : 'portrait'}; margin: 10mm; }
+              @page { size: A4 portrait; margin: 10mm; }
               body { font-family: 'Inter', sans-serif; font-size: ${printFontSize}pt; line-height: 1.4; color: #1e293b; background: white; margin: 0; padding: 0; }
               h1 { font-family: 'Inter', sans-serif; font-size: 2em; font-weight: 800; color: #0f172a; border-bottom: 3px solid #0f172a; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px; page-break-after: avoid; }
               h2 { font-family: 'Inter', sans-serif; font-size: 1.5em; font-weight: 700; color: #1e3a8a; margin-top: 16px; margin-bottom: 8px; page-break-after: avoid; border-bottom: 1px solid #e2e8f0; }
@@ -932,14 +930,12 @@ const App: React.FC = () => {
   return (
     <div className={`flex h-screen w-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden dot-pattern ${isDarkMode ? 'dark' : ''}`}>
       <style>
-        {`@media print { @page { size: A4 ${pageSize === 'Landscape' ? 'landscape' : 'portrait'}; margin: 5mm; } }`}
+        {`@media print { @page { size: A4 portrait; margin: 5mm; } }`}
       </style>
       {/* --- SIDEBAR (INPUT) --- */}
       <Sidebar 
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
-        pageSize={pageSize}
-        setPageSize={setPageSize}
         mode={mode}
         setMode={setMode}
         outputStyle={outputStyle}
@@ -1002,11 +998,11 @@ const App: React.FC = () => {
 
              <div className={`w-full mx-auto transition-all duration-700 ease-out ${!generatedHtml && status === GenerationStatus.IDLE ? 'opacity-100' : 'opacity-100'}`}>
                  <div 
-                    className={`editor-container page-container size-${pageSize.toLowerCase()} editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10 dark:shadow-blue-500/20' : ''}`}
+                    className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10 dark:shadow-blue-500/20' : ''}`}
                     style={{ fontSize: `${fontSize}pt` }} 
                  >
                     {!generatedHtml && status === GenerationStatus.IDLE ? (
-                        <div className="flex flex-col items-center justify-center text-center p-6 sm:p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50/50 dark:bg-slate-800/50" style={{ minHeight: pageSize === 'A4' ? '250mm' : pageSize === 'A5' ? '170mm' : pageSize === 'Letter' ? '230mm' : '300mm' }}>
+                        <div className="flex flex-col items-center justify-center text-center p-6 sm:p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50/50 dark:bg-slate-800/50" style={{ minHeight: '250mm' }}>
                             <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-blue-900/5 dark:shadow-none ring-1 ring-slate-100 dark:ring-slate-700 flex items-center justify-center mb-6 sm:mb-8 transform hover:scale-105 transition-transform duration-500 rotate-3">
                                 <BookOpen className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600 dark:text-blue-400 -rotate-3" />
                             </div>
