@@ -18,6 +18,8 @@ import { GenerationStatus } from '../types';
 interface SidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  pageSize: 'Portrait' | 'Landscape';
+  setPageSize: (size: 'Portrait' | 'Landscape') => void;
   mode: 'topic' | 'text' | 'file';
   setMode: (mode: 'topic' | 'text' | 'file') => void;
   outputStyle: 'notes' | 'upsc';
@@ -35,6 +37,7 @@ interface SidebarProps {
   setAiModel: (model: string) => void;
   handleGenerate: (e: React.FormEvent) => void;
   handleGenerateTable: (e: React.MouseEvent) => void;
+  handleGenerateDetailedTable: (e: React.MouseEvent) => void;
   status: GenerationStatus;
   handleClearCanvas: () => void;
   handleUndo: () => void;
@@ -44,6 +47,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   sidebarOpen,
   setSidebarOpen,
+  pageSize,
+  setPageSize,
   mode,
   setMode,
   outputStyle,
@@ -61,6 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setAiModel,
   handleGenerate,
   handleGenerateTable,
+  handleGenerateDetailedTable,
   status,
   handleClearCanvas,
   handleUndo,
@@ -231,6 +237,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
 
                     <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Page Orientation</label>
+                        <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
+                            {['Portrait', 'Landscape'].map((size) => (
+                                <button 
+                                    key={size}
+                                    type="button"
+                                    onClick={() => setPageSize(size as any)}
+                                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 ${pageSize === size ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                >
+                                    {size === 'Portrait' ? 'Vertical (A4)' : 'Horizontal (A4)'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
                         <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">AI Model</label>
                         <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
                             <button 
@@ -267,22 +289,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </Button>
                         
                         {mode === 'topic' && outputStyle === 'notes' && (
-                            <Button 
-                            type="button"
-                            onClick={handleGenerateTable}
-                            variant="secondary"
-                            className="w-full py-3.5 bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 text-slate-300 hover:text-blue-400 font-bold rounded-xl shadow-inner transition-all flex items-center justify-center gap-2"
-                            isLoading={status === GenerationStatus.GENERATING_TABLE}
-                            >
-                                {status === GenerationStatus.GENERATING_TABLE ? (
-                                    'Generating Table...'
-                                ) : (
-                                    <>
-                                        <TableIcon className="w-5 h-5" />
-                                        Generate Compare Table
-                                    </>
-                                )}
-                            </Button>
+                            <div className="flex flex-col gap-3">
+                                <Button 
+                                type="button"
+                                onClick={handleGenerateTable}
+                                variant="secondary"
+                                className="w-full py-3.5 bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 text-slate-300 hover:text-blue-400 font-bold rounded-xl shadow-inner transition-all flex items-center justify-center gap-2"
+                                isLoading={status === GenerationStatus.GENERATING_TABLE}
+                                >
+                                    {status === GenerationStatus.GENERATING_TABLE ? (
+                                        'Generating Table...'
+                                    ) : (
+                                        <>
+                                            <TableIcon className="w-5 h-5" />
+                                            Generate Compare Table
+                                        </>
+                                    )}
+                                </Button>
+
+                                <Button 
+                                type="button"
+                                onClick={handleGenerateDetailedTable}
+                                variant="secondary"
+                                className="w-full py-3.5 bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 text-slate-300 hover:text-blue-400 font-bold rounded-xl shadow-inner transition-all flex items-center justify-center gap-2"
+                                isLoading={status === GenerationStatus.GENERATING_DETAILED_TABLE}
+                                >
+                                    {status === GenerationStatus.GENERATING_DETAILED_TABLE ? (
+                                        'Generating Detailed Table...'
+                                    ) : (
+                                        <>
+                                            <TableIcon className="w-4 h-4" />
+                                            Generate Detailed Table
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </form>
@@ -300,7 +341,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
             </div>
             
-            <div className="p-4 bg-slate-950 border-t border-slate-800/60 text-[10px] text-slate-600 text-center uppercase tracking-widest font-semibold">
+            <div className="p-4 bg-slate-950 border-t border-slate-800/60 text-[10px] text-slate-500 text-center uppercase tracking-widest font-semibold">
                 AI Powered • v2.1 Pro
             </div>
         </div>

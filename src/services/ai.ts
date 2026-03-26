@@ -1,9 +1,20 @@
 import { GoogleGenAI } from "@google/genai";
 
 export const createAIClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  let apiKey = "";
+  
+  // 1. Try to get the runtime injected key (safely)
+  if (typeof window !== 'undefined' && (window as any).process && (window as any).process.env) {
+    apiKey = (window as any).process.env.API_KEY;
+  }
+  
+  // 2. Fallback to the build-time injected key (replaced by Vite)
   if (!apiKey) {
-    throw new Error("API Key not found");
+    apiKey = process.env.GEMINI_API_KEY;
+  }
+
+  if (!apiKey) {
+    throw new Error("API Key not found. Please select an API key or check your configuration.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -146,6 +157,42 @@ export const generateTopicComparisonTable = async (
   return cleanHtmlOutput(response.text || "");
 };
 
+// Generate Detailed Data Table directly from a Topic
+export const generateTopicDetailedTable = async (
+  topic: string,
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Senior Data Analyst & Subject Matter Expert.
+    Task: Create a highly detailed, comprehensive DATA TABLE for the topic.
+    
+    Topic: "${topic}"
+    Language: ${language}
+
+    **TABLE REQUIREMENTS:**
+    1. **Structure:** Create a multi-column HTML table (<table>) that breaks down the topic into its constituent parts, facts, data, or categories.
+    2. **Headers:** Use <thead> with <th> for clear, descriptive titles.
+    3. **Content:** 
+       - Inside <td> cells, use bullet points (<ul><li>...</li></ul>) if there are multiple points per cell.
+       - Be exhaustive and highly detailed. Provide deep insights, not just surface-level facts.
+    4. **Formatting:**
+       - Use <strong> for key terms inside cells.
+       - Ensure the table is logically organized and covers the topic from multiple dimensions.
+
+    Output: Return ONLY the valid HTML <table> code. Do not wrap it in markdown blocks.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName, 
+    contents: prompt
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
+
 // Generate Structured Notes from Raw Text
 export const generateFormattedNotes = async (
   rawText: string,
@@ -269,16 +316,16 @@ export const rewriteContent = async (
   
     const prompt = `
       Role: Expert Academic Editor.
-      Task: Rewrite and EXPAND the selected text into a HIGHLY DETAILED and EXHAUSTIVE explanation.
+      Task: Modify the selected text EXACTLY according to the user's instruction.
       
       Input: "${textToRewrite}"
       User Instruction: ${instruction}
       
       **Rules:**
-      1. **Detail:** Do not just rephrase. Significantly increase the depth, adding facts, explanations, and sub-points.
-      2. **Structure:** Maintain and enhance hierarchical numbering (e.g., if input is 1.1, output should be a detailed 1.1 with sub-points 1.1.1, 1.1.2 etc. if relevant).
-      3. **Tone:** Professional, academic, and high-fact-density.
-      4. **Formatting:** Use <strong> for key terms. Use <div class="key-point"> for definitions.
+      1. **OBEY THE INSTRUCTION:** If the user asks to make it "short", make it very concise. If they ask for "detailed and structured", add comprehensive details, bullet points, and subheadings. If they ask to just "rewrite" or "rephrase", keep the same length and meaning but change the wording. DO EXACTLY WHAT IS ASKED.
+      2. **Structure:** If the instruction implies a new structure (e.g., table, list, paragraphs), use it. Otherwise, maintain the original structure.
+      3. **Tone:** Professional and academic, unless the instruction specifies a different tone.
+      4. **Formatting:** Use <strong> for key terms. Use <div class="key-point"> for definitions, if applicable and appropriate for the requested length/style.
       
       Return ONLY the HTML.
     `;
@@ -301,7 +348,7 @@ export const rewriteSection = async (
   const ai = createAIClient();
     const prompt = `
     Role: Senior Editor.
-    Task: Rewrite and EXPAND the HTML section into a HIGHLY DETAILED version based on instruction.
+    Task: Modify the HTML section EXACTLY according to the user's instruction.
     
     Input HTML Structure (Tree): 
     ${sectionContent}
@@ -309,9 +356,9 @@ export const rewriteSection = async (
     Instruction: "${instruction}"
     
     **CRITICAL CONSTRAINTS:** 
-    1. **PRESERVE & ENHANCE HIERARCHY:** You MUST keep the exact numbering structure but you should ADD more sub-points (e.g., if input has 1.1, the output should have a much more detailed 1.1, 1.1.1, 1.1.2, etc.).
-    2. **Depth:** Provide a "Deep Dive" level of detail. Add more facts, historical context, or technical nuances.
-    3. **Tone:** Academic, high density, authoritative.
+    1. **OBEY THE INSTRUCTION:** If the user asks for a "short summary", provide a very concise summary. If they ask for a "detailed structure", expand it with sub-points, lists, and deep explanations. If they ask to just "rewrite", rephrase it without changing the length drastically. DO EXACTLY WHAT IS ASKED.
+    2. **Hierarchy:** Preserve the existing numbering structure (e.g., 1.1) as a baseline, but adapt it (add sub-points, or condense) based strictly on the user's instruction.
+    3. **Tone:** Academic and authoritative, unless the instruction specifies otherwise.
     
     Output: Valid HTML only.
   `;

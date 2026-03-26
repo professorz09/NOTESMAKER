@@ -34,51 +34,51 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-0 overflow-hidden animate-in zoom-in duration-200 ring-1 ring-slate-200/50">
-          <div className="bg-slate-50/80 p-5 border-b border-slate-100 flex items-center justify-between">
-             <h3 className="text-lg font-bold flex items-center gap-3 text-slate-800">
-                {rewriteType === 'section' ? <div className="p-2 bg-blue-100 rounded-xl"><Sparkles className="w-5 h-5 text-blue-600"/></div> : <div className="p-2 bg-purple-100 rounded-xl"><Wand2 className="w-5 h-5 text-purple-600"/></div>}
+    <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-950/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg p-0 overflow-hidden animate-in zoom-in duration-200 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+          <div className="bg-slate-50/80 dark:bg-slate-800/80 p-5 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+             <h3 className="text-lg font-bold flex items-center gap-3 text-slate-800 dark:text-slate-100">
+                {rewriteType === 'section' ? <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-xl"><Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400"/></div> : <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-xl"><Wand2 className="w-5 h-5 text-purple-600 dark:text-purple-400"/></div>}
                 {rewriteType === 'section' ? 'Magic AI Editor' : 'Rewrite Selection'}
              </h3>
              <div className="flex items-center gap-3">
                 <select 
                     value={rewriteModel}
                     onChange={(e) => setRewriteModel(e.target.value)}
-                    className="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-medium shadow-sm"
+                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-medium shadow-sm"
                 >
                     <option value="gemini-3-flash-preview">Flash (Fast)</option>
                     <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
                 </select>
-                <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 p-2 rounded-xl transition-all"><ArrowLeft className="w-5 h-5 rotate-180" /></button>
+                <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 p-2 rounded-xl transition-all"><ArrowLeft className="w-5 h-5 rotate-180" /></button>
              </div>
           </div>
 
           <div className="p-4 sm:p-6">
-            <div className="flex flex-wrap p-1 bg-slate-100/80 rounded-2xl mb-6 ring-1 ring-slate-200/50 gap-1">
+            <div className="flex flex-wrap p-1 bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl mb-6 ring-1 ring-slate-200/50 dark:ring-slate-700/50 gap-1">
                 {(['rewrite', 'expand', 'continue', 'next_topic', 'image', 'table', 'diagram'] as const).map(tab => (
                     <button 
                         key={tab}
                         onClick={() => setEditTab(tab)}
-                        className={`flex-1 min-w-[20%] sm:min-w-0 py-2 px-1 text-[10px] sm:text-[11px] font-bold rounded-xl capitalize transition-all duration-200 ${editTab === tab ? 'bg-white shadow-sm text-blue-600 transform scale-[1.02] ring-1 ring-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`flex-1 min-w-[20%] sm:min-w-0 py-2 px-1 text-[10px] sm:text-[11px] font-bold rounded-xl capitalize transition-all duration-200 ${editTab === tab ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transform scale-[1.02] ring-1 ring-slate-200/50 dark:ring-slate-600/50' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                     >
-                        {tab === 'expand' ? 'Deep Dive' : tab === 'continue' ? 'Continue' : tab === 'next_topic' ? 'Next Topic' : tab === 'image' ? 'Image' : tab === 'table' ? 'Table' : tab === 'diagram' ? 'Diagram' : 'Refine'}
+                        {tab === 'expand' ? 'Deep Dive' : tab === 'continue' ? 'Continue' : tab === 'next_topic' ? 'Detailed Notes' : tab === 'image' ? 'Image' : tab === 'table' ? 'Compare Table' : tab === 'diagram' ? 'Diagram' : 'Refine'}
                     </button>
                 ))}
             </div>
             
             <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
-                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Context</span>
-                     <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">Preview</span>
+                     <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Context</span>
+                     <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-medium">Preview</span>
                 </div>
-                <div className="text-sm text-slate-600 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 max-h-32 overflow-y-auto italic leading-relaxed">
+                <div className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50 max-h-32 overflow-y-auto italic leading-relaxed">
                     "{rewriteType === 'section' ? "Selected Section Context..." : selectionText}"
                 </div>
             </div>
 
             <form onSubmit={handleRewriteSubmit}>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Instructions</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Instructions</label>
                 <input 
                 type="text" 
                 value={rewriteInstruction}
@@ -91,11 +91,11 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                     editTab === 'diagram' ? "e.g. Create a mindmap of this topic..." :
                     "e.g. Make it more professional..."
                 }
-                className="w-full px-4 py-3.5 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-8 outline-none bg-white text-slate-900 transition-shadow shadow-sm"
+                className="w-full px-4 py-3.5 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-8 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 transition-shadow shadow-sm"
                 autoFocus
                 />
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                    <Button type="button" variant="secondary" onClick={onClose} disabled={isRewriting} className="border-slate-200 rounded-xl text-slate-600">Cancel</Button>
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <Button type="button" variant="secondary" onClick={onClose} disabled={isRewriting} className="border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300">Cancel</Button>
                     <Button 
                         type="submit" 
                         isLoading={isRewriting} 
@@ -114,7 +114,7 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                             editTab === 'continue' ? 'Generate Next' : 
                             editTab === 'next_topic' ? 'Generate Detailed Notes' :
                             editTab === 'image' ? 'Create Illustration' :
-                            editTab === 'table' ? 'Create Matrix' :
+                            editTab === 'table' ? 'Create Comparison Table' :
                             editTab === 'diagram' ? 'Create Diagram' :
                             'Apply Changes'
                         }
