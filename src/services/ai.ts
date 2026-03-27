@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 export const createAIClient = () => {
   let apiKey = "";
@@ -266,9 +266,16 @@ export const generateFormattedNotes = async (
     **Output:** Return ONLY raw HTML.
   `;
 
+  const config: any = {};
+  if (outputStyle === 'research') {
+    config.tools = [{ googleSearch: {} }];
+    config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+  }
+
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: prompt
+    contents: prompt,
+    ...(Object.keys(config).length > 0 ? { config } : {})
   });
 
   return cleanHtmlOutput(response.text || "");
@@ -347,9 +354,16 @@ export const generateFileNotes = async (
   }));
   parts.push({ text: prompt });
 
+  const config: any = {};
+  if (outputStyle === 'research') {
+    config.tools = [{ googleSearch: {} }];
+    config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+  }
+
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: { parts }
+    contents: { parts },
+    ...(Object.keys(config).length > 0 ? { config } : {})
   });
 
   return cleanHtmlOutput(response.text || "");
@@ -684,7 +698,11 @@ export const generateResearchContent = async (
 
   const response = await ai.models.generateContent({
     model: modelName, 
-    contents: prompt
+    contents: prompt,
+    config: {
+      tools: [{ googleSearch: {} }],
+      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
+    }
   });
 
   return cleanHtmlOutput(response.text || "");
