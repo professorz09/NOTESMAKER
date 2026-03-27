@@ -13,7 +13,8 @@ import {
   generateSectionImage,
   generateComplexTable,
   generateDiagram,
-  generateUPSCAnswer
+  generateUPSCAnswer,
+  generateResearchContent
 } from './services/ai';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
@@ -116,7 +117,7 @@ const App: React.FC = () => {
   
   // --- GENERATION STATE ---
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
-  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc'>('notes');
+  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research'>('notes');
   const [wordLimit, setWordLimit] = useState<number>(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi'); 
@@ -329,6 +330,8 @@ const App: React.FC = () => {
       if (mode === 'topic') {
         if (outputStyle === 'upsc') {
           result = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit);
+        } else if (outputStyle === 'research') {
+          result = await generateResearchContent(topicInput, language, aiModel);
         } else {
           result = await generateTopicContent(topicInput, language, aiModel);
         }

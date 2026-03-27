@@ -203,7 +203,7 @@ export const generateFormattedNotes = async (
   rawText: string,
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
-  outputStyle: 'notes' | 'upsc' = 'notes',
+  outputStyle: 'notes' | 'upsc' | 'research' = 'notes',
   wordLimit: number = 250
 ): Promise<string> => {
   const ai = createAIClient();
@@ -230,6 +230,24 @@ export const generateFormattedNotes = async (
 
     **WORD COUNT CONSTRAINT:**
     The total answer length MUST be strictly around ${wordLimit} words. Adjust the depth of each section to meet this limit while maintaining high quality.
+
+    **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
+  ` : outputStyle === 'research' ? `
+    Role: Expert Investigative Journalist & YouTube Research Scriptwriter.
+    Task: Format the provided notes into a highly detailed, deeply researched, and visually structured analysis for a Research Video.
+    
+    Input Text: ${rawText}
+    Language: ${language}
+
+    **STRICT STRUCTURE & FORMATTING RULES:**
+    1. **Hook & Introduction:** Start with a compelling hook, context, and the core issue.
+    2. **Deep Dive (Body):**
+       - Break down into logical sections.
+       - Use extensive bullet points for readability.
+       - Highlight key terms using <strong>.
+    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data or comparisons from the text.
+    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process or relationship from the text.
+    5. **Conclusion:** Summarize the impact or final verdict.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
@@ -261,7 +279,7 @@ export const generateFileNotes = async (
   files: { data: string; mimeType: string }[],
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
-  outputStyle: 'notes' | 'upsc' = 'notes',
+  outputStyle: 'notes' | 'upsc' | 'research' = 'notes',
   wordLimit: number = 250
 ): Promise<string> => {
   const ai = createAIClient();
@@ -287,6 +305,23 @@ export const generateFileNotes = async (
 
     **WORD COUNT CONSTRAINT:**
     The total answer length MUST be strictly around ${wordLimit} words. Adjust the depth of each section to meet this limit while maintaining high quality.
+
+    **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
+  ` : outputStyle === 'research' ? `
+    Role: Expert Investigative Journalist & YouTube Research Scriptwriter.
+    Task: Analyze the provided files and generate a highly detailed, deeply researched, and visually structured analysis for a Research Video.
+    
+    Language: ${language}
+
+    **STRICT STRUCTURE & FORMATTING RULES:**
+    1. **Hook & Introduction:** Start with a compelling hook, context, and the core issue based on the files.
+    2. **Deep Dive (Body):**
+       - Break down into logical sections.
+       - Use extensive bullet points for readability.
+       - Highlight key terms using <strong>.
+    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data or comparisons from the files.
+    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process or relationship from the files.
+    5. **Conclusion:** Summarize the impact or final verdict.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
@@ -617,4 +652,40 @@ export const generateSectionImage = async (
         <figcaption>Figure: AI Generated Illustration</figcaption>
     </figure>
   `;
+};
+
+// Generate Research Video Script/Detailed Analysis
+export const generateResearchContent = async (
+  topic: string,
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Expert Investigative Journalist & YouTube Research Scriptwriter.
+    Task: Create a highly detailed, deeply researched, and visually structured analysis for a Research Video.
+    
+    Topic/News: "${topic}"
+    Language: ${language}
+
+    **STRICT STRUCTURE & FORMATTING RULES:**
+    1. **Hook & Introduction:** Start with a compelling hook, context, and the core issue/news.
+    2. **Deep Dive (Body):**
+       - Break down the topic into logical, chronological, or thematic sections.
+       - Use extensive bullet points for readability and pacing.
+       - Highlight key terms, dates, and names using <strong>.
+    3. **Data & Evidence (Tables):** MUST include at least one detailed HTML <table> presenting relevant data, timelines, pros/cons, or comparisons.
+    4. **Visual Explanation (Diagram):** MUST include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or timeline related to the topic. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    5. **Key Takeaways/Conclusion:** Summarize the impact, future outlook, or final verdict.
+
+    **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks. Use standard HTML tags (<h1>, <h2>, <h3>, <ul>, <li>, <table>, <svg>, etc.).
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName, 
+    contents: prompt
+  });
+
+  return cleanHtmlOutput(response.text || "");
 };

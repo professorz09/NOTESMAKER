@@ -25,8 +25,8 @@ interface SidebarProps {
   setSidebarOpen: (open: boolean) => void;
   mode: 'topic' | 'text' | 'file';
   setMode: (mode: 'topic' | 'text' | 'file') => void;
-  outputStyle: 'notes' | 'upsc';
-  setOutputStyle: (style: 'notes' | 'upsc') => void;
+  outputStyle: 'notes' | 'upsc' | 'research';
+  setOutputStyle: (style: 'notes' | 'upsc' | 'research') => void;
   wordLimit: number;
   setWordLimit: (limit: number) => void;
   topicInput: string;
@@ -221,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <label className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                                 <LayoutTemplate className="w-3.5 h-3.5" /> Output Style
                             </label>
-                            <div className="flex bg-slate-950/50 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
+                            <div className="flex flex-col bg-slate-950/50 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
                                 <button 
                                     type="button"
                                     onClick={() => setOutputStyle('notes')}
@@ -235,6 +235,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${outputStyle === 'upsc' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
                                 >
                                     UPSC Mains
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setOutputStyle('research')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${outputStyle === 'research' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                >
+                                    Research Video
                                 </button>
                             </div>
                         </div>
@@ -316,7 +323,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             ) : (
                                 <>
                                   <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
-                                  {outputStyle === 'upsc' ? 'Generate UPSC Answer' : mode === 'topic' ? 'Generate Detailed Notes' : mode === 'text' ? 'Format Notes Perfectly' : 'Generate from Files'}
+                                  {outputStyle === 'upsc' ? 'Generate UPSC Answer' : outputStyle === 'research' ? 'Generate Research Video' : mode === 'topic' ? 'Generate Detailed Notes' : mode === 'text' ? 'Format Notes Perfectly' : 'Generate from Files'}
                                 </>
                             )}
                         </Button>
