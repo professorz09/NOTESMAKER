@@ -10,7 +10,12 @@ import {
   Eraser,
   Undo,
   GraduationCap,
-  X
+  X,
+  Settings2,
+  Globe,
+  Cpu,
+  LayoutTemplate,
+  Type
 } from 'lucide-react';
 import { Button } from './Button';
 import { GenerationStatus } from '../types';
@@ -125,156 +130,182 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 <form onSubmit={handleGenerate} className="space-y-6">
-                    {mode === 'topic' ? (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                            {outputStyle === 'upsc' ? 'UPSC Mains Question' : 'Book Topic'}
-                        </label>
-                        {outputStyle === 'upsc' ? (
-                            <textarea 
-                                value={topicInput}
-                                onChange={(e) => setTopicInput(e.target.value)}
-                                placeholder="e.g. Discuss the impact of climate change on Indian agriculture..."
-                                className="w-full h-32 bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all resize-none shadow-inner leading-relaxed"
-                            />
+                    {/* INPUT SECTION */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1">
+                            <div className="p-1.5 bg-blue-500/10 rounded-md">
+                                {mode === 'topic' ? <Sparkles className="w-4 h-4 text-blue-400" /> : mode === 'text' ? <FileText className="w-4 h-4 text-blue-400" /> : <Upload className="w-4 h-4 text-blue-400" />}
+                            </div>
+                            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest">
+                                {mode === 'topic' ? 'Input Topic' : mode === 'text' ? 'Raw Content' : 'Upload Files'}
+                            </h3>
+                        </div>
+                        
+                        {mode === 'topic' ? (
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                {outputStyle === 'upsc' ? (
+                                    <textarea 
+                                        value={topicInput}
+                                        onChange={(e) => setTopicInput(e.target.value)}
+                                        placeholder="e.g. Discuss the impact of climate change on Indian agriculture..."
+                                        className="w-full h-32 bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all resize-none shadow-inner leading-relaxed"
+                                    />
+                                ) : (
+                                    <input 
+                                        type="text"
+                                        value={topicInput}
+                                        onChange={(e) => setTopicInput(e.target.value)}
+                                        placeholder="e.g. History of India..."
+                                        className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner"
+                                    />
+                                )}
+                            </div>
+                        ) : mode === 'text' ? (
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <textarea 
+                                    value={textInput}
+                                    onChange={(e) => setTextInput(e.target.value)}
+                                    placeholder="Paste your notes here..."
+                                    className="w-full h-48 bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all resize-none shadow-inner leading-relaxed"
+                                />
+                            </div>
                         ) : (
-                            <input 
-                                type="text"
-                                value={topicInput}
-                                onChange={(e) => setTopicInput(e.target.value)}
-                                placeholder="e.g. History of India..."
-                                className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner"
-                            />
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="w-full bg-slate-900/30 border-2 border-dashed border-slate-700/50 rounded-xl p-6 text-center hover:border-blue-500/50 hover:bg-slate-900/50 transition-all cursor-pointer relative group">
+                                    <input 
+                                        type="file" 
+                                        multiple 
+                                        accept=".pdf,.txt,image/*"
+                                        onChange={handleFileUpload}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    />
+                                    <div className="p-3 bg-slate-800/50 rounded-full w-fit mx-auto mb-3 group-hover:scale-110 transition-transform">
+                                        <Upload className="w-6 h-6 text-blue-400" />
+                                    </div>
+                                    <p className="text-sm text-slate-300 font-medium">Click or drag files to upload</p>
+                                    <p className="text-xs text-slate-500 mt-1">PDF, TXT, Images supported</p>
+                                </div>
+                                {files.length > 0 && (
+                                    <div className="mt-4 space-y-2">
+                                        {files.map((file, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-slate-900/80 p-3 rounded-xl border border-slate-800/80 shadow-sm">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                                    <span className="text-sm text-slate-300 truncate">{file.name}</span>
+                                                </div>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => removeFile(index)}
+                                                    className="text-slate-500 hover:text-red-400 p-1.5 hover:bg-red-400/10 rounded-lg transition-colors flex-shrink-0"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
-                    ) : mode === 'text' ? (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Raw Content</label>
-                        <textarea 
-                            value={textInput}
-                            onChange={(e) => setTextInput(e.target.value)}
-                            placeholder="Paste your notes here..."
-                            className="w-full h-48 bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all resize-none shadow-inner leading-relaxed"
-                        />
-                    </div>
-                    ) : (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Upload Files</label>
-                        <div className="w-full bg-slate-900/30 border-2 border-dashed border-slate-700/50 rounded-xl p-6 text-center hover:border-blue-500/50 hover:bg-slate-900/50 transition-all cursor-pointer relative group">
-                            <input 
-                                type="file" 
-                                multiple 
-                                accept=".pdf,.txt,image/*"
-                                onChange={handleFileUpload}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            />
-                            <div className="p-3 bg-slate-800/50 rounded-full w-fit mx-auto mb-3 group-hover:scale-110 transition-transform">
-                                <Upload className="w-6 h-6 text-blue-400" />
+
+                    {/* SETTINGS SECTION */}
+                    <div className="space-y-5 bg-slate-900/40 p-5 rounded-2xl border border-slate-800/60 shadow-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1.5 bg-indigo-500/10 rounded-md">
+                                <Settings2 className="w-4 h-4 text-indigo-400" />
                             </div>
-                            <p className="text-sm text-slate-300 font-medium">Click or drag files to upload</p>
-                            <p className="text-xs text-slate-500 mt-1">PDF, TXT, Images supported</p>
+                            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest">Generation Settings</h3>
                         </div>
-                        {files.length > 0 && (
-                            <div className="mt-4 space-y-2">
-                                {files.map((file, index) => (
-                                    <div key={index} className="flex items-center justify-between bg-slate-900/80 p-3 rounded-xl border border-slate-800/80 shadow-sm">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                                            <span className="text-sm text-slate-300 truncate">{file.name}</span>
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => removeFile(index)}
-                                            className="text-slate-500 hover:text-red-400 p-1.5 hover:bg-red-400/10 rounded-lg transition-colors flex-shrink-0"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
+
+                        <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-2">
+                            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                <LayoutTemplate className="w-3.5 h-3.5" /> Output Style
+                            </label>
+                            <div className="flex bg-slate-950/50 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
+                                <button 
+                                    type="button"
+                                    onClick={() => setOutputStyle('notes')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${outputStyle === 'notes' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                >
+                                    Detailed Notes
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setOutputStyle('upsc')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${outputStyle === 'upsc' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                >
+                                    UPSC Mains
+                                </button>
+                            </div>
+                        </div>
+
+                        {outputStyle === 'upsc' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-2">
+                            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                <Type className="w-3.5 h-3.5" /> Word Limit
+                            </label>
+                            <div className="grid grid-cols-4 bg-slate-950/50 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
+                                {[150, 250, 500, 1000].map((limit) => (
+                                    <button 
+                                        key={limit}
+                                        type="button"
+                                        onClick={() => setWordLimit(limit)}
+                                        className={`flex items-center justify-center py-2 rounded-lg text-xs font-medium transition-all duration-200 ${wordLimit === limit ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                    >
+                                        {limit}
+                                    </button>
                                 ))}
                             </div>
+                        </div>
                         )}
-                    </div>
-                    )}
 
-                    <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Output Style</label>
-                        <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
-                            <button 
-                                type="button"
-                                onClick={() => setOutputStyle('notes')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${outputStyle === 'notes' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-                            >
-                                Detailed Notes
-                            </button>
-                            <button 
-                                type="button"
-                                onClick={() => setOutputStyle('upsc')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${outputStyle === 'upsc' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-                            >
-                                UPSC Mains
-                            </button>
-                        </div>
-                    </div>
-
-                    {outputStyle === 'upsc' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Word Limit</label>
-                        <div className="grid grid-cols-4 bg-slate-900/80 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
-                            {[150, 250, 500, 1000].map((limit) => (
+                        <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-2">
+                            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                <Globe className="w-3.5 h-3.5" /> Language
+                            </label>
+                            <div className="flex bg-slate-950/50 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
                                 <button 
-                                    key={limit}
                                     type="button"
-                                    onClick={() => setWordLimit(limit)}
-                                    className={`flex items-center justify-center py-2 rounded-lg text-xs font-medium transition-all duration-200 ${wordLimit === limit ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                    onClick={() => setLanguage('English')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${language === 'English' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
                                 >
-                                    {limit}
+                                    English
                                 </button>
-                            ))}
+                                <button 
+                                    type="button"
+                                    onClick={() => setLanguage('Hindi')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${language === 'Hindi' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                >
+                                    Hindi
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    )}
 
-                    <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Language</label>
-                        <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
-                            <button 
-                                type="button"
-                                onClick={() => setLanguage('English')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${language === 'English' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-                            >
-                                English
-                            </button>
-                            <button 
-                                type="button"
-                                onClick={() => setLanguage('Hindi')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${language === 'Hindi' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-                            >
-                                Hindi
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">AI Model</label>
-                        <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
-                            <button 
-                                type="button"
-                                onClick={() => setAiModel('gemini-3.1-pro-preview')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${aiModel === 'gemini-3.1-pro-preview' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-                            >
-                                Pro
-                            </button>
-                            <button 
-                                type="button"
-                                onClick={() => setAiModel('gemini-3-flash-preview')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${aiModel === 'gemini-3-flash-preview' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-                            >
-                                Flash
-                            </button>
+                        <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150 space-y-2">
+                            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                <Cpu className="w-3.5 h-3.5" /> AI Model
+                            </label>
+                            <div className="flex bg-slate-950/50 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
+                                <button 
+                                    type="button"
+                                    onClick={() => setAiModel('gemini-3.1-pro-preview')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${aiModel === 'gemini-3.1-pro-preview' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                >
+                                    Pro
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setAiModel('gemini-3-flash-preview')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${aiModel === 'gemini-3-flash-preview' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                >
+                                    Flash
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-3 mt-6">
+                    {/* ACTIONS SECTION */}
+                    <div className="flex flex-col gap-3 pt-2">
                         <Button 
                         type="submit" 
                         className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/20 transform transition-all active:scale-[0.98] flex items-center justify-center gap-2 group border border-white/10"
@@ -291,20 +322,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </Button>
                         
                         {mode === 'topic' && outputStyle === 'notes' && (
-                            <div className="flex flex-col gap-3">
+                            <div className="grid grid-cols-2 gap-3">
                                 <Button 
                                 type="button"
                                 onClick={handleGenerateTable}
                                 variant="secondary"
-                                className="w-full py-3.5 bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 text-slate-300 hover:text-blue-400 font-bold rounded-xl shadow-inner transition-all flex items-center justify-center gap-2"
+                                className="w-full py-3 bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 text-slate-300 hover:text-blue-400 font-bold rounded-xl shadow-inner transition-all flex items-center justify-center gap-2 text-xs"
                                 isLoading={status === GenerationStatus.GENERATING_TABLE}
                                 >
                                     {status === GenerationStatus.GENERATING_TABLE ? (
-                                        'Generating Table...'
+                                        'Generating...'
                                     ) : (
                                         <>
-                                            <TableIcon className="w-5 h-5" />
-                                            Generate Compare Table
+                                            <TableIcon className="w-4 h-4" />
+                                            Compare Table
                                         </>
                                     )}
                                 </Button>
@@ -313,15 +344,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 type="button"
                                 onClick={handleGenerateDetailedTable}
                                 variant="secondary"
-                                className="w-full py-3.5 bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 text-slate-300 hover:text-blue-400 font-bold rounded-xl shadow-inner transition-all flex items-center justify-center gap-2"
+                                className="w-full py-3 bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 text-slate-300 hover:text-blue-400 font-bold rounded-xl shadow-inner transition-all flex items-center justify-center gap-2 text-xs"
                                 isLoading={status === GenerationStatus.GENERATING_DETAILED_TABLE}
                                 >
                                     {status === GenerationStatus.GENERATING_DETAILED_TABLE ? (
-                                        'Generating Detailed Table...'
+                                        'Generating...'
                                     ) : (
                                         <>
                                             <TableIcon className="w-4 h-4" />
-                                            Generate Detailed Table
+                                            Detailed Table
                                         </>
                                     )}
                                 </Button>
@@ -330,8 +361,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 </form>
 
-                <div className="mt-8 pt-8 border-t border-slate-800/60">
-                    <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4">Quick Actions</h3>
+                <div className="mt-8 pt-6 border-t border-slate-800/60">
+                    <div className="flex items-center gap-2 mb-4 px-1">
+                        <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Quick Actions</h3>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                     <button onClick={handleClearCanvas} className="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-900/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all border border-slate-800/80 hover:border-red-500/30 text-sm font-medium group">
                         <Eraser className="w-4 h-4 group-hover:rotate-12 transition-transform" /> Clear
