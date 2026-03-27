@@ -86,7 +86,8 @@ export const generateTopicContent = async (
 export const generateUPSCAnswer = async (
   question: string,
   language: string,
-  modelName: string = "gemini-3.1-pro-preview"
+  modelName: string = "gemini-3.1-pro-preview",
+  wordLimit: number = 250
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -96,6 +97,7 @@ export const generateUPSCAnswer = async (
     
     Question: "${question}"
     Language: ${language}
+    Word Limit: Approximately ${wordLimit} words.
 
     **STRICT STRUCTURE & FORMATTING RULES (Like a Topper's Copy):**
     1. **Introduction (Bhumika):** Crisp, fact-based, or definition-based start. Connect with current affairs if relevant.
@@ -109,6 +111,9 @@ export const generateUPSCAnswer = async (
        - Include a **Table** for comparison or data presentation if it adds value.
        - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it visually represents a process, hierarchy, or relationship that is complex. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion (e.g., mentioning SDGs or constitutional ethos).
+
+    **WORD COUNT CONSTRAINT:**
+    The total answer length MUST be strictly around ${wordLimit} words. Adjust the depth of each section to meet this limit while maintaining high quality.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks. Use standard HTML tags (<h1>, <h2>, <ul>, <li>, <table>, <svg>, etc.).
   `;
@@ -198,7 +203,8 @@ export const generateFormattedNotes = async (
   rawText: string,
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
-  outputStyle: 'notes' | 'upsc' = 'notes'
+  outputStyle: 'notes' | 'upsc' = 'notes',
+  wordLimit: number = 250
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -208,6 +214,7 @@ export const generateFormattedNotes = async (
     
     Input Text: ${rawText}
     Language: ${language}
+    Word Limit: Approximately ${wordLimit} words.
 
     **STRICT STRUCTURE & FORMATTING RULES (Like a Topper's Copy):**
     1. **Introduction (Bhumika):** Crisp, fact-based, or definition-based start.
@@ -220,6 +227,9 @@ export const generateFormattedNotes = async (
        - Include a **Table** for comparison or data presentation if relevant.
        - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it helps visualize the content. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion.
+
+    **WORD COUNT CONSTRAINT:**
+    The total answer length MUST be strictly around ${wordLimit} words. Adjust the depth of each section to meet this limit while maintaining high quality.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
@@ -251,7 +261,8 @@ export const generateFileNotes = async (
   files: { data: string; mimeType: string }[],
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
-  outputStyle: 'notes' | 'upsc' = 'notes'
+  outputStyle: 'notes' | 'upsc' = 'notes',
+  wordLimit: number = 250
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -260,6 +271,7 @@ export const generateFileNotes = async (
     Task: Analyze the provided files and generate a high-scoring, perfectly structured UPSC Mains answer based on the content.
     
     Language: ${language}
+    Word Limit: Approximately ${wordLimit} words.
 
     **STRICT STRUCTURE & FORMATTING RULES (Like a Topper's Copy):**
     1. **Introduction (Bhumika):** Crisp, fact-based, or definition-based start.
@@ -272,6 +284,9 @@ export const generateFileNotes = async (
        - Include a **Table** for comparison or data presentation if it adds value.
        - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it helps explain the content. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion.
+
+    **WORD COUNT CONSTRAINT:**
+    The total answer length MUST be strictly around ${wordLimit} words. Adjust the depth of each section to meet this limit while maintaining high quality.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `

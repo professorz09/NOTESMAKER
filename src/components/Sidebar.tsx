@@ -22,6 +22,8 @@ interface SidebarProps {
   setMode: (mode: 'topic' | 'text' | 'file') => void;
   outputStyle: 'notes' | 'upsc';
   setOutputStyle: (style: 'notes' | 'upsc') => void;
+  wordLimit: number;
+  setWordLimit: (limit: number) => void;
   topicInput: string;
   setTopicInput: (input: string) => void;
   textInput: string;
@@ -49,6 +51,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setMode,
   outputStyle,
   setOutputStyle,
+  wordLimit,
+  setWordLimit,
   topicInput,
   setTopicInput,
   textInput,
@@ -211,6 +215,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </button>
                         </div>
                     </div>
+
+                    {outputStyle === 'upsc' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Word Limit</label>
+                        <div className="grid grid-cols-4 bg-slate-900/80 p-1 rounded-xl border border-slate-800/50 shadow-inner gap-1">
+                            {[150, 250, 500, 1000].map((limit) => (
+                                <button 
+                                    key={limit}
+                                    type="button"
+                                    onClick={() => setWordLimit(limit)}
+                                    className={`flex items-center justify-center py-2 rounded-lg text-xs font-medium transition-all duration-200 ${wordLimit === limit ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                                >
+                                    {limit}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    )}
 
                     <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
                         <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Language</label>

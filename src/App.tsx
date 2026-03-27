@@ -117,6 +117,7 @@ const App: React.FC = () => {
   // --- GENERATION STATE ---
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
   const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc'>('notes');
+  const [wordLimit, setWordLimit] = useState<number>(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi'); 
   const [aiModel, setAiModel] = useState('gemini-3.1-pro-preview');
@@ -327,14 +328,14 @@ const App: React.FC = () => {
       let result = "";
       if (mode === 'topic') {
         if (outputStyle === 'upsc') {
-          result = await generateUPSCAnswer(topicInput, language, aiModel);
+          result = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit);
         } else {
           result = await generateTopicContent(topicInput, language, aiModel);
         }
       } else if (mode === 'text') {
-        result = await generateFormattedNotes(textInput, language, aiModel, outputStyle);
+        result = await generateFormattedNotes(textInput, language, aiModel, outputStyle, wordLimit);
       } else if (mode === 'file') {
-        result = await generateFileNotes(files, language, aiModel, outputStyle);
+        result = await generateFileNotes(files, language, aiModel, outputStyle, wordLimit);
       }
 
       if (isResettingRef.current) return;
@@ -940,6 +941,8 @@ const App: React.FC = () => {
         setMode={setMode}
         outputStyle={outputStyle}
         setOutputStyle={setOutputStyle}
+        wordLimit={wordLimit}
+        setWordLimit={setWordLimit}
         topicInput={topicInput}
         setTopicInput={setTopicInput}
         textInput={textInput}
