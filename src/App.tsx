@@ -14,7 +14,7 @@ import {
   generateComplexTable,
   generateDiagram,
   generateUPSCAnswer,
-  generateResearchContent
+  generateResearchPaper
 } from './services/ai';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
@@ -331,7 +331,7 @@ const App: React.FC = () => {
         if (outputStyle === 'upsc') {
           result = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit);
         } else if (outputStyle === 'research') {
-          result = await generateResearchContent(topicInput, language, aiModel);
+          result = await generateResearchPaper(topicInput, language, aiModel);
         } else {
           result = await generateTopicContent(topicInput, language, aiModel);
         }

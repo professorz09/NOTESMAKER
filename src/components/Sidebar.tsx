@@ -241,7 +241,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     onClick={() => setOutputStyle('research')}
                                     className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${outputStyle === 'research' ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
                                 >
-                                    Research Video
+                                    Research Paper
                                 </button>
                             </div>
                         </div>
@@ -323,7 +323,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             ) : (
                                 <>
                                   <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
-                                  {outputStyle === 'upsc' ? 'Generate UPSC Answer' : outputStyle === 'research' ? 'Generate Research Video' : mode === 'topic' ? 'Generate Detailed Notes' : mode === 'text' ? 'Format Notes Perfectly' : 'Generate from Files'}
+                                  {outputStyle === 'upsc' ? 'Generate UPSC Answer' : outputStyle === 'research' ? 'Generate Research Paper' : mode === 'topic' ? 'Generate Detailed Notes' : mode === 'text' ? 'Format Notes Perfectly' : 'Generate from Files'}
                                 </>
                             )}
                         </Button>

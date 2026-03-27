@@ -24,9 +24,9 @@ const cleanHtmlOutput = (text: string): string => {
   if (!text) return "";
   // Remove markdown code blocks (```html ... ```)
   return text
-    .replace(/^```html\s*/i, '') // Remove start block
-    .replace(/^```\s*/i, '')     // Remove start block generic
-    .replace(/\s*```$/i, '')      // Remove end block
+    .replace(/^\s*```html\s*/i, '') // Remove start block
+    .replace(/^\s*```\s*/i, '')     // Remove start block generic
+    .replace(/\s*```\s*$/i, '')      // Remove end block
     .trim();                      // Trim whitespace
 };
 
@@ -233,21 +233,21 @@ export const generateFormattedNotes = async (
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : outputStyle === 'research' ? `
-    Role: Expert Investigative Journalist & YouTube Research Scriptwriter.
-    Task: Format the provided notes into a highly detailed, deeply researched, and visually structured analysis for a Research Video.
+    Role: Expert Academic Researcher & Author.
+    Task: Format the provided notes into a highly detailed, deeply researched, and visually structured Research Paper.
     
     Input Text: ${rawText}
     Language: ${language}
 
     **STRICT STRUCTURE & FORMATTING RULES:**
-    1. **Hook & Introduction:** Start with a compelling hook, context, and the core issue.
-    2. **Deep Dive (Body):**
-       - Break down into logical sections.
+    1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis.
+    2. **Literature Review & Methodology (Body):**
+       - Break down into logical academic sections.
        - Use extensive bullet points for readability.
-       - Highlight key terms using <strong>.
-    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data or comparisons from the text.
-    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process or relationship from the text.
-    5. **Conclusion:** Summarize the impact or final verdict.
+       - Highlight key terms, dates, and authors using <strong>.
+    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the text.
+    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the text.
+    5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
@@ -315,20 +315,20 @@ export const generateFileNotes = async (
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : outputStyle === 'research' ? `
-    Role: Expert Investigative Journalist & YouTube Research Scriptwriter.
-    Task: Analyze the provided files and generate a highly detailed, deeply researched, and visually structured analysis for a Research Video.
+    Role: Expert Academic Researcher & Author.
+    Task: Analyze the provided files and generate a highly detailed, deeply researched, and visually structured Research Paper.
     
     Language: ${language}
 
     **STRICT STRUCTURE & FORMATTING RULES:**
-    1. **Hook & Introduction:** Start with a compelling hook, context, and the core issue based on the files.
-    2. **Deep Dive (Body):**
-       - Break down into logical sections.
+    1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis based on the files.
+    2. **Literature Review & Methodology (Body):**
+       - Break down into logical academic sections.
        - Use extensive bullet points for readability.
-       - Highlight key terms using <strong>.
-    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data or comparisons from the files.
-    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process or relationship from the files.
-    5. **Conclusion:** Summarize the impact or final verdict.
+       - Highlight key terms, dates, and authors using <strong>.
+    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the files.
+    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the files.
+    5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
@@ -668,8 +668,8 @@ export const generateSectionImage = async (
   `;
 };
 
-// Generate Research Video Script/Detailed Analysis
-export const generateResearchContent = async (
+// Generate Research Paper / Detailed Analysis
+export const generateResearchPaper = async (
   topic: string,
   language: string,
   modelName: string = "gemini-3.1-pro-preview"
@@ -677,21 +677,21 @@ export const generateResearchContent = async (
   const ai = createAIClient();
 
   const prompt = `
-    Role: Expert Investigative Journalist & YouTube Research Scriptwriter.
-    Task: Create a highly detailed, deeply researched, and visually structured analysis for a Research Video.
+    Role: Expert Academic Researcher & Author.
+    Task: Create a highly detailed, deeply researched, and visually structured Research Paper.
     
-    Topic/News: "${topic}"
+    Topic: "${topic}"
     Language: ${language}
 
     **STRICT STRUCTURE & FORMATTING RULES:**
-    1. **Hook & Introduction:** Start with a compelling hook, context, and the core issue/news.
-    2. **Deep Dive (Body):**
-       - Break down the topic into logical, chronological, or thematic sections.
+    1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis.
+    2. **Literature Review & Methodology (Body):**
+       - Break down the topic into logical, chronological, or thematic academic sections.
        - Use extensive bullet points for readability and pacing.
-       - Highlight key terms, dates, and names using <strong>.
-    3. **Data & Evidence (Tables):** MUST include at least one detailed HTML <table> presenting relevant data, timelines, pros/cons, or comparisons.
-    4. **Visual Explanation (Diagram):** MUST include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or timeline related to the topic. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
-    5. **Key Takeaways/Conclusion:** Summarize the impact, future outlook, or final verdict.
+       - Highlight key terms, dates, and authors using <strong>.
+    3. **Data & Evidence (Tables):** MUST include at least one detailed HTML <table> presenting relevant data, statistics, timelines, pros/cons, or comparisons.
+    4. **Visual Explanation (Diagram):** MUST include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, framework, or timeline related to the topic. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    5. **Conclusion & Future Scope:** Summarize the findings, impact, and future outlook.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks. Use standard HTML tags (<h1>, <h2>, <h3>, <ul>, <li>, <table>, <svg>, etc.).
   `;
