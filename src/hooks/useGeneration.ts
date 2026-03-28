@@ -71,7 +71,7 @@ export function useGeneration({
     setGeneratedHtml(result);
     pushToHistory(result);
     localStorage.setItem(STORAGE_KEY, result);
-    if (window.innerWidth < 768) setSidebarOpen(false);
+    if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
   const handleGenerate = async (e: React.FormEvent) => {

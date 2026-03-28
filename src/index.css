@@ -8,3 +8,93 @@
   --color-sidebar: #0f172a;
   --color-paper: #ffffff;
 }
+
+/* ─── Safe area for iOS notch / home bar ─── */
+html, body {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ─── A4 Page — responsive ─── */
+.size-a4 {
+  width: 100%;
+  min-height: 60vh;
+  padding: 16px;
+}
+
+@media (min-width: 480px) {
+  .size-a4 {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 768px) {
+  .size-a4 {
+    width: 210mm;
+    min-height: 267mm;
+    padding: 20mm 18mm;
+    margin: 0 auto;
+  }
+}
+
+/* ─── Editor content styles ─── */
+.editor-content h1 { font-size: 1.5em; font-weight: 800; margin-bottom: 0.5em; color: #1e293b; }
+.editor-content h2 { font-size: 1.25em; font-weight: 700; margin-bottom: 0.4em; color: #1e3a5f; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3em; }
+.editor-content h3 { font-size: 1.1em; font-weight: 600; margin-bottom: 0.3em; color: #2563eb; }
+.editor-content h4 { font-size: 1em; font-weight: 600; margin-bottom: 0.25em; color: #475569; }
+.editor-content p { margin-bottom: 0.75em; line-height: 1.7; }
+.editor-content ul, .editor-content ol { padding-left: 1.5em; margin-bottom: 0.75em; }
+.editor-content li { margin-bottom: 0.3em; line-height: 1.6; }
+.editor-content strong { font-weight: 700; color: #1e293b; }
+.editor-content table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.9em; }
+.editor-content th { background: #2563eb; color: white; padding: 8px 12px; text-align: left; font-weight: 700; font-size: 0.85em; }
+.editor-content td { padding: 7px 12px; border: 1px solid #e2e8f0; vertical-align: top; line-height: 1.5; }
+.editor-content tr:nth-child(even) td { background: #f8fafc; }
+.editor-content tr:hover td { background: #eff6ff; }
+.editor-content .key-point { background: #eff6ff; border-left: 4px solid #2563eb; padding: 10px 14px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9em; }
+.editor-content .note-box { background: #fefce8; border: 1px solid #fde68a; padding: 10px 14px; margin: 12px 0; border-radius: 8px; font-size: 0.9em; }
+.editor-content .table-of-contents { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+.editor-content .table-of-contents h2 { border: none; margin-bottom: 12px; }
+.editor-content .table-of-contents nav ul { list-style: none; padding: 0; }
+.editor-content .table-of-contents nav li { padding: 4px 0; border-bottom: 1px dashed #e2e8f0; display: flex; align-items: center; }
+.editor-content .table-of-contents a { color: #2563eb; text-decoration: none; display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 0.9em; }
+.editor-content .toc-dots { flex: 1; border-bottom: 2px dotted #cbd5e1; margin: 0 8px; }
+.editor-content .toc-link-icon { color: #93c5fd; }
+.editor-content .flowchart-container svg { max-width: 100%; height: auto; }
+.editor-content .generated-image-container img { max-width: 100%; height: auto; border-radius: 12px; }
+
+/* Dark mode editor */
+.dark .editor-content h1 { color: #f1f5f9; }
+.dark .editor-content h2 { color: #93c5fd; border-bottom-color: #334155; }
+.dark .editor-content h3 { color: #60a5fa; }
+.dark .editor-content h4 { color: #94a3b8; }
+.dark .editor-content strong { color: #e2e8f0; }
+.dark .editor-content td { border-color: #334155; }
+.dark .editor-content tr:nth-child(even) td { background: #1e293b; }
+.dark .editor-content tr:hover td { background: #1e3a5f; }
+.dark .editor-content .key-point { background: #1e3a5f; border-left-color: #3b82f6; }
+.dark .editor-content .note-box { background: #292524; border-color: #78350f; }
+.dark .editor-content .table-of-contents { background: #1e293b; border-color: #334155; }
+.dark .editor-content .table-of-contents nav li { border-bottom-color: #334155; }
+.dark .editor-content .toc-dots { border-bottom-color: #475569; }
+
+/* ─── Dot pattern background ─── */
+.dot-pattern {
+  background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.dark .dot-pattern {
+  background-image: radial-gradient(circle, #1e293b 1px, transparent 1px);
+}
+
+/* ─── Scrollbar ─── */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+.dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; }
+
+/* ─── Mobile: prevent horizontal overflow ─── */
+@media (max-width: 767px) {
+  .editor-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .editor-content .flowchart-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}

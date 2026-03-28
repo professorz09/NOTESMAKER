@@ -117,21 +117,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile backdrop */}
+      {/* Mobile/tablet backdrop — hidden on lg+ where sidebar is always inline */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
-        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0'}
-          fixed md:relative z-50 h-full transition-all duration-300 ease-in-out overflow-hidden
-          w-full sm:w-[380px] flex flex-col`}
+        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-0'}
+          fixed lg:relative z-50 h-full transition-all duration-300 ease-in-out overflow-hidden
+          w-[88vw] max-w-[340px] sm:max-w-[360px] lg:w-[360px] xl:w-[380px] flex flex-col`}
         style={{ background: 'linear-gradient(180deg, #0a0f1e 0%, #0d1424 60%, #0a0f1e 100%)' }}
       >
-        <div className="w-full sm:w-[380px] flex flex-col h-full">
+        <div className="w-full flex flex-col h-full">
 
           {/* ── HEADER ── */}
           <div className="relative px-5 py-4 flex items-center justify-between border-b border-white/5 flex-shrink-0">

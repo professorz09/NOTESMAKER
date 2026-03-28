@@ -59,7 +59,9 @@ const App: React.FC = () => {
   };
 
   // --- UI STATE ---
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  );
   const [isDarkMode, setIsDarkMode] = useState(() =>
     typeof window !== 'undefined' && localStorage.getItem('ai_book_writer_dark') === 'true'
   );
@@ -373,7 +375,7 @@ const App: React.FC = () => {
           toggleDarkMode={() => setIsDarkMode(d => !d)}
         />
 
-        <div className="flex-1 overflow-auto pt-20 md:pt-32 pb-12 px-0 sm:px-4 md:px-8 relative scrollbar-thin scrollbar-track-transparent">
+        <div className="flex-1 overflow-auto pt-16 sm:pt-20 md:pt-28 pb-12 px-2 sm:px-4 md:px-8 relative scrollbar-thin scrollbar-track-transparent">
           {status !== GenerationStatus.IDLE && (
             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/60 dark:bg-slate-900/60 backdrop-blur-sm">
               <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-100 dark:border-slate-700">
