@@ -134,17 +134,30 @@ const App: React.FC = () => {
     setActiveProjectId(id);
   };
 
-  const handleCreateProject = async (name: string) => {
-    const content = isEditing && editorRef.current ? getCleanHtml() : (generatedHtml || '');
-    const proj = await createProject(name, content);
-    if (proj) setActiveProjectId(proj.id);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  const extractProjectName = (html: string): string => {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const h1 = div.querySelector('h1');
+    if (h1?.textContent?.trim()) return h1.textContent.trim().slice(0, 70);
+    const h2 = div.querySelector('h2');
+    if (h2?.textContent?.trim()) return h2.textContent.trim().slice(0, 70);
+    return `Project — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
   };
 
-  const handleSaveCurrentProject = async () => {
-    if (!activeProjectId) return;
+  const handleCreateProject = async () => {
     const content = isEditing && editorRef.current ? getCleanHtml() : (generatedHtml || '');
-    await saveProject(activeProjectId, content);
+    if (!content) return;
+    const name = extractProjectName(content);
+    const proj = await createProject(name, content);
+    if (proj) { setActiveProjectId(proj.id); setLastSavedAt(new Date()); }
   };
+
+  const saveToProject = useCallback(async (id: string, html: string) => {
+    const ok = await saveProject(id, html);
+    if (ok) setLastSavedAt(new Date());
+  }, [saveProject]);
 
   // --- UNDO / REDO ---
   const applyHistoryIndex = useCallback((newIndex: number, historySnap: string[]) => {
@@ -179,27 +192,37 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [handleUndo, handleRedo]);
 
-  // Auto-save to active project when generation finishes
+  // Auto-create new project OR auto-save existing when generation finishes
   const prevStatusRef = React.useRef(status);
   useEffect(() => {
     const wasGenerating = prevStatusRef.current !== GenerationStatus.IDLE;
     const isNowIdle = status === GenerationStatus.IDLE;
     prevStatusRef.current = status;
-    if (wasGenerating && isNowIdle && activeProjectId && generatedHtml) {
-      saveProject(activeProjectId, generatedHtml);
-    }
-  }, [status, activeProjectId, generatedHtml, saveProject]);
+    if (!wasGenerating || !isNowIdle || !generatedHtml) return;
 
-  // Debounced auto-save to project while editing
+    if (activeProjectId) {
+      // Existing project — save to it
+      saveToProject(activeProjectId, generatedHtml);
+    } else {
+      // No project yet — auto-create one with H1 name
+      const name = extractProjectName(generatedHtml);
+      createProject(name, generatedHtml).then(proj => {
+        if (proj) { setActiveProjectId(proj.id); setLastSavedAt(new Date()); }
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  // Debounced auto-save to project while editing (every 8s)
   const projectSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!activeProjectId || !generatedHtml || isResettingRef.current) return;
     if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current);
     projectSaveTimerRef.current = setTimeout(() => {
-      if (activeProjectId && generatedHtml) saveProject(activeProjectId, generatedHtml);
-    }, 10000);
+      if (activeProjectId && generatedHtml) saveToProject(activeProjectId, generatedHtml);
+    }, 8000);
     return () => { if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current); };
-  }, [generatedHtml, activeProjectId, saveProject]);
+  }, [generatedHtml, activeProjectId, saveToProject]);
 
   // --- CLEAR CANVAS ---
   const onClearCanvas = () => {
@@ -316,12 +339,12 @@ const App: React.FC = () => {
         projectsError={projectsError}
         activeProjectId={activeProjectId}
         isSupabaseConfigured={isSupabaseConfigured}
+        lastSavedAt={lastSavedAt}
         onFetchProjects={fetchProjects}
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
         onDeleteProject={deleteProject}
         onRenameProject={renameProject}
-        onSaveCurrentProject={handleSaveCurrentProject}
         hasContent={!!generatedHtml}
       />
 
