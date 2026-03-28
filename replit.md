@@ -1,12 +1,14 @@
 # AI Book Writer (Professor UPSC)
 
-A React + Vite frontend application that uses the Google Gemini API to generate structured notes, UPSC answers, research papers, and AI-enhanced book content.
+A React 19 + TypeScript + Vite 6 SPA using the Google Gemini API to generate structured notes, UPSC answers, research papers, AI-enhanced tables, and AI images (Imagen 4). Includes Supabase-backed project/history management.
 
 ## Architecture
 
 - **Frontend**: React 19 + TypeScript + Vite 6
 - **CSS**: Tailwind CSS v4 (via `@tailwindcss/postcss`) — compiled, not CDN
-- **AI**: Google Gemini API via `@google/genai`
+- **AI Text**: Google Gemini API via `@google/genai` — models: `gemini-3.1-pro-preview` (main), `gemini-3-flash-preview` (fast edits)
+- **AI Image**: Imagen 4 REST API — models: `imagen-4.0-fast-generate-001`, `imagen-4.0-generate-001`, `imagen-4.0-ultra-generate-001`
+- **Storage**: Supabase (projects table) with localStorage fallback
 - **UI Icons**: lucide-react
 - **Port**: 5000 (dev server)
 
@@ -14,16 +16,17 @@ A React + Vite frontend application that uses the Google Gemini API to generate 
 
 ```
 src/
-  App.tsx                   - Thin orchestrator (~220 lines); glues hooks + JSX only
+  App.tsx                   - Thin orchestrator; glues hooks + JSX only
   index.tsx                 - Entry point (imports index.css)
   index.css                 - Tailwind v4 CSS entry
-  types.ts                  - TypeScript types (GenerationStatus enum)
+  types.ts                  - TypeScript types (GenerationStatus, ImageStyle, ImageAspectRatio, ImageModelId)
 
   hooks/
     useHistory.ts           - History state (entries + index as one object), pushToHistory, resetHistory
     useEditorContent.ts     - Editor state, DOM sync, autosave, font size, keyboard shortcuts
-    useGeneration.ts        - AI generation inputs + handleGenerate/Table/DetailedTable/ClearCanvas
+    useGeneration.ts        - AI generation inputs + handleGenerate/Table/Image/ClearCanvas; image state
     useAIEdit.ts            - AI edit trigger buttons, section/selection rewrite modal, handleRewriteSubmit
+    useProjects.ts          - Supabase + localStorage project CRUD; auto-save with debounce
 
   utils/
     editorUtils.ts          - STORAGE_KEY const, getSectionNodes(), buildPrintHtml()
@@ -31,11 +34,13 @@ src/
   components/
     Button.tsx              - Reusable button component
     RewriteModal.tsx        - Modal for AI rewrites
-    Sidebar.tsx             - Sidebar with generation controls
+    Sidebar.tsx             - Sidebar: output style selector (notes/upsc/research/table/image),
+                              image config UI (style/aspect ratio/model), generation controls
     Toolbar.tsx             - Toolbar (undo/redo, edit, export)
+    ProjectsPanel.tsx       - Claude-style history sidebar (Today/Yesterday/This Week/Earlier)
 
   services/
-    ai.ts                   - All Gemini API functions
+    ai.ts                   - All Gemini + Imagen API functions (generateContent, generateImage, etc.)
 
 index.html                  - HTML entry point (styles, fonts, favicon)
 vite.config.ts              - Vite configuration (port 5000, allowedHosts: true)

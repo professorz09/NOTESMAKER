@@ -804,3 +804,60 @@ export const generateResearchPaper = async (
 
   return cleanHtmlOutput(response.text || "");
 };
+// ─── IMAGE GENERATION (Imagen 4) ────────────────────────────────────────────
+
+type ImageStyle = 'diagram' | 'handwritten' | 'mindmap' | 'flowchart';
+
+const IMAGE_STYLE_PROMPTS: Record<ImageStyle, string> = {
+  diagram: 'Create a clean educational diagram on a pure white background. Use labeled boxes, arrows, and clearly organized sections. Academic textbook illustration style, minimal and professional. Black text, thin colored lines, clear labels on every element. No photographic elements. Vector/illustration style only.',
+  handwritten: "Educational notes handwritten on white paper, like a student's school copy or notebook. Black ballpoint pen or blue ink. Slightly casual but neat handwriting. Headings underlined, key words circled or boxed, arrows connecting concepts. Small hand-drawn diagrams, stars or bullets for important points. White paper background with faint ruled lines.",
+  mindmap: 'A colorful mind map diagram on a white background. Central concept in a circle, branches radiating outward with subtopics. Each branch has a different color. Labels are clear and concise. Educational style, clean fonts, no clutter. Arrows show relationships.',
+  flowchart: 'A clean educational flowchart on a white background. Rectangular process boxes, diamond decision shapes, oval start/end. Black borders, light color fills, clear arrow directions and labels. Step-by-step logical flow. Professional textbook quality.',
+};
+
+function getImageApiKey(): string {
+  let apiKey = '';
+  if (typeof window !== 'undefined' && (window as any).process?.env) {
+    apiKey = (window as any).process.env.API_KEY || (window as any).process.env.GEMINI_API_KEY || '';
+  }
+  if (!apiKey) apiKey = process.env.GEMINI_API_KEY || '';
+  if (!apiKey) throw new Error('API Key not found');
+  return apiKey;
+}
+
+export const generateImage = async (
+  topic: string,
+  style: ImageStyle,
+  aspectRatio: string,
+  imageModel: string,
+): Promise<string> => {
+  const apiKey = getImageApiKey();
+  const styleGuide = IMAGE_STYLE_PROMPTS[style];
+  const fullPrompt = `Topic: ${topic}. ${styleGuide}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:predict?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        instances: [{ prompt: fullPrompt }],
+        parameters: { sampleCount: 1, aspectRatio },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as any)?.error?.message || `Image generation failed (${response.status})`);
+  }
+
+  const data = await response.json();
+  const prediction = data?.predictions?.[0];
+  if (!prediction?.bytesBase64Encoded) {
+    throw new Error('No image data in response. Try a different model or topic.');
+  }
+
+  const mimeType = prediction.mimeType || 'image/png';
+  return `data:${mimeType};base64,${prediction.bytesBase64Encoded}`;
+};

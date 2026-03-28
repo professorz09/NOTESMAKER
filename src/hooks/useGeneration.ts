@@ -6,8 +6,10 @@ import {
   generateFileNotes,
   generateUPSCAnswer,
   generateResearchPaper,
+  generateImage,
 } from '../services/ai';
 import { GenerationStatus } from '../types';
+import type { ImageStyle, ImageAspectRatio, ImageModelId } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
 
 interface UseGenerationProps {
@@ -28,7 +30,7 @@ export function useGeneration({
   setSidebarOpen,
 }: UseGenerationProps) {
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
-  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
+  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table' | 'image'>('notes');
   const [tableInstruction, setTableInstruction] = useState('');
   const [wordLimit, setWordLimit] = useState(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
@@ -37,6 +39,11 @@ export function useGeneration({
   const [topicInput, setTopicInput] = useState('');
   const [textInput, setTextInput] = useState('');
   const [files, setFiles] = useState<{ name: string; mimeType: string; data: string }[]>([]);
+
+  // Image generation state
+  const [imageStyle, setImageStyle] = useState<ImageStyle>('diagram');
+  const [imageAspectRatio, setImageAspectRatio] = useState<ImageAspectRatio>('4:3');
+  const [imageModel, setImageModel] = useState<ImageModelId>('imagen-4.0-generate-001');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -110,6 +117,30 @@ export function useGeneration({
     }
   };
 
+  const handleGenerateImage = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const topic = topicInput.trim() || textInput.trim();
+    if (!topic) { alert('Please enter a topic for image generation.'); return; }
+    setStatus(GenerationStatus.GENERATING_IMAGE);
+    try {
+      const dataUrl = await generateImage(topic, imageStyle, imageAspectRatio, imageModel);
+      const styleLabel = imageStyle.charAt(0).toUpperCase() + imageStyle.slice(1);
+      const result = `<div class="generated-image-container" style="text-align:center;padding:16px 0;">
+  <h2>${topic}</h2>
+  <p style="font-size:0.8em;color:#888;margin-bottom:12px;">${styleLabel} — ${imageAspectRatio}</p>
+  <img src="${dataUrl}" alt="${topic}" style="max-width:100%;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.18);" />
+</div>`;
+      finishGeneration(result);
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        alert(`Image generation error: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+    }
+  };
+
   const handleClearCanvas = (
     activeEditIdRef: MutableRefObject<string | null>,
     selectionRangeRef: MutableRefObject<Range | null>,
@@ -140,6 +171,10 @@ export function useGeneration({
     removeFile,
     handleGenerate,
     handleGenerateTable,
+    handleGenerateImage,
+    imageStyle, setImageStyle,
+    imageAspectRatio, setImageAspectRatio,
+    imageModel, setImageModel,
     handleClearCanvas,
   };
 }
