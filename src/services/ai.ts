@@ -588,7 +588,7 @@ export const extendTableRows = async (
     LAST 2 ROWS OF EXISTING DATA (for continuity context):
     ${lastRowsHtml}
     
-    TASK: Generate exactly 5 to 8 NEW <tr> data rows that logically continue this table.
+    TASK: Generate as many NEW <tr> data rows as naturally fit the topic — no fixed limit. Generate all the rows needed to comprehensively continue the table content.
     
     STRICT RULES:
     1. Match the EXACT same number of <td> cells as the existing rows.
@@ -597,6 +597,7 @@ export const extendTableRows = async (
     4. For multi-point cells, use <ul><li>...</li></ul>.
     5. Do NOT output <table>, <thead>, <tbody>, or any wrapper — ONLY the raw <tr>...</tr> rows.
     6. Rows must be factually accurate and academically appropriate.
+    7. Generate enough rows to be genuinely useful — aim for thorough coverage of the next logical batch of entries.
     
     USER INSTRUCTION (optional, may be empty): "${instruction || 'Continue naturally'}"
     
