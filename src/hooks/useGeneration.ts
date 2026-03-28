@@ -29,7 +29,7 @@ export function useGeneration({
   setSidebarOpen,
 }: UseGenerationProps) {
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
-  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research'>('notes');
+  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'compare_table' | 'detailed_table'>('notes');
   const [wordLimit, setWordLimit] = useState(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi');
