@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { isSupabaseConfigured, getSupabaseClient, Project, ProjectWithContent } from '../services/supabase';
+import { useState, useCallback, useRef } from 'react';
+import { isSupabaseConfigured, getSupabaseClient } from '../services/supabase';
 
 const LOCAL_PROJECTS_KEY = 'ai_book_writer_projects';
 
@@ -25,35 +25,72 @@ function saveLocalProjects(projects: LocalProject[]) {
 
 export type ProjectMeta = { id: string; name: string; created_at: string; updated_at: string };
 
+function localToMeta(p: LocalProject): ProjectMeta {
+  return { id: p.id, name: p.name, created_at: p.created_at, updated_at: p.updated_at };
+}
+
+// Pre-load local projects synchronously so the panel is instant
+function loadInitialProjects(): ProjectMeta[] {
+  if (isSupabaseConfigured) return [];
+  return getLocalProjects()
+    .map(localToMeta)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+}
+
 export function useProjects() {
-  const [projects, setProjects] = useState<ProjectMeta[]>([]);
+  const [projects, setProjects] = useState<ProjectMeta[]>(loadInitialProjects);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
-  const fetchProjects = useCallback(async () => {
+  // Guard: prevent concurrent fetches
+  const fetchingRef = useRef(false);
+  // Track if we've ever fetched from Supabase
+  const hasFetchedRef = useRef(!isSupabaseConfigured);
+
+  const fetchProjects = useCallback(async (force = false) => {
+    // For local storage — always instant, no loading needed
+    if (!isSupabaseConfigured) {
+      const local = getLocalProjects()
+        .map(localToMeta)
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      setProjects(local);
+      return;
+    }
+
+    // For Supabase — skip if already loading or already fetched (unless forced)
+    if (fetchingRef.current) return;
+    if (hasFetchedRef.current && !force) return;
+
+    fetchingRef.current = true;
     setLoading(true);
     setError(null);
     try {
-      if (isSupabaseConfigured) {
-        const sb = getSupabaseClient();
-        const { data, error: sbErr } = await sb
-          .from('projects')
-          .select('id, name, created_at, updated_at')
-          .order('updated_at', { ascending: false });
-        if (sbErr) throw sbErr;
-        setProjects((data as ProjectMeta[]) || []);
-      } else {
-        const local = getLocalProjects().map(({ id, name, created_at, updated_at }) => ({ id, name, created_at, updated_at }));
-        local.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-        setProjects(local);
-      }
+      const sb = getSupabaseClient();
+      const { data, error: sbErr } = await sb
+        .from('projects')
+        .select('id, name, created_at, updated_at')
+        .order('updated_at', { ascending: false });
+      if (sbErr) throw sbErr;
+      setProjects((data as ProjectMeta[]) || []);
+      hasFetchedRef.current = true;
     } catch (e: any) {
       setError(e?.message || 'Failed to load projects');
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, []);
+
+  // Called on first panel open — only fetches once unless forced
+  const onPanelOpen = useCallback(() => {
+    fetchProjects(false);
+  }, [fetchProjects]);
+
+  // Called on manual sync button — always re-fetches
+  const syncProjects = useCallback(() => {
+    fetchProjects(true);
+  }, [fetchProjects]);
 
   const loadProjectContent = useCallback(async (id: string): Promise<string | null> => {
     try {
@@ -101,7 +138,7 @@ export function useProjects() {
         const local = getLocalProjects();
         local.unshift(newProject);
         saveLocalProjects(local);
-        const meta: ProjectMeta = { id: newProject.id, name: newProject.name, created_at: newProject.created_at, updated_at: newProject.updated_at };
+        const meta = localToMeta(newProject);
         setProjects(prev => [meta, ...prev]);
         return meta;
       }
@@ -130,9 +167,10 @@ export function useProjects() {
           saveLocalProjects(local);
         }
       }
+      // Optimistic update — no refetch needed
       setProjects(prev =>
-        prev.map(p => p.id === id ? { ...p, updated_at: now } : p)
-            .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        [...prev.map(p => p.id === id ? { ...p, updated_at: now } : p)]
+          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
       );
       return true;
     } catch (e: any) {
@@ -156,6 +194,7 @@ export function useProjects() {
         const idx = local.findIndex(p => p.id === id);
         if (idx !== -1) { local[idx].name = name; local[idx].updated_at = now; saveLocalProjects(local); }
       }
+      // Optimistic update
       setProjects(prev => prev.map(p => p.id === id ? { ...p, name, updated_at: now } : p));
       return true;
     } catch {
@@ -173,13 +212,14 @@ export function useProjects() {
         const local = getLocalProjects().filter(p => p.id !== id);
         saveLocalProjects(local);
       }
+      // Optimistic update
       setProjects(prev => prev.filter(p => p.id !== id));
-      if (activeProjectId === id) setActiveProjectId(null);
+      setActiveProjectId(prev => (prev === id ? null : prev));
       return true;
     } catch {
       return false;
     }
-  }, [activeProjectId]);
+  }, []);
 
   return {
     projects,
@@ -187,7 +227,8 @@ export function useProjects() {
     error,
     activeProjectId,
     setActiveProjectId,
-    fetchProjects,
+    fetchProjects: onPanelOpen,
+    syncProjects,
     loadProjectContent,
     createProject,
     saveProject,

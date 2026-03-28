@@ -126,6 +126,7 @@ const App: React.FC = () => {
     activeProjectId,
     setActiveProjectId,
     fetchProjects,
+    syncProjects,
     loadProjectContent,
     createProject,
     saveProject,
@@ -351,6 +352,7 @@ const App: React.FC = () => {
         isSupabaseConfigured={isSupabaseConfigured}
         lastSavedAt={lastSavedAt}
         onFetchProjects={fetchProjects}
+        onSync={syncProjects}
         onSaveNow={handleSaveNow}
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}

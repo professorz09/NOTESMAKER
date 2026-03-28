@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Trash2, Pencil, Check, X, Cloud, HardDrive,
   Loader2, RefreshCw, Search, Plus, CheckCircle2,
@@ -13,8 +13,8 @@ interface ProjectsPanelProps {
   activeProjectId: string | null;
   isSupabaseConfigured: boolean;
   lastSavedAt: Date | null;
-  onOpen: () => void;
-  onSync: () => void;
+  onOpen: () => void;        // first-open fetch (cached, no refetch)
+  onSync: () => void;        // manual force-refetch
   onSaveNow: () => void;
   onSelectProject: (id: string) => void;
   onCreateProject: () => void;
@@ -23,7 +23,9 @@ interface ProjectsPanelProps {
   hasContent: boolean;
 }
 
-function timeAgo(date: Date): string {
+// ── Lightweight relative-time formatter ──
+function timeAgo(dateStr: string | Date): string {
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
   const secs = Math.floor((Date.now() - date.getTime()) / 1000);
   if (secs < 10) return 'just now';
   if (secs < 60) return `${secs}s ago`;
@@ -33,9 +35,7 @@ function timeAgo(date: Date): string {
 }
 
 function getGroup(updatedAt: string): string {
-  const date = new Date(updatedAt);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
+  const diffDays = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86400000);
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return 'This Week';
@@ -44,6 +44,7 @@ function getGroup(updatedAt: string): string {
 }
 
 const GROUP_ORDER = ['Today', 'Yesterday', 'This Week', 'Earlier', 'Older'];
+const SYNC_COOLDOWN_MS = 3000;
 
 export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
   projects, loading, error, activeProjectId, isSupabaseConfigured,
@@ -56,52 +57,72 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
   const [renameValue, setRenameValue] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const renameInputRef = useRef<HTMLInputElement>(null);
+  const [now, setNow] = useState(() => Date.now());
 
-  const [, setTick] = useState(0);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const syncCooldownRef = useRef(0);
+
+  // Tick every 30s to refresh relative timestamps — only updates `now`, not the whole tree
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30000);
+    const id = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(id);
   }, []);
 
+  // Open panel → trigger first-load fetch (no-op if already loaded)
   useEffect(() => { if (isOpen) onOpen(); }, [isOpen]);
   useEffect(() => { if (renamingId) renameInputRef.current?.focus(); }, [renamingId]);
 
-  const handleRename = (id: string) => {
+  const handleRename = useCallback((id: string) => {
     const name = renameValue.trim();
     if (!name) return;
     onRenameProject(id, name);
     setRenamingId(null);
     setRenameValue('');
-  };
+  }, [renameValue, onRenameProject]);
 
-  const handleSync = async () => {
+  const handleSync = useCallback(() => {
+    const t = Date.now();
+    if (t - syncCooldownRef.current < SYNC_COOLDOWN_MS) return;
+    syncCooldownRef.current = t;
     setSyncing(true);
     onSync();
-    setTimeout(() => setSyncing(false), 800);
-  };
+    setTimeout(() => setSyncing(false), 900);
+  }, [onSync]);
 
-  const safeProjects = [...(projects ?? [])].sort(
-    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  // ── Memoised derived data — no recomputation unless inputs change ──
+  const safeProjects = useMemo(() =>
+    [...(projects ?? [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  , [projects]);
+
+  const filtered = useMemo(() =>
+    searchQuery.trim()
+      ? safeProjects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      : safeProjects
+  , [safeProjects, searchQuery]);
+
+  const grouped = useMemo(() => {
+    const g: Record<string, ProjectMeta[]> = {};
+    filtered.forEach(p => {
+      const key = getGroup(p.updated_at);
+      if (!g[key]) g[key] = [];
+      g[key].push(p);
+    });
+    return g;
+  }, [filtered]);
+
+  const activeProject = useMemo(
+    () => safeProjects.find(p => p.id === activeProjectId),
+    [safeProjects, activeProjectId]
   );
 
-  const filtered = searchQuery.trim()
-    ? safeProjects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : safeProjects;
-
-  const grouped: Record<string, ProjectMeta[]> = {};
-  filtered.forEach(p => {
-    const g = getGroup(p.updated_at);
-    if (!grouped[g]) grouped[g] = [];
-    grouped[g].push(p);
-  });
-
   const totalCount = safeProjects.length;
-  const activeProject = safeProjects.find(p => p.id === activeProjectId);
+
+  // Expose `now` to force timeAgo recalc on tick — cheap, no big re-render
+  void now;
 
   return (
     <div className="mt-2">
-      {/* ── Divider ── */}
+      {/* Divider */}
       <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-1 mb-3" />
 
       {/* ── HEADER ROW ── */}
@@ -131,16 +152,16 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
           {/* Sync / Cloud indicator */}
           <button
             onClick={(e) => { e.stopPropagation(); handleSync(); }}
-            title={isSupabaseConfigured ? 'Sync with cloud' : 'Stored locally'}
+            title={isSupabaseConfigured ? 'Sync with cloud' : 'Refresh local'}
             className="p-1 rounded-md hover:bg-white/8 transition-colors"
           >
             {isSupabaseConfigured
-              ? <Cloud className={`w-3.5 h-3.5 ${syncing ? 'text-blue-400 animate-pulse' : 'text-blue-500/50 hover:text-blue-400'} transition-colors`} />
+              ? <Cloud className={`w-3.5 h-3.5 transition-colors ${syncing ? 'text-blue-400 animate-pulse' : 'text-blue-500/50 hover:text-blue-400'}`} />
               : <HardDrive className="w-3.5 h-3.5 text-slate-600 hover:text-slate-400 transition-colors" />
             }
           </button>
 
-          {/* New project button */}
+          {/* New project */}
           {hasContent && (
             <button
               onClick={onCreateProject}
@@ -154,19 +175,19 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
         </div>
       </div>
 
-      {/* ── AUTO-SAVE STATUS ── */}
+      {/* ── ACTIVE PROJECT STATUS BAR ── */}
       {activeProjectId && (
         <div className="flex items-center gap-2 mx-1 mb-2 px-2.5 py-1.5 rounded-lg bg-white/3 border border-white/6">
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <FileText className="w-3 h-3 text-slate-500 flex-shrink-0" />
             <span className="text-[10px] text-slate-400 truncate">{activeProject?.name ?? 'Untitled'}</span>
           </div>
-          {lastSavedAt ? (
+          {lastSavedAt && (
             <div className="flex items-center gap-1 flex-shrink-0">
               <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
               <span className="text-[9px] text-slate-500">{timeAgo(lastSavedAt)}</span>
             </div>
-          ) : null}
+          )}
           <button
             onClick={onSaveNow}
             className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 transition-all text-[9px] font-bold flex-shrink-0"
@@ -177,12 +198,12 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
         </div>
       )}
 
-      {/* ── EXPANDED PANEL ── */}
+      {/* ── EXPANDED LIST ── */}
       {isOpen && (
         <div className="space-y-2">
           {/* Search */}
           <div className="relative px-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600 pointer-events-none" />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -199,22 +220,23 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
             )}
           </div>
 
-          {/* Sync row */}
+          {/* Stats + refresh row */}
           <div className="flex items-center justify-between px-2">
             <span className="text-[9px] text-slate-600 uppercase tracking-wider">
               {filtered.length} project{filtered.length !== 1 ? 's' : ''}
             </span>
             <button
               onClick={handleSync}
-              className="flex items-center gap-1 text-[9px] text-slate-600 hover:text-slate-400 transition-colors"
+              className="flex items-center gap-1 text-[9px] text-slate-600 hover:text-slate-400 transition-colors disabled:opacity-40"
+              disabled={syncing}
             >
               <RefreshCw className={`w-2.5 h-2.5 ${syncing ? 'animate-spin text-blue-400' : ''}`} />
-              Refresh
+              {syncing ? 'Syncing…' : 'Refresh'}
             </button>
           </div>
 
           {error && (
-            <p className="text-[10px] text-red-400/80 px-2 py-1 bg-red-500/8 rounded-lg mx-1 border border-red-500/15">
+            <p className="text-[10px] text-red-400/80 px-2.5 py-1.5 bg-red-500/8 rounded-lg mx-1 border border-red-500/15">
               {error}
             </p>
           )}
@@ -222,7 +244,7 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-6 text-slate-600">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-[11px]">Loading...</span>
+              <span className="text-[11px]">Loading…</span>
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-6 px-4 text-center">
@@ -239,28 +261,28 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
                 <div key={group}>
                   {/* Group label */}
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{group}</span>
+                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest whitespace-nowrap">{group}</span>
                     <div className="flex-1 h-px bg-white/5" />
                   </div>
 
-                  {/* Project cards */}
+                  {/* Cards */}
                   <div className="space-y-1">
                     {grouped[group].map(project => {
                       const isActive = activeProjectId === project.id;
                       const isRenaming = renamingId === project.id;
-                      const isConfirmingDelete = confirmDeleteId === project.id;
+                      const isConfirming = confirmDeleteId === project.id;
 
                       return (
                         <div
                           key={project.id}
-                          className={`rounded-xl border transition-all duration-200 overflow-hidden ${
+                          className={`rounded-xl border transition-all duration-150 overflow-hidden ${
                             isActive
                               ? 'bg-indigo-600/15 border-indigo-500/30'
                               : 'bg-white/3 border-white/6 hover:bg-white/5 hover:border-white/10'
                           }`}
                         >
                           {isRenaming ? (
-                            /* ── RENAME MODE ── */
+                            /* RENAME MODE */
                             <div className="flex items-center gap-1.5 p-2">
                               <input
                                 ref={renameInputRef}
@@ -274,40 +296,38 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
                               />
                               <button
                                 onClick={() => handleRename(project.id)}
-                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors flex-shrink-0"
+                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 flex-shrink-0 transition-colors"
                               >
                                 <Check className="w-3 h-3" />
                               </button>
                               <button
                                 onClick={() => { setRenamingId(null); setRenameValue(''); }}
-                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/8 text-slate-500 hover:bg-white/15 hover:text-slate-300 transition-colors flex-shrink-0"
+                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/8 text-slate-500 hover:bg-white/15 hover:text-slate-300 flex-shrink-0 transition-colors"
                               >
                                 <X className="w-3 h-3" />
                               </button>
                             </div>
-                          ) : isConfirmingDelete ? (
-                            /* ── DELETE CONFIRM MODE ── */
+                          ) : isConfirming ? (
+                            /* DELETE CONFIRM MODE */
                             <div className="flex items-center gap-2 p-2">
-                              <span className="flex-1 text-[10px] text-red-300">Delete this project?</span>
+                              <span className="flex-1 text-[10px] text-red-300">Delete this?</span>
                               <button
                                 onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id); setConfirmDeleteId(null); }}
                                 className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition-colors text-[10px] font-bold flex-shrink-0"
                               >
                                 <Trash2 className="w-2.5 h-2.5" />
-                                Delete
+                                Yes
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
                                 className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/8 text-slate-400 hover:bg-white/15 transition-colors text-[10px] font-bold flex-shrink-0"
                               >
-                                <X className="w-2.5 h-2.5" />
                                 No
                               </button>
                             </div>
                           ) : (
-                            /* ── NORMAL VIEW ── */
+                            /* NORMAL VIEW */
                             <div className="flex items-center gap-1.5 p-2">
-                              {/* Main click area */}
                               <button
                                 onClick={() => onSelectProject(project.id)}
                                 className="flex-1 min-w-0 text-left"
@@ -316,12 +336,12 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
                                   {project.name}
                                 </p>
                                 <p className="text-[9px] text-slate-600 mt-0.5">
-                                  {timeAgo(new Date(project.updated_at))}
+                                  {timeAgo(project.updated_at)}
                                 </p>
                               </button>
 
-                              {/* Action buttons — always visible */}
-                              <div className="flex items-center gap-1 flex-shrink-0">
+                              {/* Always-visible action buttons */}
+                              <div className="flex items-center gap-0.5 flex-shrink-0">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setRenamingId(project.id); setRenameValue(project.name); }}
                                   title="Rename"

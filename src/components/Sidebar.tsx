@@ -58,6 +58,7 @@ interface SidebarProps {
   isSupabaseConfigured: boolean;
   lastSavedAt: Date | null;
   onFetchProjects: () => void;
+  onSync: () => void;
   onSaveNow: () => void;
   onSelectProject: (id: string) => void;
   onCreateProject: () => void;
@@ -92,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   handleGenerate, handleGenerateTable,
   status, handleClearCanvas, handleUndo, canUndo,
   projects, projectsLoading, projectsError, activeProjectId, isSupabaseConfigured,
-  lastSavedAt, onFetchProjects, onSaveNow, onSelectProject, onCreateProject, onDeleteProject,
+  lastSavedAt, onFetchProjects, onSync, onSaveNow, onSelectProject, onCreateProject, onDeleteProject,
   onRenameProject, hasContent,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
@@ -380,7 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             isSupabaseConfigured={isSupabaseConfigured}
             lastSavedAt={lastSavedAt}
             onOpen={onFetchProjects}
-            onSync={onFetchProjects}
+            onSync={onSync}
             onSaveNow={onSaveNow}
             onSelectProject={onSelectProject}
             onCreateProject={onCreateProject}
