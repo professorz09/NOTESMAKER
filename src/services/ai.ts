@@ -766,23 +766,31 @@ export const generateResearchPaper = async (
   const ai = createAIClient();
 
   const prompt = `
-    Role: Expert Academic Researcher & Author.
-    Task: Create a highly detailed, deeply researched, and visually structured Research Paper.
-    
+    Role: Expert Subject Matter Specialist & Technical Writer.
+    Task: Write a comprehensive, deeply detailed structured paper that fully explains the given topic. 
+
     Topic: "${topic}"
     Language: ${language}
 
-    **STRICT STRUCTURE & FORMATTING RULES:**
-    1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis.
-    2. **Literature Review & Methodology (Body):**
-       - Break down the topic into logical, chronological, or thematic academic sections.
-       - Use extensive bullet points for readability and pacing.
-       - Highlight key terms, dates, and authors using <strong>.
-    3. **Data & Evidence (Tables):** MUST include at least one detailed HTML <table> presenting relevant data, statistics, timelines, pros/cons, or comparisons.
-    4. **Visual Explanation (Diagram):** MUST include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, framework, or timeline related to the topic. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
-    5. **Conclusion & Future Scope:** Summarize the findings, impact, and future outlook.
+    **CRITICAL RULE — DO NOT write:**
+    - "This paper aims to..."
+    - "The purpose of this research is..."
+    - "This study was conducted because..."
+    - Any meta-commentary about why the paper was written
+    - Any "Methodology" or "Literature Review" sections (this is NOT an academic research paper)
+    
+    **INSTEAD — Write directly about the topic itself with full depth:**
 
-    **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks. Use standard HTML tags (<h1>, <h2>, <h3>, <ul>, <li>, <table>, <svg>, etc.).
+    **STRUCTURE:**
+    1. **Title (h1):** Clear, descriptive title of the topic.
+    2. **Overview (h2):** A factual, concise executive summary — what this topic IS, its significance, and scope. 2-3 paragraphs.
+    3. **Historical Background / Context (h2):** Origins, evolution, timeline. Use <strong> for key dates and names.
+    4. **Core Subject Sections (h2/h3):** 3-5 detailed thematic or structural sections breaking down every important dimension of the topic. Use bullet points (<ul><li>) within each section. Be exhaustive.
+    5. **Key Data / Statistics / Facts (Table):** MUST include one detailed HTML <table> with real data, comparisons, timelines, or structured facts about the topic.
+    6. **Visual Diagram (SVG):** MUST include ONE clear SVG diagram inside <div class="flowchart-container"> — a flowchart, mindmap, timeline, or process diagram directly related to the topic. Use viewBox, clean layout, readable text.
+    7. **Key Takeaways (h2):** 5-8 bullet points summarizing the most important aspects of the topic.
+
+    **Output:** Return ONLY raw HTML. No markdown. Use <h1>, <h2>, <h3>, <ul>, <li>, <table>, <strong>, <p>, <svg> etc.
   `;
 
   const response = await ai.models.generateContent({
