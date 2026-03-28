@@ -15,7 +15,6 @@ import {
   AlignLeft,
   Zap,
   FlaskConical,
-  ChevronRight,
   Type,
   BarChart2,
 } from 'lucide-react';
@@ -73,10 +72,10 @@ const MODELS = [
 ];
 
 const OUTPUT_STYLES = [
-  { id: 'notes',    label: 'Detailed Notes',  icon: AlignLeft,    desc: 'Structured study notes' },
-  { id: 'upsc',     label: 'UPSC Mains',      icon: GraduationCap, desc: 'Exam-ready answers' },
-  { id: 'research', label: 'Research Paper',  icon: FlaskConical, desc: 'Academic format' },
-  { id: 'table',    label: 'Table',           icon: BarChart2,    desc: 'AI-structured table' },
+  { id: 'notes',    label: 'Notes',    icon: AlignLeft,     desc: 'Study notes',    active: 'bg-blue-600/20 border-blue-500/50',    icon_active: 'text-blue-400 bg-blue-500/20',       icon_idle: 'text-blue-400/50 bg-blue-500/8',    label_active: 'text-blue-200',   hover: 'hover:bg-blue-500/10 hover:border-blue-500/25' },
+  { id: 'upsc',     label: 'UPSC',     icon: GraduationCap, desc: 'Exam answers',   active: 'bg-amber-600/20 border-amber-500/50',  icon_active: 'text-amber-400 bg-amber-500/20',     icon_idle: 'text-amber-400/50 bg-amber-500/8',  label_active: 'text-amber-200',  hover: 'hover:bg-amber-500/10 hover:border-amber-500/25' },
+  { id: 'research', label: 'Research', icon: FlaskConical,  desc: 'Academic paper', active: 'bg-emerald-600/20 border-emerald-500/50', icon_active: 'text-emerald-400 bg-emerald-500/20', icon_idle: 'text-emerald-400/50 bg-emerald-500/8', label_active: 'text-emerald-200', hover: 'hover:bg-emerald-500/10 hover:border-emerald-500/25' },
+  { id: 'table',    label: 'Table',    icon: BarChart2,     desc: 'AI table',       active: 'bg-violet-600/20 border-violet-500/50', icon_active: 'text-violet-400 bg-violet-500/20',  icon_idle: 'text-violet-400/50 bg-violet-500/8', label_active: 'text-violet-200', hover: 'hover:bg-violet-500/10 hover:border-violet-500/25' },
 ] as const;
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -267,31 +266,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </form>
             </div>
 
-            {/* OUTPUT STYLE */}
+            {/* OUTPUT STYLE — 2×2 grid */}
             <div className="space-y-2">
               <label className="block text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">Output Style</label>
-              <div className="space-y-1.5">
-                {OUTPUT_STYLES.map(({ id, label, icon: Icon, desc }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setOutputStyle(id)}
-                    className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all duration-200 text-left ${
-                      outputStyle === id
-                        ? 'bg-blue-600/15 border-blue-500/40 text-white'
-                        : 'bg-white/3 border-white/6 text-slate-400 hover:bg-white/6 hover:text-slate-200 hover:border-white/10'
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${outputStyle === id ? 'bg-blue-600/30' : 'bg-white/6'}`}>
-                      <Icon className={`w-4 h-4 ${outputStyle === id ? 'text-blue-400' : 'text-slate-500'}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold leading-none mb-1 ${outputStyle === id ? 'text-white' : 'text-slate-300'}`}>{label}</p>
-                      <p className="text-[11px] text-slate-600 leading-none">{desc}</p>
-                    </div>
-                    {outputStyle === id && <ChevronRight className="w-4 h-4 text-blue-400 flex-shrink-0" />}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2">
+                {OUTPUT_STYLES.map(({ id, label, icon: Icon, desc, active, icon_active, icon_idle, label_active, hover }) => {
+                  const isActive = outputStyle === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setOutputStyle(id)}
+                      className={`flex flex-col items-center gap-2 px-2 py-3.5 rounded-xl border transition-all duration-200 text-center ${
+                        isActive
+                          ? `${active} shadow-lg`
+                          : `bg-white/3 border-white/6 ${hover} hover:border-white/12`
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isActive ? icon_active : icon_idle}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className={`text-xs font-bold leading-none mb-0.5 ${isActive ? label_active : 'text-slate-400'}`}>{label}</p>
+                        <p className={`text-[10px] leading-tight ${isActive ? 'text-slate-400' : 'text-slate-600'}`}>{desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
