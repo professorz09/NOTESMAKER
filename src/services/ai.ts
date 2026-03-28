@@ -766,31 +766,43 @@ export const generateResearchPaper = async (
   const ai = createAIClient();
 
   const prompt = `
-    Role: Expert Subject Matter Specialist & Technical Writer.
-    Task: Write a comprehensive, deeply detailed structured paper that fully explains the given topic. 
+    Role: Expert Subject Matter Specialist & Senior Technical Writer.
+    Task: Write an exhaustive, deeply detailed long-form document on the given topic. This must read like a thorough reference document — NOT a presentation or slide deck.
 
     Topic: "${topic}"
     Language: ${language}
 
-    **CRITICAL RULE — DO NOT write:**
-    - "This paper aims to..."
-    - "The purpose of this research is..."
-    - "This study was conducted because..."
-    - Any meta-commentary about why the paper was written
-    - Any "Methodology" or "Literature Review" sections (this is NOT an academic research paper)
-    
-    **INSTEAD — Write directly about the topic itself with full depth:**
+    **ABSOLUTE RULES:**
+    - Do NOT write "This paper aims to...", "The purpose of this research is...", or any meta-commentary.
+    - Do NOT write "Methodology" or "Literature Review" sections.
+    - Do NOT use shallow 1-2 line bullet points. Every point must be explained fully.
+    - This is NOT a PPT or summary — write with depth, detail, and explanation in every section.
+    - Each section must have multiple paragraphs AND sub-sections where needed.
 
-    **STRUCTURE:**
-    1. **Title (h1):** Clear, descriptive title of the topic.
-    2. **Overview (h2):** A factual, concise executive summary — what this topic IS, its significance, and scope. 2-3 paragraphs.
-    3. **Historical Background / Context (h2):** Origins, evolution, timeline. Use <strong> for key dates and names.
-    4. **Core Subject Sections (h2/h3):** 3-5 detailed thematic or structural sections breaking down every important dimension of the topic. Use bullet points (<ul><li>) within each section. Be exhaustive.
-    5. **Key Data / Statistics / Facts (Table):** MUST include one detailed HTML <table> with real data, comparisons, timelines, or structured facts about the topic.
-    6. **Visual Diagram (SVG):** MUST include ONE clear SVG diagram inside <div class="flowchart-container"> — a flowchart, mindmap, timeline, or process diagram directly related to the topic. Use viewBox, clean layout, readable text.
-    7. **Key Takeaways (h2):** 5-8 bullet points summarizing the most important aspects of the topic.
+    **STRUCTURE (follow exactly):**
 
-    **Output:** Return ONLY raw HTML. No markdown. Use <h1>, <h2>, <h3>, <ul>, <li>, <table>, <strong>, <p>, <svg> etc.
+    1. **<h1> Title** — Descriptive title of the topic.
+
+    2. **<h2> Introduction** — 3-4 detailed paragraphs explaining what this topic is, why it matters, its scope, and its place in the broader context. Use <p> tags. Be thorough.
+
+    3. **<h2> Historical Background & Evolution** — Detailed chronological account of how this topic developed. Include key events, dates (<strong>), turning points, important figures. At least 3-4 paragraphs.
+
+    4. **<h2> [Core Section 1 — specific to topic]** — Deep dive into a major dimension. 
+       - Use <h3> for sub-sections within this section.
+       - Each sub-section: 1-2 full explanatory paragraphs + supporting bullet points.
+       - Minimum 400 words in this section.
+
+    5. **<h2> [Core Section 2 — another major dimension]** — Same depth as above.
+
+    6. **<h2> [Core Section 3 — another major dimension]** — Same depth as above. Add more sections if needed.
+
+    7. **<h2> Key Data, Facts & Comparisons** — MUST include one well-structured HTML <table> with real statistics, comparisons, or structured facts directly about the topic.
+
+    8. **<h2> Visual Overview** — MUST include ONE SVG diagram inside <div class="flowchart-container"> — a flowchart, process diagram, mindmap, or timeline. Use viewBox, clean layout, readable fonts.
+
+    9. **<h2> Conclusion** — 2-3 paragraphs summarizing the significance, current status, and future outlook of the topic. Write in flowing prose, not bullet points.
+
+    **Output:** Return ONLY raw HTML. No markdown. Tags to use: <h1>, <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <table>, <thead>, <tbody>, <tr>, <th>, <td>, <svg>, <div>.
   `;
 
   const response = await ai.models.generateContent({
