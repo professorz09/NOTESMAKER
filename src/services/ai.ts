@@ -570,6 +570,55 @@ export const generateComplexTable = async (
   return cleanHtmlOutput(response.text || "");
 };
 
+// Mode 6b: EXTEND TABLE — appends new rows to an existing table (does NOT replace it)
+export const extendTableRows = async (
+  headersHtml: string,
+  lastRowsHtml: string,
+  instruction: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    You are a data-table expert. An existing HTML table is being extended.
+    
+    TABLE COLUMN HEADERS (from <thead>):
+    ${headersHtml}
+    
+    LAST 2 ROWS OF EXISTING DATA (for continuity context):
+    ${lastRowsHtml}
+    
+    TASK: Generate exactly 5 to 8 NEW <tr> data rows that logically continue this table.
+    
+    STRICT RULES:
+    1. Match the EXACT same number of <td> cells as the existing rows.
+    2. Each new row must cover a distinct, real topic/entry — no repetition of existing rows.
+    3. Use <strong> for key terms inside <td> cells.
+    4. For multi-point cells, use <ul><li>...</li></ul>.
+    5. Do NOT output <table>, <thead>, <tbody>, or any wrapper — ONLY the raw <tr>...</tr> rows.
+    6. Rows must be factually accurate and academically appropriate.
+    
+    USER INSTRUCTION (optional, may be empty): "${instruction || 'Continue naturally'}"
+    
+    Output: ONLY the raw <tr>...</tr> HTML rows. Nothing else.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+
+  const raw = response.text || "";
+  // Strip any accidental table/tbody wrappers the model might add
+  return raw
+    .replace(/```html\n?/gi, '').replace(/```\n?/g, '')
+    .replace(/<\/?table[^>]*>/gi, '')
+    .replace(/<\/?thead[^>]*>/gi, '')
+    .replace(/<\/?tbody[^>]*>/gi, '')
+    .replace(/<\/?tfoot[^>]*>/gi, '')
+    .trim();
+};
+
 // Mode 7: GENERATE DIAGRAM (SVG Flowchart/Mindmap)
 export const generateDiagram = async (
   contextText: string,

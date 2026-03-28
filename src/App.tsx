@@ -89,7 +89,7 @@ const App: React.FC = () => {
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen });
 
   const {
-    rewriteModalOpen, setRewriteModalOpen,
+    rewriteModalOpen, closeRewriteModal,
     rewriteInstruction, setRewriteInstruction,
     isRewriting,
     activeSectionHtml,
@@ -302,7 +302,7 @@ const App: React.FC = () => {
 
       <RewriteModal
         isOpen={rewriteModalOpen}
-        onClose={() => setRewriteModalOpen(false)}
+        onClose={closeRewriteModal}
         rewriteType={rewriteType}
         editTab={editTab} setEditTab={setEditTab}
         rewriteModel={rewriteModel} setRewriteModel={setRewriteModel}

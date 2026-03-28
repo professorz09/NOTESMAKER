@@ -8,6 +8,7 @@ import {
   generateSectionImage,
   generateComplexTable,
   generateDiagram,
+  extendTableRows,
 } from '../services/ai';
 import { getSectionNodes } from '../utils/editorUtils';
 
@@ -44,6 +45,8 @@ export function useAIEdit({
 
   const selectionRangeRef = useRef<Range | null>(null);
   const activeEditIdRef = useRef<string | null>(null);
+  const isTableExtendMode = useRef(false);
+  const extendTableRef = useRef<Element | null>(null);
 
   // Add/remove AI edit trigger buttons when editing mode changes
   useEffect(() => {
@@ -143,6 +146,39 @@ export function useAIEdit({
     setRewriteModalOpen(true);
   }, [getCurrentHtml, pushToHistory, setGeneratedHtml, editorRef]);
 
+  // Extend Table: append new rows to existing table without replacing it
+  const handleTableExtend = useCallback((tableEl: Element) => {
+    if (!editorRef.current) return;
+    const currentRaw = getCurrentHtml();
+    pushToHistory(currentRaw);
+    setGeneratedHtml(currentRaw);
+
+    // Extract headers HTML (thead inner)
+    const thead = tableEl.querySelector('thead');
+    const headersHtml = thead ? thead.innerHTML : '';
+
+    // Extract last 2 data rows from tbody
+    const tbody = tableEl.querySelector('tbody');
+    const allRows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+    const lastRows = allRows.slice(Math.max(0, allRows.length - 2));
+    const lastRowsHtml = lastRows.map(r => {
+      const clone = r.cloneNode(true) as Element;
+      clone.querySelectorAll('.ai-edit-trigger').forEach(t => t.remove());
+      return clone.outerHTML;
+    }).join('');
+
+    // Store reference so we can append rows on submit
+    isTableExtendMode.current = true;
+    extendTableRef.current = tableEl;
+
+    // Use activeSectionHtml to carry context to handleRewriteSubmit
+    setActiveSectionHtml(JSON.stringify({ headersHtml, lastRowsHtml }));
+    setRewriteType('section');
+    setEditTab('table');
+    setRewriteInstruction('');
+    setRewriteModalOpen(true);
+  }, [getCurrentHtml, pushToHistory, setGeneratedHtml, editorRef]);
+
   // Click listener for AI edit trigger buttons
   useEffect(() => {
     const handleEditorClick = (e: MouseEvent) => {
@@ -155,12 +191,17 @@ export function useAIEdit({
       if (parent?.tagName === 'TD' && parent.parentElement?.parentElement?.tagName === 'TFOOT') {
         parent = parent.parentElement!.parentElement!.parentElement;
       }
-      if (parent) handleSectionEdit(parent, trigger.classList.contains('table-extend-btn') ? 'table' : undefined);
+      if (!parent) return;
+      if (trigger.classList.contains('table-extend-btn')) {
+        handleTableExtend(parent);
+      } else {
+        handleSectionEdit(parent);
+      }
     };
     const editor = editorRef.current;
     if (editor) editor.addEventListener('click', handleEditorClick);
     return () => { if (editor) editor.removeEventListener('click', handleEditorClick); };
-  }, [isEditing, handleSectionEdit, editorRef]);
+  }, [isEditing, handleSectionEdit, handleTableExtend, editorRef]);
 
   const openSelectionRewriteModal = () => {
     const selection = window.getSelection();
@@ -182,6 +223,42 @@ export function useAIEdit({
       const rawBefore = getCurrentHtml();
       pushToHistory(rawBefore);
       let resultHtml = '';
+
+      // ── Special path: Extend Table (append rows, do NOT replace the table) ──
+      if (isTableExtendMode.current && extendTableRef.current) {
+        const tableEl = extendTableRef.current;
+        const ctx = JSON.parse(activeSectionHtml) as { headersHtml: string; lastRowsHtml: string };
+        const newRows = await extendTableRows(ctx.headersHtml, ctx.lastRowsHtml, rewriteInstruction, rewriteModel);
+
+        if (isResettingRef.current) return;
+        if (!newRows) throw new Error('No rows generated');
+
+        // Append new <tr> rows to tbody, inserting before the tfoot so extend button stays at bottom
+        let tbody = tableEl.querySelector('tbody');
+        if (!tbody) {
+          tbody = document.createElement('tbody');
+          const tfoot = tableEl.querySelector('tfoot');
+          tableEl.insertBefore(tbody, tfoot || null);
+        }
+        const tfoot = tableEl.querySelector('tfoot.table-extend-tfoot');
+        const tempDiv = document.createElement('tbody');
+        tempDiv.innerHTML = newRows;
+        const newTrNodes = Array.from(tempDiv.querySelectorAll('tr'));
+        if (tfoot) {
+          newTrNodes.forEach(tr => tbody!.insertBefore(tr, null));
+        } else {
+          newTrNodes.forEach(tr => tbody!.appendChild(tr));
+        }
+
+        // Persist & finish — no replace needed
+        const updatedHtml = editorRef.current!.innerHTML;
+        setGeneratedHtml(updatedHtml);
+        localStorage.setItem('ai_book_writer_draft', updatedHtml);
+        setRewriteModalOpen(false);
+        isTableExtendMode.current = false;
+        extendTableRef.current = null;
+        return;
+      }
 
       if (rewriteType === 'section') {
         if (editTab === 'rewrite') resultHtml = await rewriteSection(activeSectionHtml, rewriteInstruction, rewriteModel);
@@ -250,11 +327,20 @@ export function useAIEdit({
       }
     } finally {
       if (!isResettingRef.current) setIsRewriting(false);
+      isTableExtendMode.current = false;
+      extendTableRef.current = null;
     }
   };
 
+  const closeRewriteModal = useCallback(() => {
+    setRewriteModalOpen(false);
+    isTableExtendMode.current = false;
+    extendTableRef.current = null;
+  }, []);
+
   return {
-    rewriteModalOpen, setRewriteModalOpen,
+    rewriteModalOpen,
+    closeRewriteModal,
     rewriteInstruction, setRewriteInstruction,
     isRewriting,
     activeSectionHtml,
