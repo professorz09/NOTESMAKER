@@ -33,7 +33,7 @@ export function useGeneration({
   const [wordLimit, setWordLimit] = useState(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi');
-  const [aiModel, setAiModel] = useState('gemini-2.5-pro-preview-05-06');
+  const [aiModel, setAiModel] = useState('gemini-3.1-pro-preview');
   const [topicInput, setTopicInput] = useState('');
   const [textInput, setTextInput] = useState('');
   const [files, setFiles] = useState<{ name: string; mimeType: string; data: string }[]>([]);

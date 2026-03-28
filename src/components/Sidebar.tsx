@@ -52,8 +52,8 @@ interface SidebarProps {
 }
 
 const MODELS = [
-  { id: 'gemini-2.5-pro-preview-05-06', label: 'Pro 2.5', badge: 'Smart' },
-  { id: 'gemini-2.5-flash-preview-04-17', label: 'Flash 2.5', badge: 'Fast' },
+  { id: 'gemini-3.1-pro-preview', label: 'Pro 3.1', badge: 'Smart' },
+  { id: 'gemini-3-flash-preview', label: 'Flash 3', badge: 'Fast' },
 ];
 
 const OUTPUT_STYLES = [
