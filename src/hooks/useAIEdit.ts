@@ -47,6 +47,7 @@ export function useAIEdit({
   const activeEditIdRef = useRef<string | null>(null);
   const isTableExtendMode = useRef(false);
   const extendTableRef = useRef<Element | null>(null);
+  const extendContextRef = useRef<{ headersHtml: string; lastRowsHtml: string } | null>(null);
 
   const [isExtendTableOpen, setIsExtendTableOpen] = useState(false);
   const [extendHeadersPreview, setExtendHeadersPreview] = useState('');
@@ -173,6 +174,7 @@ export function useAIEdit({
     // Store reference so we can append rows on submit
     isTableExtendMode.current = true;
     extendTableRef.current = tableEl;
+    extendContextRef.current = { headersHtml, lastRowsHtml };
 
     // Build a plain-text preview of the column headers for the modal UI
     const tempDiv2 = document.createElement('div');
@@ -182,7 +184,7 @@ export function useAIEdit({
       .filter(Boolean);
     setExtendHeadersPreview(headerTexts.join(' | ') || 'Table context captured');
 
-    // Use activeSectionHtml to carry context to handleRewriteSubmit
+    // Keep activeSectionHtml in sync too (for any fallback reads)
     setActiveSectionHtml(JSON.stringify({ headersHtml, lastRowsHtml }));
     setRewriteType('section');
     setEditTab('table');
@@ -237,9 +239,9 @@ export function useAIEdit({
       let resultHtml = '';
 
       // ── Special path: Extend Table (append rows, do NOT replace the table) ──
-      if (isTableExtendMode.current && extendTableRef.current) {
+      if (isTableExtendMode.current && extendTableRef.current && extendContextRef.current) {
         const tableEl = extendTableRef.current;
-        const ctx = JSON.parse(activeSectionHtml) as { headersHtml: string; lastRowsHtml: string };
+        const ctx = extendContextRef.current;
         const newRows = await extendTableRows(ctx.headersHtml, ctx.lastRowsHtml, rewriteInstruction, rewriteModel);
 
         if (isResettingRef.current) return;
@@ -269,6 +271,7 @@ export function useAIEdit({
         setRewriteModalOpen(false);
         isTableExtendMode.current = false;
         extendTableRef.current = null;
+        extendContextRef.current = null;
         return;
       }
 
@@ -341,6 +344,7 @@ export function useAIEdit({
       if (!isResettingRef.current) setIsRewriting(false);
       isTableExtendMode.current = false;
       extendTableRef.current = null;
+      extendContextRef.current = null;
       setIsExtendTableOpen(false);
     }
   };
@@ -350,6 +354,7 @@ export function useAIEdit({
     setIsExtendTableOpen(false);
     isTableExtendMode.current = false;
     extendTableRef.current = null;
+    extendContextRef.current = null;
   }, []);
 
   return {
