@@ -30,7 +30,7 @@ export function useGeneration({
   setSidebarOpen,
 }: UseGenerationProps) {
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
-  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table' | 'image'>('notes');
+  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
   const [tableInstruction, setTableInstruction] = useState('');
   const [wordLimit, setWordLimit] = useState(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
@@ -171,10 +171,6 @@ export function useGeneration({
     removeFile,
     handleGenerate,
     handleGenerateTable,
-    handleGenerateImage,
-    imageStyle, setImageStyle,
-    imageAspectRatio, setImageAspectRatio,
-    imageModel, setImageModel,
     handleClearCanvas,
   };
 }

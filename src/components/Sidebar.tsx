@@ -18,18 +18,8 @@ import {
   ChevronRight,
   Type,
   BarChart2,
-  ImageIcon,
-  PenLine,
-  Network,
-  GitFork,
-  LayoutGrid,
-  Maximize2,
-  Square,
-  RectangleHorizontal,
-  RectangleVertical,
 } from 'lucide-react';
 import { GenerationStatus } from '../types';
-import type { ImageStyle, ImageAspectRatio, ImageModelId } from '../types';
 import { ProjectsPanel } from './ProjectsPanel';
 import type { ProjectMeta } from '../hooks/useProjects';
 
@@ -38,8 +28,8 @@ interface SidebarProps {
   setSidebarOpen: (open: boolean) => void;
   mode: 'topic' | 'text' | 'file';
   setMode: (mode: 'topic' | 'text' | 'file') => void;
-  outputStyle: 'notes' | 'upsc' | 'research' | 'table' | 'image';
-  setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'table' | 'image') => void;
+  outputStyle: 'notes' | 'upsc' | 'research' | 'table';
+  setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'table') => void;
   tableInstruction: string;
   setTableInstruction: (v: string) => void;
   wordLimit: number;
@@ -57,13 +47,6 @@ interface SidebarProps {
   setAiModel: (model: string) => void;
   handleGenerate: (e: React.FormEvent) => void;
   handleGenerateTable: (e: React.MouseEvent) => void;
-  handleGenerateImage: (e: React.MouseEvent) => void;
-  imageStyle: ImageStyle;
-  setImageStyle: (s: ImageStyle) => void;
-  imageAspectRatio: ImageAspectRatio;
-  setImageAspectRatio: (r: ImageAspectRatio) => void;
-  imageModel: ImageModelId;
-  setImageModel: (m: ImageModelId) => void;
   status: GenerationStatus;
   handleClearCanvas: () => void;
   handleUndo: () => void;
@@ -94,28 +77,7 @@ const OUTPUT_STYLES = [
   { id: 'upsc',     label: 'UPSC Mains',      icon: GraduationCap, desc: 'Exam-ready answers' },
   { id: 'research', label: 'Research Paper',  icon: FlaskConical, desc: 'Academic format' },
   { id: 'table',    label: 'Table',           icon: BarChart2,    desc: 'AI-structured table' },
-  { id: 'image',    label: 'Image Diagram',   icon: ImageIcon,    desc: 'Visual diagram / handwritten' },
 ] as const;
-
-const IMAGE_STYLES: { id: ImageStyle; label: string; icon: any; desc: string }[] = [
-  { id: 'diagram',     label: 'Diagram',     icon: LayoutGrid,  desc: 'Clean labeled boxes & arrows' },
-  { id: 'handwritten', label: 'Handwritten', icon: PenLine,     desc: 'Notebook / copy style' },
-  { id: 'mindmap',     label: 'Mind Map',    icon: Network,     desc: 'Radial concept map' },
-  { id: 'flowchart',   label: 'Flowchart',   icon: GitFork,     desc: 'Step-by-step flow' },
-];
-
-const IMAGE_ASPECT_RATIOS: { id: ImageAspectRatio; label: string; icon: any }[] = [
-  { id: '1:1',  label: '1:1',  icon: Square },
-  { id: '4:3',  label: '4:3',  icon: RectangleHorizontal },
-  { id: '16:9', label: '16:9', icon: Maximize2 },
-  { id: '9:16', label: '9:16', icon: RectangleVertical },
-];
-
-const IMAGE_MODELS: { id: ImageModelId; label: string; badge: string }[] = [
-  { id: 'imagen-4.0-fast-generate-001',  label: 'Imagen 4 Fast',   badge: 'Fast' },
-  { id: 'imagen-4.0-generate-001',       label: 'Imagen 4',         badge: 'Quality' },
-  { id: 'imagen-4.0-ultra-generate-001', label: 'Imagen 4 Ultra',   badge: 'Best' },
-];
 
 export const Sidebar: React.FC<SidebarProps> = ({
   sidebarOpen, setSidebarOpen,
@@ -128,10 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   files, handleFileUpload, removeFile,
   language, setLanguage,
   aiModel, setAiModel,
-  handleGenerate, handleGenerateTable, handleGenerateImage,
-  imageStyle, setImageStyle,
-  imageAspectRatio, setImageAspectRatio,
-  imageModel, setImageModel,
+  handleGenerate, handleGenerateTable,
   status, handleClearCanvas, handleUndo, canUndo,
   projects, projectsLoading, projectsError, activeProjectId, isSupabaseConfigured,
   lastSavedAt, onFetchProjects, onSaveNow, onSelectProject, onCreateProject, onDeleteProject,
@@ -140,14 +99,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isGenerating = status !== GenerationStatus.IDLE;
 
   const isTableStyle = outputStyle === 'table';
-  const isImageStyle = outputStyle === 'image';
 
   const generateLabel = () => {
-    if (isGenerating) {
-      if (status === GenerationStatus.GENERATING_IMAGE) return 'Generating Image...';
-      return 'Generating...';
-    }
-    if (outputStyle === 'image') return 'Generate Image';
+    if (isGenerating) return 'Generating...';
     if (outputStyle === 'table') return 'Generate Table';
     if (outputStyle === 'upsc') return 'Generate UPSC Answer';
     if (outputStyle === 'research') return 'Generate Research Paper';
@@ -157,7 +111,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleMainClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (outputStyle === 'image') { handleGenerateImage(e); return; }
     if (outputStyle === 'table') { handleGenerateTable(e); return; }
     handleGenerate(e as any);
   };
@@ -367,86 +320,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
 
-            {/* ── IMAGE CONFIG (only when image style selected) ── */}
-            {isImageStyle && (
-              <div className="space-y-4">
-                {/* Image Style */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
-                    <ImageIcon className="w-3 h-3" /> Diagram Style
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {IMAGE_STYLES.map(({ id, label, icon: Icon, desc }) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setImageStyle(id)}
-                        className={`flex flex-col items-start gap-1 px-3 py-2.5 rounded-xl border transition-all text-left ${
-                          imageStyle === id
-                            ? 'bg-violet-600/20 border-violet-500/40 text-white'
-                            : 'bg-white/3 border-white/6 text-slate-400 hover:bg-white/6 hover:text-slate-200'
-                        }`}
-                      >
-                        <Icon className={`w-4 h-4 ${imageStyle === id ? 'text-violet-400' : 'text-slate-500'}`} />
-                        <span className="text-[11px] font-semibold">{label}</span>
-                        <span className="text-[10px] text-slate-600 leading-tight">{desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Aspect Ratio */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
-                    <Maximize2 className="w-3 h-3" /> Aspect Ratio
-                  </label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {IMAGE_ASPECT_RATIOS.map(({ id, label, icon: Icon }) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setImageAspectRatio(id)}
-                        className={`flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                          imageAspectRatio === id
-                            ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30'
-                            : 'bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8 hover:text-white'
-                        }`}
-                      >
-                        <Icon className="w-3.5 h-3.5" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Imagen Model */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
-                    <Cpu className="w-3 h-3" /> Imagen Model
-                  </label>
-                  <div className="flex flex-col gap-1 p-1 rounded-xl bg-white/4 border border-white/6">
-                    {IMAGE_MODELS.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setImageModel(m.id)}
-                        className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                          imageModel === m.id
-                            ? 'bg-violet-600 text-white shadow-md shadow-violet-900/30'
-                            : 'text-slate-500 hover:text-slate-300 hover:bg-white/6'
-                        }`}
-                      >
-                        <span>{m.label}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${imageModel === m.id ? 'bg-violet-800/60' : 'bg-white/8 text-slate-600'}`}>{m.badge}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* LANGUAGE + MODEL in 2-col grid (hidden for image style) */}
-            <div className={`grid grid-cols-2 gap-3 ${isImageStyle ? 'hidden' : ''}`}>
+            {/* LANGUAGE + MODEL in 2-col grid */}
+            <div className="grid grid-cols-2 gap-3">
               {/* Language */}
               <div className="space-y-2">
                 <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">

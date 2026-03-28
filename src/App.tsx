@@ -97,10 +97,7 @@ const App: React.FC = () => {
     textInput, setTextInput,
     files,
     handleFileUpload, removeFile,
-    handleGenerate, handleGenerateTable, handleGenerateImage,
-    imageStyle, setImageStyle,
-    imageAspectRatio, setImageAspectRatio,
-    imageModel, setImageModel,
+    handleGenerate, handleGenerateTable,
     handleClearCanvas,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen });
 
@@ -341,10 +338,6 @@ const App: React.FC = () => {
         tableInstruction={tableInstruction} setTableInstruction={setTableInstruction}
         handleGenerate={handleGenerate}
         handleGenerateTable={handleGenerateTable}
-        handleGenerateImage={handleGenerateImage}
-        imageStyle={imageStyle} setImageStyle={setImageStyle}
-        imageAspectRatio={imageAspectRatio} setImageAspectRatio={setImageAspectRatio}
-        imageModel={imageModel} setImageModel={setImageModel}
         status={status}
         handleClearCanvas={onClearCanvas}
         handleUndo={handleUndo}
