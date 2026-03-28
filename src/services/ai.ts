@@ -659,7 +659,7 @@ export const extendTableRows = async (
     .trim();
 };
 
-// Mode 7: GENERATE DIAGRAM (SVG Flowchart/Mindmap)
+// Mode 7: GENERATE DIAGRAM (SVG Flowchart / Mindmap / Comparison Table / Timeline)
 export const generateDiagram = async (
   contextText: string,
   instruction: string,
@@ -668,23 +668,45 @@ export const generateDiagram = async (
   const ai = createAIClient();
   
   const prompt = `
-    Role: Expert Information Designer & Data Visualizer.
-    Task: Create a highly detailed, visually appealing SVG Diagram (Flowchart, Mindmap, Hierarchy, Timeline, etc.) based on the user's instruction and context.
-    
-    Context: "${contextText}"
-    Instruction: "${instruction}"
-    
+    Role: Expert Information Designer & Academic Visualizer.
+    Task: Analyse the user's instruction and produce the BEST visual output for it using SVG.
+
+    Context (section text):
+    "${contextText}"
+
+    User Instruction: "${instruction}"
+
+    DIAGRAM TYPE SELECTION — pick the most appropriate:
+    - "mindmap" or "concept map" → radial layout, central node + branches
+    - "flowchart" or "process" or "steps" → top-to-bottom boxes with arrows
+    - "timeline" or "chronology" → horizontal/vertical timeline with events
+    - "hierarchy" or "org chart" or "tree" → hierarchical tree layout
+    - "comparison" or "table" or "matrix" or "vs" → SVG comparison table (header row + data rows, alternating fill, clear borders)
+    - "cycle" or "loop" → circular/cyclic diagram
+    - anything else → choose the most logical visual type
+
     **SVG REQUIREMENTS:**
-    1. **Format:** Return ONLY valid, raw <svg> code. Do NOT wrap it in markdown blocks (\`\`\`html or \`\`\`svg).
-    2. **Responsiveness:** Use a proper \`viewBox\` (e.g., \`viewBox="0 0 800 600"\`). Do NOT use fixed width/height attributes on the <svg> tag.
-    3. **Styling:** 
-       - Background: Transparent or very light (e.g., #f8fafc).
-       - Text: Must be readable, use standard fonts (font-family="sans-serif"), and appropriate sizes.
-       - Colors: Use a professional palette (e.g., #3b82f6 for primary nodes, #1e293b for text, #cbd5e1 for lines).
-    4. **Layout:** Ensure nodes are well-spaced. Paths/lines connecting nodes should be clear.
-    5. **Content:** The diagram MUST accurately reflect the instruction (e.g., if asked for a mindmap, create a central node with branching paths).
-    
-    Output: ONLY the <svg>...</svg> code.
+    1. **Format:** Return ONLY valid, raw <svg> code. No markdown fences (\`\`\`html / \`\`\`svg), no explanation.
+    2. **ViewBox:** Always set a viewBox (e.g. "0 0 900 600"). Do NOT use fixed width/height on the <svg> tag itself.
+    3. **Completeness:** The diagram MUST be fully complete — all nodes labeled, all rows filled, all arrows drawn.
+    4. **Styling — general:**
+       - Background: white (#ffffff) or very light grey (#f8fafc).
+       - Primary color: #3b82f6 (blue) for headers / main nodes.
+       - Secondary: #0f172a (dark) for text, #e2e8f0 for borders/lines.
+       - Use font-family="sans-serif" throughout. Minimum font-size: 12px.
+    5. **Styling — comparison/table SVG:**
+       - Header row: filled #3b82f6, white text.
+       - Odd rows: #f0f9ff, Even rows: #ffffff.
+       - Cell borders: <rect stroke="#cbd5e1">.
+       - Column headers bold, data cells regular weight.
+       - Enough height per row for text (min 36px per row).
+    6. **Styling — node diagrams:**
+       - Rounded rectangles (rx="10") for nodes.
+       - Arrow lines: stroke="#94a3b8" with arrowhead markers.
+       - Mindmap central node: larger, darker (#1e40af).
+    7. **Spacing:** No text/shape overlap. Well-padded cells/nodes. If content is large, expand the viewBox height accordingly.
+
+    Output: ONLY the <svg>...</svg> code. Nothing else.
   `;
 
   const response = await ai.models.generateContent({

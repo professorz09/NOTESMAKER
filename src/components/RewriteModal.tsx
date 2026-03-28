@@ -8,8 +8,8 @@ interface RewriteModalProps {
   isExtendTable?: boolean;
   extendHeadersPreview?: string;
   rewriteType: 'selection' | 'section';
-  editTab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'table' | 'diagram';
-  setEditTab: (tab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'table' | 'diagram') => void;
+  editTab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram';
+  setEditTab: (tab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram') => void;
   rewriteModel: string;
   setRewriteModel: (model: string) => void;
   rewriteInstruction: string;
@@ -125,13 +125,13 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
 
           <div className="p-4 sm:p-6">
             <div className="flex flex-wrap p-1 bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl mb-6 ring-1 ring-slate-200/50 dark:ring-slate-700/50 gap-1">
-                {(['rewrite', 'expand', 'continue', 'next_topic', 'image', 'table', 'diagram'] as const).map(tab => (
+                {(['rewrite', 'expand', 'continue', 'next_topic', 'image', 'diagram'] as const).map(tab => (
                     <button 
                         key={tab}
                         onClick={() => setEditTab(tab)}
                         className={`flex-1 min-w-[20%] sm:min-w-0 py-2 px-1 text-[10px] sm:text-[11px] font-bold rounded-xl capitalize transition-all duration-200 ${editTab === tab ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transform scale-[1.02] ring-1 ring-slate-200/50 dark:ring-slate-600/50' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                     >
-                        {tab === 'expand' ? 'Deep Dive' : tab === 'continue' ? 'Continue' : tab === 'next_topic' ? 'Detailed Notes' : tab === 'image' ? 'Image' : tab === 'table' ? 'Compare Table' : tab === 'diagram' ? 'Diagram' : 'Refine'}
+                        {tab === 'expand' ? 'Deep Dive' : tab === 'continue' ? 'Continue' : tab === 'next_topic' ? 'Detailed Notes' : tab === 'image' ? 'Image' : tab === 'diagram' ? 'Diagram' : 'Refine'}
                     </button>
                 ))}
             </div>
@@ -156,8 +156,7 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                     editTab === 'expand' ? "e.g. Add 3 examples and a comparison table..." : 
                     editTab === 'image' ? "e.g. A detailed diagram of a cell structure..." :
                     editTab === 'next_topic' ? "e.g. The impact of economic reforms..." :
-                    editTab === 'table' ? "e.g. Compare features of X and Y..." :
-                    editTab === 'diagram' ? "e.g. Create a mindmap of this topic..." :
+                    editTab === 'diagram' ? "e.g. Mindmap / flowchart / comparison table of this topic..." :
                     "e.g. Make it more professional..."
                 }
                 className="w-full px-4 py-3.5 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-8 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 transition-shadow shadow-sm"
@@ -173,7 +172,6 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                             editTab === 'continue' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20' : 
                             editTab === 'next_topic' ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20' :
                             editTab === 'image' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20' :
-                            editTab === 'table' ? 'bg-teal-600 hover:bg-teal-700 shadow-teal-500/20' :
                             editTab === 'diagram' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/20' :
                             'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
                         }`}
@@ -183,7 +181,6 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                             editTab === 'continue' ? 'Generate Next' : 
                             editTab === 'next_topic' ? 'Generate Detailed Notes' :
                             editTab === 'image' ? 'Create Illustration' :
-                            editTab === 'table' ? 'Create Comparison Table' :
                             editTab === 'diagram' ? 'Create Diagram' :
                             'Apply Changes'
                         }

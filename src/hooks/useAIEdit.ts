@@ -6,13 +6,12 @@ import {
   generateNextContent,
   generateDetailedNextTopic,
   generateSectionImage,
-  generateComplexTable,
   generateDiagram,
   extendTableRows,
 } from '../services/ai';
 import { getSectionNodes } from '../utils/editorUtils';
 
-type EditTab = 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'table' | 'diagram';
+type EditTab = 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram';
 
 interface UseAIEditProps {
   isEditing: boolean;
@@ -281,7 +280,6 @@ export function useAIEdit({
         else if (editTab === 'continue') resultHtml = await generateNextContent(activeSectionHtml, rewriteInstruction, rewriteModel);
         else if (editTab === 'next_topic') resultHtml = await generateDetailedNextTopic(activeSectionHtml, rewriteInstruction, rewriteModel);
         else if (editTab === 'image') resultHtml = activeSectionHtml + await generateSectionImage(activeSectionHtml, rewriteInstruction);
-        else if (editTab === 'table') resultHtml = await generateComplexTable(activeSectionHtml, rewriteInstruction, rewriteModel);
         else if (editTab === 'diagram') resultHtml = activeSectionHtml + await generateDiagram(activeSectionHtml, rewriteInstruction, rewriteModel);
       } else {
         const selectedText = selectionRangeRef.current?.toString() || '';
@@ -290,7 +288,6 @@ export function useAIEdit({
         else if (editTab === 'continue') resultHtml = selectedText + ' ' + await generateNextContent(selectedText, rewriteInstruction, rewriteModel);
         else if (editTab === 'next_topic') resultHtml = selectedText + ' ' + await generateDetailedNextTopic(selectedText, rewriteInstruction, rewriteModel);
         else if (editTab === 'image') resultHtml = selectedText + '<br/>' + await generateSectionImage(selectedText, rewriteInstruction);
-        else if (editTab === 'table') resultHtml = await generateComplexTable(selectedText, rewriteInstruction, rewriteModel);
         else if (editTab === 'diagram') resultHtml = selectedText + '<br/>' + await generateDiagram(selectedText, rewriteInstruction, rewriteModel);
       }
 
