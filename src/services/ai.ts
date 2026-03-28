@@ -198,6 +198,45 @@ export const generateTopicDetailedTable = async (
   return cleanHtmlOutput(response.text || "");
 };
 
+// Generate Smart Table — AI decides the format based on instruction
+export const generateSmartTable = async (
+  topic: string,
+  instruction: string,
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Senior Data Analyst & Subject Matter Expert.
+    Task: Create a highly detailed HTML table for the given topic, guided by the user's instruction.
+    
+    Topic: "${topic}"
+    User Instruction: "${instruction || 'Create the most appropriate and comprehensive table for this topic'}"
+    Language: ${language}
+    
+    DECISION RULES:
+    - Read the instruction carefully and choose the most suitable table format:
+      • Comparison/contrast requested → comparison matrix with entities as columns
+      • List/data/facts requested → detailed data table with categories as rows  
+      • No specific instruction → infer the best table format for the topic (prefer detailed data table for single topics, comparison for multiple entities)
+    
+    CONTENT RULES:
+    1. Use valid HTML: <table> with <thead>, <tbody>, <th>, <tr>, <td>
+    2. Use <ul><li>...</li></ul> inside <td> for multiple points per cell
+    3. Use <strong> for key terms
+    4. Be exhaustive — cover all important aspects of the topic
+    5. Return ONLY valid HTML <table> code. No markdown, no explanation.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
+
 // Generate Structured Notes from Raw Text
 export const generateFormattedNotes = async (
   rawText: string,

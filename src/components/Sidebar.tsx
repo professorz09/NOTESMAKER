@@ -18,7 +18,6 @@ import {
   ChevronRight,
   Type,
   BarChart2,
-  LayoutList,
 } from 'lucide-react';
 import { GenerationStatus } from '../types';
 
@@ -27,8 +26,10 @@ interface SidebarProps {
   setSidebarOpen: (open: boolean) => void;
   mode: 'topic' | 'text' | 'file';
   setMode: (mode: 'topic' | 'text' | 'file') => void;
-  outputStyle: 'notes' | 'upsc' | 'research' | 'compare_table' | 'detailed_table';
-  setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'compare_table' | 'detailed_table') => void;
+  outputStyle: 'notes' | 'upsc' | 'research' | 'table';
+  setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'table') => void;
+  tableInstruction: string;
+  setTableInstruction: (v: string) => void;
   wordLimit: number;
   setWordLimit: (limit: number) => void;
   topicInput: string;
@@ -44,7 +45,6 @@ interface SidebarProps {
   setAiModel: (model: string) => void;
   handleGenerate: (e: React.FormEvent) => void;
   handleGenerateTable: (e: React.MouseEvent) => void;
-  handleGenerateDetailedTable: (e: React.MouseEvent) => void;
   status: GenerationStatus;
   handleClearCanvas: () => void;
   handleUndo: () => void;
@@ -57,34 +57,33 @@ const MODELS = [
 ];
 
 const OUTPUT_STYLES = [
-  { id: 'notes',          label: 'Detailed Notes',   icon: AlignLeft,   desc: 'Structured study notes' },
-  { id: 'upsc',           label: 'UPSC Mains',       icon: GraduationCap, desc: 'Exam-ready answers' },
-  { id: 'research',       label: 'Research Paper',   icon: FlaskConical, desc: 'Academic format' },
-  { id: 'compare_table',  label: 'Compare Table',    icon: BarChart2,   desc: 'Side-by-side comparison' },
-  { id: 'detailed_table', label: 'Detailed Table',   icon: LayoutList,  desc: 'In-depth data table' },
+  { id: 'notes',    label: 'Detailed Notes',  icon: AlignLeft,    desc: 'Structured study notes' },
+  { id: 'upsc',     label: 'UPSC Mains',      icon: GraduationCap, desc: 'Exam-ready answers' },
+  { id: 'research', label: 'Research Paper',  icon: FlaskConical, desc: 'Academic format' },
+  { id: 'table',    label: 'Table',           icon: BarChart2,    desc: 'AI-structured table' },
 ] as const;
 
 export const Sidebar: React.FC<SidebarProps> = ({
   sidebarOpen, setSidebarOpen,
   mode, setMode,
   outputStyle, setOutputStyle,
+  tableInstruction, setTableInstruction,
   wordLimit, setWordLimit,
   topicInput, setTopicInput,
   textInput, setTextInput,
   files, handleFileUpload, removeFile,
   language, setLanguage,
   aiModel, setAiModel,
-  handleGenerate, handleGenerateTable, handleGenerateDetailedTable,
+  handleGenerate, handleGenerateTable,
   status, handleClearCanvas, handleUndo, canUndo,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
-  const isTableStyle = outputStyle === 'compare_table' || outputStyle === 'detailed_table';
+  const isTableStyle = outputStyle === 'table';
 
   const generateLabel = () => {
     if (isGenerating) return 'Generating...';
-    if (outputStyle === 'compare_table') return 'Generate Compare Table';
-    if (outputStyle === 'detailed_table') return 'Generate Detailed Table';
+    if (outputStyle === 'table') return 'Generate Table';
     if (outputStyle === 'upsc') return 'Generate UPSC Answer';
     if (outputStyle === 'research') return 'Generate Research Paper';
     if (mode === 'text') return 'Format My Notes';
@@ -93,8 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleMainClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (outputStyle === 'compare_table') { handleGenerateTable(e); return; }
-    if (outputStyle === 'detailed_table') { handleGenerateDetailedTable(e); return; }
+    if (outputStyle === 'table') { handleGenerateTable(e); return; }
     handleGenerate(e as any);
   };
 
@@ -181,13 +179,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
                     />
                   ) : (
-                    <input
-                      type="text"
-                      value={topicInput}
-                      onChange={(e) => setTopicInput(e.target.value)}
-                      placeholder="e.g. History of Mughal Empire..."
-                      className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all"
-                    />
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={topicInput}
+                        onChange={(e) => setTopicInput(e.target.value)}
+                        placeholder="e.g. History of Mughal Empire..."
+                        className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all"
+                      />
+                      {outputStyle === 'table' && (
+                        <input
+                          type="text"
+                          value={tableInstruction}
+                          onChange={(e) => setTableInstruction(e.target.value)}
+                          placeholder="Table instruction e.g. Compare Articles 12-35 of Indian Constitution..."
+                          className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/60 focus:bg-white/6 transition-all"
+                        />
+                      )}
+                    </div>
                   )
                 ) : mode === 'text' ? (
                   <textarea

@@ -76,6 +76,7 @@ const App: React.FC = () => {
   const {
     mode, setMode,
     outputStyle, setOutputStyle,
+    tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     status,
     language, setLanguage,
@@ -84,7 +85,7 @@ const App: React.FC = () => {
     textInput, setTextInput,
     files,
     handleFileUpload, removeFile,
-    handleGenerate, handleGenerateTable, handleGenerateDetailedTable,
+    handleGenerate, handleGenerateTable,
     handleClearCanvas,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen });
 
@@ -223,9 +224,9 @@ const App: React.FC = () => {
         removeFile={removeFile}
         language={language} setLanguage={setLanguage}
         aiModel={aiModel} setAiModel={setAiModel}
+        tableInstruction={tableInstruction} setTableInstruction={setTableInstruction}
         handleGenerate={handleGenerate}
         handleGenerateTable={handleGenerateTable}
-        handleGenerateDetailedTable={handleGenerateDetailedTable}
         status={status}
         handleClearCanvas={onClearCanvas}
         handleUndo={handleUndo}

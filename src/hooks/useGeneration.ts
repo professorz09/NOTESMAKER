@@ -1,8 +1,7 @@
 import { useState, type MutableRefObject } from 'react';
 import {
   generateTopicContent,
-  generateTopicComparisonTable,
-  generateTopicDetailedTable,
+  generateSmartTable,
   generateFormattedNotes,
   generateFileNotes,
   generateUPSCAnswer,
@@ -29,7 +28,8 @@ export function useGeneration({
   setSidebarOpen,
 }: UseGenerationProps) {
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
-  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'compare_table' | 'detailed_table'>('notes');
+  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
+  const [tableInstruction, setTableInstruction] = useState('');
   const [wordLimit, setWordLimit] = useState(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi');
@@ -101,21 +101,7 @@ export function useGeneration({
     if (!topicInput.trim()) { alert('Please enter a topic first.'); return; }
     setStatus(GenerationStatus.GENERATING_TABLE);
     try {
-      const result = await generateTopicComparisonTable(topicInput, language, aiModel);
-      finishGeneration(result);
-    } catch (error) {
-      if (!isResettingRef.current) { console.error(error); alert('Error generating table. Please try again.'); }
-    } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
-    }
-  };
-
-  const handleGenerateDetailedTable = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!topicInput.trim()) { alert('Please enter a topic first.'); return; }
-    setStatus(GenerationStatus.GENERATING_DETAILED_TABLE);
-    try {
-      const result = await generateTopicDetailedTable(topicInput, language, aiModel);
+      const result = await generateSmartTable(topicInput, tableInstruction, language, aiModel);
       finishGeneration(result);
     } catch (error) {
       if (!isResettingRef.current) { console.error(error); alert('Error generating table. Please try again.'); }
@@ -142,6 +128,7 @@ export function useGeneration({
   return {
     mode, setMode,
     outputStyle, setOutputStyle,
+    tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     status,
     language, setLanguage,
@@ -153,7 +140,6 @@ export function useGeneration({
     removeFile,
     handleGenerate,
     handleGenerateTable,
-    handleGenerateDetailedTable,
     handleClearCanvas,
   };
 }
