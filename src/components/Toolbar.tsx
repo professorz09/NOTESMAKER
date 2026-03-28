@@ -68,8 +68,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
              )}
              <div className="flex items-center gap-1 md:gap-2">
                 <div className="flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 rounded-lg md:rounded-xl p-1 border border-slate-200/60 dark:border-slate-700/60">
-                    <button onClick={handleUndo} disabled={!canUndo} className="p-1.5 md:p-2 rounded-md hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm text-slate-600 dark:text-slate-300 disabled:opacity-30 transition-all"><Undo className="w-4 h-4"/></button>
-                    <button onClick={handleRedo} disabled={!canRedo} className="p-1.5 md:p-2 rounded-md hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm text-slate-600 dark:text-slate-300 disabled:opacity-30 transition-all"><Redo className="w-4 h-4"/></button>
+                    <button onClick={handleUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" className="p-1.5 md:p-2 rounded-md hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm text-slate-600 dark:text-slate-300 disabled:opacity-30 transition-all"><Undo className="w-4 h-4"/></button>
+                    <button onClick={handleRedo} disabled={!canRedo} title="Redo (Ctrl+Y)" className="p-1.5 md:p-2 rounded-md hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm text-slate-600 dark:text-slate-300 disabled:opacity-30 transition-all"><Redo className="w-4 h-4"/></button>
                 </div>
                 
                 {/* FONT SIZE CONTROLS - Hidden on mobile to save space */}

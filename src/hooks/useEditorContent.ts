@@ -71,9 +71,16 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     };
   }, [saveToStorage, isEditing]);
 
+  const cancelPendingHistoryPush = useCallback(() => {
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
+    }
+  }, []);
+
   const handleEditorInput = useCallback(() => {
     if (isResettingRef.current) return;
-    if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current);
+    cancelPendingHistoryPush();
     historyTimeoutRef.current = setTimeout(() => {
       if (isResettingRef.current) return;
       const raw = editorRef.current ? editorRef.current.innerHTML : '';
@@ -86,7 +93,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
         return prev;
       });
     }, 800);
-  }, [pushToHistory]);
+  }, [pushToHistory, cancelPendingHistoryPush]);
 
   const handleEditorBlur = useCallback(() => {
     if (isResettingRef.current) return;
@@ -127,6 +134,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     getCurrentHtml,
     getCleanHtml,
     saveToStorage,
+    cancelPendingHistoryPush,
     handleEditorInput,
     handleEditorBlur,
     handleEditorKeyDown,

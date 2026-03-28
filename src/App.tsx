@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { RewriteModal } from './components/RewriteModal';
@@ -70,6 +70,7 @@ const App: React.FC = () => {
     fontSize,
     editorRef, isResettingRef,
     getCurrentHtml, getCleanHtml, saveToStorage,
+    cancelPendingHistoryPush,
     handleEditorInput, handleEditorBlur, handleEditorKeyDown,
     handleZoomIn, handleZoomOut,
   } = useEditorContent({ pushToHistory });
@@ -146,21 +147,59 @@ const App: React.FC = () => {
   };
 
   // --- UNDO / REDO ---
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setGeneratedHtml(history[newIndex]);
-      setHistoryIndex(newIndex);
-    }
-  };
+  const applyHistoryIndex = useCallback((newIndex: number, historySnap: string[]) => {
+    const content = historySnap[newIndex];
+    cancelPendingHistoryPush();
+    isResettingRef.current = true;
+    setGeneratedHtml(content);
+    setHistoryIndex(newIndex);
+    localStorage.setItem(STORAGE_KEY, content);
+    // Force sync DOM immediately for editing mode
+    if (editorRef.current) editorRef.current.innerHTML = content;
+    setTimeout(() => { isResettingRef.current = false; }, 150);
+  }, [cancelPendingHistoryPush, setGeneratedHtml, setHistoryIndex, editorRef, isResettingRef]);
 
-  const handleRedo = () => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setGeneratedHtml(history[newIndex]);
-      setHistoryIndex(newIndex);
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) applyHistoryIndex(historyIndex - 1, history);
+  }, [historyIndex, history, applyHistoryIndex]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) applyHistoryIndex(historyIndex + 1, history);
+  }, [historyIndex, history, applyHistoryIndex]);
+
+  // Global keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (!ctrl) return;
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
+      if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); handleRedo(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleUndo, handleRedo]);
+
+  // Auto-save to active project when generation finishes
+  const prevStatusRef = React.useRef(status);
+  useEffect(() => {
+    const wasGenerating = prevStatusRef.current !== GenerationStatus.IDLE;
+    const isNowIdle = status === GenerationStatus.IDLE;
+    prevStatusRef.current = status;
+    if (wasGenerating && isNowIdle && activeProjectId && generatedHtml) {
+      saveProject(activeProjectId, generatedHtml);
     }
-  };
+  }, [status, activeProjectId, generatedHtml, saveProject]);
+
+  // Debounced auto-save to project while editing
+  const projectSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!activeProjectId || !generatedHtml || isResettingRef.current) return;
+    if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current);
+    projectSaveTimerRef.current = setTimeout(() => {
+      if (activeProjectId && generatedHtml) saveProject(activeProjectId, generatedHtml);
+    }, 10000);
+    return () => { if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current); };
+  }, [generatedHtml, activeProjectId, saveProject]);
 
   // --- CLEAR CANVAS ---
   const onClearCanvas = () => {
