@@ -1,0 +1,136 @@
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { STORAGE_KEY } from '../utils/editorUtils';
+
+interface UseEditorContentProps {
+  pushToHistory: (content: string) => void;
+}
+
+export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
+  const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [fontSize, setFontSize] = useState(12);
+
+  const editorRef = useRef<HTMLDivElement>(null);
+  const isResettingRef = useRef(false);
+  const historyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const getCurrentHtml = useCallback(() => {
+    return editorRef.current ? editorRef.current.innerHTML : (generatedHtml || '');
+  }, [generatedHtml]);
+
+  const getCleanHtml = useCallback(() => {
+    if (!editorRef.current) return generatedHtml || '';
+    const clone = editorRef.current.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
+    clone.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
+    clone.querySelectorAll('font').forEach(font => {
+      const span = document.createElement('span');
+      span.innerHTML = font.innerHTML;
+      if (font.getAttribute('style')) span.setAttribute('style', font.getAttribute('style')!);
+      font.replaceWith(span);
+    });
+    return clone.innerHTML;
+  }, [generatedHtml]);
+
+  const saveToStorage = useCallback(() => {
+    if (isResettingRef.current) return;
+    const content = getCleanHtml();
+    if (content) localStorage.setItem(STORAGE_KEY, content);
+    return content;
+  }, [getCleanHtml]);
+
+  // Load saved draft on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      setGeneratedHtml(saved);
+      pushToHistory(saved);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync DOM with state (without disrupting cursor during typing)
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== (generatedHtml || '')) {
+      editorRef.current.innerHTML = generatedHtml || '';
+    }
+  }, [generatedHtml]);
+
+  // Auto-save on tab-switch, page hide, and every 5s while editing
+  useEffect(() => {
+    const onVisibility = () => { if (document.visibilityState === 'hidden') saveToStorage(); };
+    const intervalId = setInterval(() => { if (isEditing) saveToStorage(); }, 5000);
+    window.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', saveToStorage);
+    window.addEventListener('beforeunload', saveToStorage);
+    return () => {
+      window.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', saveToStorage);
+      window.removeEventListener('beforeunload', saveToStorage);
+      clearInterval(intervalId);
+    };
+  }, [saveToStorage, isEditing]);
+
+  const handleEditorInput = useCallback(() => {
+    if (isResettingRef.current) return;
+    if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current);
+    historyTimeoutRef.current = setTimeout(() => {
+      if (isResettingRef.current) return;
+      const raw = editorRef.current ? editorRef.current.innerHTML : '';
+      setGeneratedHtml(prev => {
+        if (raw !== prev) {
+          pushToHistory(raw);
+          if (!isResettingRef.current) localStorage.setItem(STORAGE_KEY, raw);
+          return raw;
+        }
+        return prev;
+      });
+    }, 800);
+  }, [pushToHistory]);
+
+  const handleEditorBlur = useCallback(() => {
+    if (isResettingRef.current) return;
+    if (editorRef.current) setGeneratedHtml(editorRef.current.innerHTML);
+  }, []);
+
+  const handleEditorKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+' || e.key === '-')) {
+      e.preventDefault();
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+      const parentEl = selection.anchorNode?.parentElement;
+      if (!parentEl) return;
+      const currentSize = parseFloat(window.getComputedStyle(parentEl).fontSize);
+      const change = (e.key === '=' || e.key === '+') ? 2 : -2;
+      const newSize = Math.max(8, currentSize + change);
+      document.execCommand('styleWithCSS', false, 'false');
+      document.execCommand('fontSize', false, '7');
+      editorRef.current?.querySelectorAll('font[size="7"]').forEach(el => {
+        el.removeAttribute('size');
+        (el as HTMLElement).style.fontSize = `${newSize}px`;
+      });
+      handleEditorInput();
+    }
+  }, [handleEditorInput]);
+
+  const handleZoomIn = useCallback(() => setFontSize(p => Math.min(p + 1, 18)), []);
+  const handleZoomOut = useCallback(() => setFontSize(p => Math.max(p - 1, 8)), []);
+
+  return {
+    generatedHtml,
+    setGeneratedHtml,
+    isEditing,
+    setIsEditing,
+    fontSize,
+    editorRef,
+    isResettingRef,
+    getCurrentHtml,
+    getCleanHtml,
+    saveToStorage,
+    handleEditorInput,
+    handleEditorBlur,
+    handleEditorKeyDown,
+    handleZoomIn,
+    handleZoomOut,
+  };
+}
