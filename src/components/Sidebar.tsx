@@ -20,6 +20,8 @@ import {
   BarChart2,
 } from 'lucide-react';
 import { GenerationStatus } from '../types';
+import { ProjectsPanel } from './ProjectsPanel';
+import type { ProjectMeta } from '../hooks/useProjects';
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -49,6 +51,19 @@ interface SidebarProps {
   handleClearCanvas: () => void;
   handleUndo: () => void;
   canUndo: boolean;
+  // Projects
+  projects: ProjectMeta[];
+  projectsLoading: boolean;
+  projectsError: string | null;
+  activeProjectId: string | null;
+  isSupabaseConfigured: boolean;
+  onFetchProjects: () => void;
+  onSelectProject: (id: string) => void;
+  onCreateProject: (name: string) => void;
+  onDeleteProject: (id: string) => void;
+  onRenameProject: (id: string, name: string) => void;
+  onSaveCurrentProject: () => void;
+  hasContent: boolean;
 }
 
 const MODELS = [
@@ -76,6 +91,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   aiModel, setAiModel,
   handleGenerate, handleGenerateTable,
   status, handleClearCanvas, handleUndo, canUndo,
+  projects, projectsLoading, projectsError, activeProjectId, isSupabaseConfigured,
+  onFetchProjects, onSelectProject, onCreateProject, onDeleteProject, onRenameProject,
+  onSaveCurrentProject, hasContent,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
@@ -350,6 +368,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
             </div>
+
+          {/* ── PROJECTS PANEL ── */}
+          <ProjectsPanel
+            projects={projects}
+            loading={projectsLoading}
+            error={projectsError}
+            activeProjectId={activeProjectId}
+            isSupabaseConfigured={isSupabaseConfigured}
+            onOpen={onFetchProjects}
+            onSelectProject={onSelectProject}
+            onCreateProject={onCreateProject}
+            onDeleteProject={onDeleteProject}
+            onRenameProject={onRenameProject}
+            onSaveCurrentProject={onSaveCurrentProject}
+            hasContent={hasContent}
+          />
 
           </div>
 

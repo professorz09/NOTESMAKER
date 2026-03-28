@@ -8,6 +8,7 @@ import { useHistory } from './hooks/useHistory';
 import { useEditorContent } from './hooks/useEditorContent';
 import { useGeneration } from './hooks/useGeneration';
 import { useAIEdit } from './hooks/useAIEdit';
+import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { BookOpen, RefreshCw, Sparkles, Download, Settings } from 'lucide-react';
 
@@ -103,6 +104,46 @@ const App: React.FC = () => {
     openSelectionRewriteModal,
     handleRewriteSubmit,
   } = useAIEdit({ isEditing, generatedHtml, getCurrentHtml, pushToHistory, saveToStorage, editorRef, isResettingRef, setGeneratedHtml });
+
+  // --- PROJECTS ---
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+    activeProjectId,
+    setActiveProjectId,
+    fetchProjects,
+    loadProjectContent,
+    createProject,
+    saveProject,
+    renameProject,
+    deleteProject,
+    isSupabaseConfigured,
+  } = useProjects();
+
+  const handleSelectProject = async (id: string) => {
+    const content = await loadProjectContent(id);
+    if (content !== null) {
+      isResettingRef.current = true;
+      setGeneratedHtml(content);
+      pushToHistory(content);
+      localStorage.setItem(STORAGE_KEY, content);
+      setTimeout(() => { isResettingRef.current = false; }, 100);
+    }
+    setActiveProjectId(id);
+  };
+
+  const handleCreateProject = async (name: string) => {
+    const content = isEditing && editorRef.current ? getCleanHtml() : (generatedHtml || '');
+    const proj = await createProject(name, content);
+    if (proj) setActiveProjectId(proj.id);
+  };
+
+  const handleSaveCurrentProject = async () => {
+    if (!activeProjectId) return;
+    const content = isEditing && editorRef.current ? getCleanHtml() : (generatedHtml || '');
+    await saveProject(activeProjectId, content);
+  };
 
   // --- UNDO / REDO ---
   const handleUndo = () => {
@@ -231,6 +272,18 @@ const App: React.FC = () => {
         handleClearCanvas={onClearCanvas}
         handleUndo={handleUndo}
         canUndo={canUndo}
+        projects={projects}
+        projectsLoading={projectsLoading}
+        projectsError={projectsError}
+        activeProjectId={activeProjectId}
+        isSupabaseConfigured={isSupabaseConfigured}
+        onFetchProjects={fetchProjects}
+        onSelectProject={handleSelectProject}
+        onCreateProject={handleCreateProject}
+        onDeleteProject={deleteProject}
+        onRenameProject={renameProject}
+        onSaveCurrentProject={handleSaveCurrentProject}
+        hasContent={!!generatedHtml}
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">
