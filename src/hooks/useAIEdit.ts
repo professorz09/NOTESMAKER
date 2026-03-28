@@ -48,6 +48,9 @@ export function useAIEdit({
   const isTableExtendMode = useRef(false);
   const extendTableRef = useRef<Element | null>(null);
 
+  const [isExtendTableOpen, setIsExtendTableOpen] = useState(false);
+  const [extendHeadersPreview, setExtendHeadersPreview] = useState('');
+
   // Add/remove AI edit trigger buttons when editing mode changes
   useEffect(() => {
     if (!editorRef.current) return;
@@ -171,11 +174,20 @@ export function useAIEdit({
     isTableExtendMode.current = true;
     extendTableRef.current = tableEl;
 
+    // Build a plain-text preview of the column headers for the modal UI
+    const tempDiv2 = document.createElement('div');
+    tempDiv2.innerHTML = headersHtml;
+    const headerTexts = Array.from(tempDiv2.querySelectorAll('th'))
+      .map(th => th.textContent?.trim())
+      .filter(Boolean);
+    setExtendHeadersPreview(headerTexts.join(' | ') || 'Table context captured');
+
     // Use activeSectionHtml to carry context to handleRewriteSubmit
     setActiveSectionHtml(JSON.stringify({ headersHtml, lastRowsHtml }));
     setRewriteType('section');
     setEditTab('table');
     setRewriteInstruction('');
+    setIsExtendTableOpen(true);
     setRewriteModalOpen(true);
   }, [getCurrentHtml, pushToHistory, setGeneratedHtml, editorRef]);
 
@@ -329,11 +341,13 @@ export function useAIEdit({
       if (!isResettingRef.current) setIsRewriting(false);
       isTableExtendMode.current = false;
       extendTableRef.current = null;
+      setIsExtendTableOpen(false);
     }
   };
 
   const closeRewriteModal = useCallback(() => {
     setRewriteModalOpen(false);
+    setIsExtendTableOpen(false);
     isTableExtendMode.current = false;
     extendTableRef.current = null;
   }, []);
@@ -341,6 +355,8 @@ export function useAIEdit({
   return {
     rewriteModalOpen,
     closeRewriteModal,
+    isExtendTableOpen,
+    extendHeadersPreview,
     rewriteInstruction, setRewriteInstruction,
     isRewriting,
     activeSectionHtml,

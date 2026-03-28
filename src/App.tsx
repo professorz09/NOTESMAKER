@@ -90,6 +90,7 @@ const App: React.FC = () => {
 
   const {
     rewriteModalOpen, closeRewriteModal,
+    isExtendTableOpen, extendHeadersPreview,
     rewriteInstruction, setRewriteInstruction,
     isRewriting,
     activeSectionHtml,
@@ -303,6 +304,8 @@ const App: React.FC = () => {
       <RewriteModal
         isOpen={rewriteModalOpen}
         onClose={closeRewriteModal}
+        isExtendTable={isExtendTableOpen}
+        extendHeadersPreview={extendHeadersPreview}
         rewriteType={rewriteType}
         editTab={editTab} setEditTab={setEditTab}
         rewriteModel={rewriteModel} setRewriteModel={setRewriteModel}

@@ -1,10 +1,12 @@
 import React from 'react';
-import { Sparkles, Wand2, ArrowLeft } from 'lucide-react';
+import { Sparkles, Wand2, ArrowLeft, TableProperties } from 'lucide-react';
 import { Button } from './Button';
 
 interface RewriteModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isExtendTable?: boolean;
+  extendHeadersPreview?: string;
   rewriteType: 'selection' | 'section';
   editTab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'table' | 'diagram';
   setEditTab: (tab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'table' | 'diagram') => void;
@@ -20,6 +22,8 @@ interface RewriteModalProps {
 export const RewriteModal: React.FC<RewriteModalProps> = ({
   isOpen,
   onClose,
+  isExtendTable = false,
+  extendHeadersPreview = '',
   rewriteType,
   editTab,
   setEditTab,
@@ -32,6 +36,71 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
   selectionText
 }) => {
   if (!isOpen) return null;
+
+  if (isExtendTable) {
+    return (
+      <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-950/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-0 overflow-hidden animate-in zoom-in duration-200 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+          <div className="bg-teal-50/80 dark:bg-teal-900/30 p-5 border-b border-teal-100 dark:border-teal-800/40 flex items-center justify-between">
+            <h3 className="text-lg font-bold flex items-center gap-3 text-slate-800 dark:text-slate-100">
+              <div className="p-2 bg-teal-100 dark:bg-teal-900/60 rounded-xl">
+                <TableProperties className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+              </div>
+              Extend Table
+            </h3>
+            <div className="flex items-center gap-3">
+              <select
+                value={rewriteModel}
+                onChange={(e) => setRewriteModel(e.target.value)}
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg focus:ring-teal-500 focus:border-teal-500 block p-1.5 font-medium shadow-sm"
+              >
+                <option value="gemini-3-flash-preview">Flash (Fast)</option>
+                <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
+              </select>
+              <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 p-2 rounded-xl transition-all">
+                <ArrowLeft className="w-5 h-5 rotate-180" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-5 sm:p-6">
+            <div className="mb-5">
+              <span className="text-[10px] font-bold text-teal-500 dark:text-teal-400 uppercase tracking-widest">Selected Context</span>
+              <div className="mt-1.5 text-sm text-slate-600 dark:text-slate-400 bg-teal-50/60 dark:bg-teal-900/20 p-3.5 rounded-2xl border border-teal-100 dark:border-teal-800/40 font-medium leading-relaxed">
+                {extendHeadersPreview || 'Table context captured'}
+              </div>
+            </div>
+
+            <form onSubmit={handleRewriteSubmit}>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                Instruction <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={rewriteInstruction}
+                onChange={(e) => setRewriteInstruction(e.target.value)}
+                placeholder="e.g. Add more state examples, focus on economy..."
+                className="w-full px-4 py-3.5 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 mb-6 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 transition-shadow shadow-sm"
+                autoFocus
+              />
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <Button type="button" variant="secondary" onClick={onClose} disabled={isRewriting} className="border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300">
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  isLoading={isRewriting}
+                  className="bg-teal-600 hover:bg-teal-700 shadow-teal-500/20 text-white shadow-lg rounded-xl"
+                >
+                  Add Rows
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-950/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
