@@ -12,6 +12,16 @@ import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { BookOpen, RefreshCw, Sparkles, Download, Settings } from 'lucide-react';
 
+function extractProjectName(html: string): string {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const h1 = div.querySelector('h1');
+  if (h1?.textContent?.trim()) return h1.textContent.trim().slice(0, 70);
+  const h2 = div.querySelector('h2');
+  if (h2?.textContent?.trim()) return h2.textContent.trim().slice(0, 70);
+  return `Topic — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}`;
+}
+
 const App: React.FC = () => {
   // --- API KEY ---
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -136,15 +146,9 @@ const App: React.FC = () => {
 
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
-  const extractProjectName = (html: string): string => {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    const h1 = div.querySelector('h1');
-    if (h1?.textContent?.trim()) return h1.textContent.trim().slice(0, 70);
-    const h2 = div.querySelector('h2');
-    if (h2?.textContent?.trim()) return h2.textContent.trim().slice(0, 70);
-    return `Project — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
-  };
+  // Always track latest generatedHtml in a ref — avoids stale closure in async effects
+  const generatedHtmlRef = React.useRef<string | null>(generatedHtml);
+  useEffect(() => { generatedHtmlRef.current = generatedHtml; }, [generatedHtml]);
 
   const handleCreateProject = async () => {
     const content = isEditing && editorRef.current ? getCleanHtml() : (generatedHtml || '');
@@ -158,6 +162,13 @@ const App: React.FC = () => {
     const ok = await saveProject(id, html);
     if (ok) setLastSavedAt(new Date());
   }, [saveProject]);
+
+  // Manual "Save now" — saves current editor content to active project
+  const handleSaveNow = useCallback(async () => {
+    if (!activeProjectId) return;
+    const html = isEditing && editorRef.current ? getCleanHtml() : (generatedHtmlRef.current || '');
+    if (html) await saveToProject(activeProjectId, html);
+  }, [activeProjectId, isEditing, editorRef, getCleanHtml, saveToProject]);
 
   // --- UNDO / REDO ---
   const applyHistoryIndex = useCallback((newIndex: number, historySnap: string[]) => {
@@ -192,35 +203,32 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [handleUndo, handleRedo]);
 
-  // Auto-create new project OR auto-save existing when generation finishes
+  // Every generation → always create a BRAND NEW project entry in history
   const prevStatusRef = React.useRef(status);
   useEffect(() => {
     const wasGenerating = prevStatusRef.current !== GenerationStatus.IDLE;
     const isNowIdle = status === GenerationStatus.IDLE;
     prevStatusRef.current = status;
-    if (!wasGenerating || !isNowIdle || !generatedHtml) return;
-
-    if (activeProjectId) {
-      // Existing project — save to it
-      saveToProject(activeProjectId, generatedHtml);
-    } else {
-      // No project yet — auto-create one with H1 name
-      const name = extractProjectName(generatedHtml);
-      createProject(name, generatedHtml).then(proj => {
-        if (proj) { setActiveProjectId(proj.id); setLastSavedAt(new Date()); }
-      });
-    }
+    if (!wasGenerating || !isNowIdle) return;
+    // Use ref so we always read the latest value, never stale
+    const html = generatedHtmlRef.current;
+    if (!html) return;
+    const name = extractProjectName(html);
+    createProject(name, html).then(proj => {
+      if (proj) { setActiveProjectId(proj.id); setLastSavedAt(new Date()); }
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // Debounced auto-save to project while editing (every 8s)
+  // Debounced auto-save to active project while editing (every 3s)
   const projectSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!activeProjectId || !generatedHtml || isResettingRef.current) return;
     if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current);
     projectSaveTimerRef.current = setTimeout(() => {
-      if (activeProjectId && generatedHtml) saveToProject(activeProjectId, generatedHtml);
-    }, 8000);
+      const html = generatedHtmlRef.current;
+      if (activeProjectId && html) saveToProject(activeProjectId, html);
+    }, 3000);
     return () => { if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current); };
   }, [generatedHtml, activeProjectId, saveToProject]);
 
@@ -341,6 +349,7 @@ const App: React.FC = () => {
         isSupabaseConfigured={isSupabaseConfigured}
         lastSavedAt={lastSavedAt}
         onFetchProjects={fetchProjects}
+        onSaveNow={handleSaveNow}
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
         onDeleteProject={deleteProject}

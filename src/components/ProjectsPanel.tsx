@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Trash2, Pencil, Check, X, Cloud, HardDrive,
-  Loader2, RefreshCw, Search, Plus, CheckCircle2, History,
+  Loader2, RefreshCw, Search, Plus, CheckCircle2, History, Save,
 } from 'lucide-react';
 import type { ProjectMeta } from '../hooks/useProjects';
 
@@ -14,6 +14,7 @@ interface ProjectsPanelProps {
   lastSavedAt: Date | null;
   onOpen: () => void;
   onSync: () => void;
+  onSaveNow: () => void;
   onSelectProject: (id: string) => void;
   onCreateProject: () => void;
   onDeleteProject: (id: string) => void;
@@ -52,6 +53,7 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
   lastSavedAt,
   onOpen,
   onSync,
+  onSaveNow,
   onSelectProject,
   onCreateProject,
   onDeleteProject,
@@ -158,11 +160,25 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
         }
       </div>
 
-      {/* ── AUTO-SAVE STATUS (always visible, not collapsible) ── */}
-      {activeProjectId && lastSavedAt && (
-        <div className="flex items-center gap-1 px-2 py-1 mb-1">
-          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500 flex-shrink-0" />
-          <span className="text-[9px] text-slate-600">Saved {timeAgo(lastSavedAt)}</span>
+      {/* ── AUTO-SAVE STATUS + MANUAL SAVE (always visible) ── */}
+      {activeProjectId && (
+        <div className="flex items-center gap-1.5 px-2 py-1 mb-0.5">
+          {lastSavedAt ? (
+            <>
+              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500/70 flex-shrink-0" />
+              <span className="text-[9px] text-slate-600 flex-1">Saved {timeAgo(lastSavedAt)}</span>
+            </>
+          ) : (
+            <span className="text-[9px] text-slate-700 flex-1">Not saved yet</span>
+          )}
+          <button
+            onClick={onSaveNow}
+            title="Save now"
+            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] text-slate-600 hover:text-amber-300 hover:bg-amber-500/10 transition-colors"
+          >
+            <Save className="w-2.5 h-2.5" />
+            <span>Save</span>
+          </button>
         </div>
       )}
 
