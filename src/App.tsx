@@ -52,6 +52,31 @@ import {
 
 const STORAGE_KEY = 'ai_book_writer_draft';
 
+const getSectionNodes = (startNode: Element): Element[] => {
+  const nodes: Element[] = [startNode];
+  const tagName = startNode.tagName;
+  const getLevel = (tag: string) => {
+    const t = tag.toUpperCase();
+    if (t === 'H1') return 1;
+    if (t === 'H2') return 2;
+    if (t === 'H3') return 3;
+    if (t === 'H4') return 4;
+    return 10;
+  };
+  const currentLevel = getLevel(tagName);
+  if (currentLevel <= 4) {
+    let nextSibling = startNode.nextElementSibling;
+    while (nextSibling) {
+      const nextTag = nextSibling.tagName;
+      const nextLevel = getLevel(nextTag);
+      if (nextLevel <= currentLevel) break;
+      nodes.push(nextSibling);
+      nextSibling = nextSibling.nextElementSibling;
+    }
+  }
+  return nodes;
+};
+
 const App: React.FC = () => {
   // --- API KEY STATE ---
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
@@ -175,13 +200,15 @@ const App: React.FC = () => {
   // --- 1. INITIALIZATION & HISTORY ---
 
   const pushToHistory = useCallback((content: string) => {
-    setHistory(prev => {
-      if (historyIndex >= 0 && prev[historyIndex] === content) return prev;
-      const newHistory = prev.slice(0, historyIndex + 1);
-      return [...newHistory, content];
+    setHistoryIndex(prevIndex => {
+      setHistory(prev => {
+        if (prevIndex >= 0 && prev[prevIndex] === content) return prev;
+        const newHistory = prev.slice(0, prevIndex + 1);
+        return [...newHistory, content];
+      });
+      return prevIndex + 1;
     });
-    setHistoryIndex(prev => prev + 1);
-  }, [historyIndex]);
+  }, []);
 
   useEffect(() => {
     const savedContent = localStorage.getItem(STORAGE_KEY);
@@ -446,31 +473,35 @@ const App: React.FC = () => {
   };
 
   // --- 4. REWRITE & EDIT LOGIC ---
-  // (Helper for edit buttons)
-  const getSectionNodes = (startNode: Element): Element[] => {
-    const nodes: Element[] = [startNode];
-    const tagName = startNode.tagName;
-    const getLevel = (tag: string) => {
-      const t = tag.toUpperCase();
-      if (t === 'H1') return 1;
-      if (t === 'H2') return 2;
-      if (t === 'H3') return 3;
-      if (t === 'H4') return 4;
-      return 10; 
-    };
-    const currentLevel = getLevel(tagName);
-    if (currentLevel <= 4) {
-      let nextSibling = startNode.nextElementSibling;
-      while (nextSibling) {
-        const nextTag = nextSibling.tagName;
-        const nextLevel = getLevel(nextTag);
-        if (nextLevel <= currentLevel) break;
-        nodes.push(nextSibling);
-        nextSibling = nextSibling.nextElementSibling;
-      }
-    } 
-    return nodes;
-  };
+
+  const handleSectionEdit = useCallback((startNode: Element, defaultTab?: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'table' | 'diagram') => {
+    if (!editorRef.current) return;
+    const currentRaw = getCurrentHtml();
+    pushToHistory(currentRaw);
+    setGeneratedHtml(currentRaw);
+
+    const editId = `edit-${Date.now()}`;
+    editorRef.current.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
+    startNode.setAttribute('data-edit-id', editId);
+    activeEditIdRef.current = editId;
+
+    const nodes = getSectionNodes(startNode);
+    const tempDiv = document.createElement('div');
+    nodes.forEach(node => {
+        const clone = node.cloneNode(true) as Element;
+        clone.querySelectorAll('.ai-edit-trigger').forEach(trigger => trigger.remove());
+        const tfoot = clone.querySelector('tfoot.table-extend-tfoot');
+        if (tfoot) tfoot.remove();
+        clone.removeAttribute('data-edit-id');
+        tempDiv.appendChild(clone);
+    });
+    setActiveSectionHtml(tempDiv.innerHTML);
+    setGeneratedHtml(editorRef.current.innerHTML);
+    setRewriteType('section');
+    setEditTab(defaultTab || 'rewrite');
+    setRewriteInstruction('');
+    setRewriteModalOpen(true);
+  }, [getCurrentHtml, pushToHistory]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -589,36 +620,7 @@ const App: React.FC = () => {
     const editor = editorRef.current;
     if (editor) editor.addEventListener('click', handleEditorClick);
     return () => { if (editor) editor.removeEventListener('click', handleEditorClick); };
-  }, [isEditing]);
-
-  const handleSectionEdit = (startNode: Element, defaultTab?: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'table' | 'diagram') => {
-    if (!editorRef.current) return;
-    const currentRaw = getCurrentHtml();
-    pushToHistory(currentRaw);
-    setGeneratedHtml(currentRaw);
-
-    const editId = `edit-${Date.now()}`;
-    editorRef.current.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
-    startNode.setAttribute('data-edit-id', editId);
-    activeEditIdRef.current = editId;
-
-    const nodes = getSectionNodes(startNode);
-    const tempDiv = document.createElement('div');
-    nodes.forEach(node => {
-        const clone = node.cloneNode(true) as Element;
-        clone.querySelectorAll('.ai-edit-trigger').forEach(trigger => trigger.remove());
-        const tfoot = clone.querySelector('tfoot.table-extend-tfoot');
-        if (tfoot) tfoot.remove();
-        clone.removeAttribute('data-edit-id'); 
-        tempDiv.appendChild(clone);
-    });
-    setActiveSectionHtml(tempDiv.innerHTML);
-    setGeneratedHtml(editorRef.current.innerHTML); 
-    setRewriteType('section');
-    setEditTab(defaultTab || 'rewrite');
-    setRewriteInstruction('');
-    setRewriteModalOpen(true);
-  };
+  }, [isEditing, handleSectionEdit]);
 
   const openSelectionRewriteModal = () => {
     const selection = window.getSelection();
