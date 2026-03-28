@@ -11,7 +11,7 @@ import {
 } from '../services/ai';
 import { getSectionNodes } from '../utils/editorUtils';
 
-type EditTab = 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram';
+type EditTab = 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram' | 'table';
 
 interface UseAIEditProps {
   isEditing: boolean;

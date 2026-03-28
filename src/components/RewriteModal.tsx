@@ -8,8 +8,8 @@ interface RewriteModalProps {
   isExtendTable?: boolean;
   extendHeadersPreview?: string;
   rewriteType: 'selection' | 'section';
-  editTab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram';
-  setEditTab: (tab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram') => void;
+  editTab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram' | 'table';
+  setEditTab: (tab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram' | 'table') => void;
   rewriteModel: string;
   setRewriteModel: (model: string) => void;
   rewriteInstruction: string;
@@ -124,14 +124,14 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
           </div>
 
           <div className="p-4 sm:p-6">
-            <div className="flex flex-wrap p-1 bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl mb-6 ring-1 ring-slate-200/50 dark:ring-slate-700/50 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-1 bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl mb-6 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
                 {(['rewrite', 'expand', 'continue', 'next_topic', 'image', 'diagram'] as const).map(tab => (
-                    <button 
+                    <button
                         key={tab}
                         onClick={() => setEditTab(tab)}
-                        className={`flex-1 min-w-[20%] sm:min-w-0 py-2 px-1 text-[10px] sm:text-[11px] font-bold rounded-xl capitalize transition-all duration-200 ${editTab === tab ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transform scale-[1.02] ring-1 ring-slate-200/50 dark:ring-slate-600/50' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                        className={`py-2 px-1 text-[10px] sm:text-[11px] font-bold rounded-xl capitalize transition-all duration-200 ${editTab === tab ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transform scale-[1.02] ring-1 ring-slate-200/50 dark:ring-slate-600/50' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                     >
-                        {tab === 'expand' ? 'Deep Dive' : tab === 'continue' ? 'Continue' : tab === 'next_topic' ? 'Detailed Notes' : tab === 'image' ? 'Image' : tab === 'diagram' ? 'Diagram' : 'Refine'}
+                        {tab === 'expand' ? 'Deep Dive' : tab === 'continue' ? 'Continue' : tab === 'next_topic' ? 'Notes' : tab === 'image' ? 'Image' : tab === 'diagram' ? 'Diagram' : 'Refine'}
                     </button>
                 ))}
             </div>

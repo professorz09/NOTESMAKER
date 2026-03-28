@@ -377,7 +377,7 @@ const App: React.FC = () => {
           toggleDarkMode={() => setIsDarkMode(d => !d)}
         />
 
-        <div className="flex-1 overflow-auto pt-16 sm:pt-20 md:pt-28 pb-12 px-2 sm:px-4 md:px-8 relative scrollbar-thin scrollbar-track-transparent">
+        <div className="flex-1 overflow-auto pt-14 md:pt-[4.5rem] lg:pt-[5.5rem] pb-12 px-2 sm:px-4 md:px-8 relative scrollbar-thin scrollbar-track-transparent">
           {status !== GenerationStatus.IDLE && (
             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/60 dark:bg-slate-900/60 backdrop-blur-sm">
               <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-100 dark:border-slate-700">

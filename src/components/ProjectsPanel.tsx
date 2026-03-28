@@ -69,7 +69,7 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
   }, []);
 
   // Open panel → trigger first-load fetch (no-op if already loaded)
-  useEffect(() => { if (isOpen) onOpen(); }, [isOpen]);
+  useEffect(() => { if (isOpen) onOpen(); }, [isOpen, onOpen]);
   useEffect(() => { if (renamingId) renameInputRef.current?.focus(); }, [renamingId]);
 
   const handleRename = useCallback((id: string) => {
