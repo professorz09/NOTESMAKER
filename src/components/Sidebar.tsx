@@ -71,7 +71,7 @@ interface SidebarProps {
   handleTranslatePdfUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleTranslatePdf: () => void;
   setTranslatePdfFile: (f: null) => void;
-  translateProgress: { current: number; total: number } | null;
+  translateProgress: { current: number; total: number; secondsLeft?: number } | null;
 }
 
 const MODELS = [
@@ -441,14 +441,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                   </button>
                   {isGenerating && translateProgress && (
-                    <div className="w-full bg-white/8 rounded-full h-1 overflow-hidden">
-                      <div
-                        className="h-1 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.round((translateProgress.current / translateProgress.total) * 100)}%`,
-                          background: 'linear-gradient(90deg, #ea580c, #dc2626)',
-                        }}
-                      />
+                    <div className="space-y-1.5">
+                      <div className="w-full bg-white/8 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="h-1.5 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.round((translateProgress.current / translateProgress.total) * 100)}%`,
+                            background: 'linear-gradient(90deg, #ea580c, #dc2626)',
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] text-slate-500">
+                          {translateProgress.current > 0 ? `${Math.round((translateProgress.current / translateProgress.total) * 100)}% पूर्ण` : 'शुरू हो रहा है...'}
+                        </p>
+                        {translateProgress.secondsLeft != null && translateProgress.secondsLeft > 0 && (
+                          <p className="text-[10px] text-orange-500/80">
+                            ~{translateProgress.secondsLeft >= 60
+                              ? `${Math.ceil(translateProgress.secondsLeft / 60)} मिनट बाकी`
+                              : `${translateProgress.secondsLeft} सेकंड बाकी`}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-600 text-center">पूर्ण पृष्ठ editor में दिख रहे हैं • Export कभी भी करें</p>
                     </div>
                   )}
                 </div>

@@ -40,7 +40,7 @@ export function useGeneration({
   const [textInput, setTextInput] = useState('');
   const [files, setFiles] = useState<{ name: string; mimeType: string; data: string }[]>([]);
   const [translatePdfFile, setTranslatePdfFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
-  const [translateProgress, setTranslateProgress] = useState<{ current: number; total: number } | null>(null);
+  const [translateProgress, setTranslateProgress] = useState<{ current: number; total: number; secondsLeft?: number } | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -80,22 +80,46 @@ export function useGeneration({
     if (!translatePdfFile) return;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     setTranslateProgress(null);
+    const pageHtmlParts: string[] = [];
+    let failedAt: number | null = null;
+
+    const pushLive = (isPartial: boolean, failedPage?: number) => {
+      if (isResettingRef.current) return;
+      const parts = [...pageHtmlParts];
+      if (isPartial && failedPage != null) {
+        parts.push(
+          `<div style="border:1.5px dashed #f97316;border-radius:10px;padding:14px 18px;margin:20px 0;color:#f97316;font-size:13px;background:rgba(249,115,22,0.06)">` +
+          `⚠️ पृष्ठ ${failedPage} पर error आई — पिछले ${parts.length} पृष्ठ सुरक्षित हैं। PDF फिर से upload करके बाकी translate करें।` +
+          `</div>`
+        );
+      }
+      const html = parts.join('\n');
+      setGeneratedHtml(html);
+      pushToHistory(html);
+      localStorage.setItem(STORAGE_KEY, html);
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+    };
+
     try {
       const { numPages, pdf } = await loadPdf(translatePdfFile.data);
       const total = numPages;
       setTranslateProgress({ current: 0, total });
 
-      const pageHtmlParts: string[] = [];
+      const pageTimes: number[] = [];
 
       for (let i = 0; i < total; i++) {
         if (isResettingRef.current) return;
-        setTranslateProgress({ current: i + 1, total });
+        const pageStart = Date.now();
+
+        const avgMs = pageTimes.length > 0
+          ? pageTimes.reduce((a, b) => a + b, 0) / pageTimes.length
+          : 18000;
+        const secondsLeft = Math.round((avgMs * (total - i)) / 1000);
+        setTranslateProgress({ current: i + 1, total, secondsLeft });
 
         const page = await renderSinglePage(pdf, i + 1, 2);
-
         const pageImgBase64 = canvasPageToJpegBase64(page.canvas, 0.82);
         let pageHtml = await translatePdfPageToHindi(pageImgBase64, i + 1, total, aiModel, 'image/jpeg');
-
         pageHtml = injectRealImages(pageHtml, page.canvas);
         releaseCanvas(page.canvas);
 
@@ -103,13 +127,22 @@ export function useGeneration({
           pageHtml += '<hr class="page-break" />';
         }
         pageHtmlParts.push(pageHtml);
+        pageTimes.push(Date.now() - pageStart);
+
+        pushLive(false);
       }
 
-      finishGeneration(pageHtmlParts.join('\n'));
+      if (window.innerWidth < 1024) setSidebarOpen(false);
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
-        alert(`PDF translate error: ${error.message || 'Unknown error'}`);
+        failedAt = pageHtmlParts.length + 1;
+        if (pageHtmlParts.length > 0) {
+          pushLive(true, failedAt);
+          alert(`पृष्ठ ${failedAt} पर error आई। पिछले ${pageHtmlParts.length} पृष्ठ editor में save हो गए हैं।`);
+        } else {
+          alert(`PDF translate error: ${error.message || 'Unknown error'}`);
+        }
       }
     } finally {
       if (!isResettingRef.current) {
