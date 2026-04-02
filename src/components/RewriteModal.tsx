@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sparkles, Wand2, ArrowLeft, TableProperties } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Sparkles, Wand2, ArrowLeft, TableProperties, ImagePlus, X } from 'lucide-react';
 import { Button } from './Button';
 
 interface RewriteModalProps {
@@ -17,6 +17,8 @@ interface RewriteModalProps {
   isRewriting: boolean;
   handleRewriteSubmit: (e: React.FormEvent) => void;
   selectionText: string;
+  modalImages: { base64: string; mimeType: string; dataUrl: string }[];
+  setModalImages: (imgs: { base64: string; mimeType: string; dataUrl: string }[]) => void;
 }
 
 export const RewriteModal: React.FC<RewriteModalProps> = ({
@@ -33,8 +35,33 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
   setRewriteInstruction,
   isRewriting,
   handleRewriteSubmit,
-  selectionText
+  selectionText,
+  modalImages,
+  setModalImages,
 }) => {
+  const imgInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const dataUrl = evt.target?.result as string;
+        if (!dataUrl) return;
+        const base64 = dataUrl.split(',')[1];
+        const mimeType = file.type;
+        setModalImages([...modalImages, { base64, mimeType, dataUrl }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeImage = (idx: number) => {
+    setModalImages(modalImages.filter((_, i) => i !== idx));
+  };
+
   if (!isOpen) return null;
 
   if (isExtendTable) {
@@ -147,7 +174,48 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
             </div>
 
             <form onSubmit={handleRewriteSubmit}>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Instructions</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Instructions</label>
+                  <div className="flex items-center gap-1.5">
+                    {modalImages.length > 0 && (
+                      <span className="text-[10px] text-blue-500 dark:text-blue-400 font-medium">{modalImages.length} image{modalImages.length > 1 ? 's' : ''} attached</span>
+                    )}
+                    <input
+                      ref={imgInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageAttach}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => imgInputRef.current?.click()}
+                      title="Attach image for AI reference"
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-90 ${modalImages.length > 0 ? 'bg-blue-500 text-white shadow-md shadow-blue-500/30' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-500 dark:hover:text-blue-400'}`}
+                    >
+                      <ImagePlus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {modalImages.length > 0 && (
+                  <div className="flex gap-2 flex-wrap mb-3">
+                    {modalImages.map((img, idx) => (
+                      <div key={idx} className="relative group w-14 h-14 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 flex-shrink-0">
+                        <img src={img.dataUrl} alt="" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          <X className="w-3.5 h-3.5 text-white" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <input 
                 type="text" 
                 value={rewriteInstruction}

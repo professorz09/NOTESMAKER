@@ -50,6 +50,7 @@ export function useAIEdit({
 
   const [isExtendTableOpen, setIsExtendTableOpen] = useState(false);
   const [extendHeadersPreview, setExtendHeadersPreview] = useState('');
+  const [modalImages, setModalImages] = useState<{ base64: string; mimeType: string; dataUrl: string }[]>([]);
 
   // Add/remove AI edit trigger buttons when editing mode changes
   useEffect(() => {
@@ -274,8 +275,10 @@ export function useAIEdit({
         return;
       }
 
+      const extraImages = modalImages.map(({ base64, mimeType }) => ({ base64, mimeType }));
+
       if (rewriteType === 'section') {
-        const sectionImages = extractImagesFromHtml(activeSectionHtml);
+        const sectionImages = [...extractImagesFromHtml(activeSectionHtml), ...extraImages];
         if (editTab === 'rewrite') resultHtml = await rewriteSection(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
         else if (editTab === 'expand') resultHtml = await expandSection(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
         else if (editTab === 'continue') resultHtml = await generateNextContent(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
@@ -291,7 +294,7 @@ export function useAIEdit({
           return div.innerHTML;
         })();
         const selectedText = range?.toString() || '';
-        const selectionImages = extractImagesFromHtml(selectionHtml);
+        const selectionImages = [...extractImagesFromHtml(selectionHtml), ...extraImages];
         if (editTab === 'rewrite') resultHtml = await rewriteContent(selectedText, rewriteInstruction, rewriteModel, selectionImages);
         else if (editTab === 'expand') resultHtml = await expandSection(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages);
         else if (editTab === 'continue') resultHtml = selectionHtml + ' ' + await generateNextContent(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages);
@@ -358,6 +361,7 @@ export function useAIEdit({
   const closeRewriteModal = useCallback(() => {
     setRewriteModalOpen(false);
     setIsExtendTableOpen(false);
+    setModalImages([]);
     isTableExtendMode.current = false;
     extendTableRef.current = null;
     extendContextRef.current = null;
@@ -374,6 +378,7 @@ export function useAIEdit({
     rewriteType,
     editTab, setEditTab,
     rewriteModel, setRewriteModel,
+    modalImages, setModalImages,
     selectionRangeRef,
     activeEditIdRef,
     openSelectionRewriteModal,

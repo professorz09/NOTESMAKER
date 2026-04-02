@@ -116,6 +116,7 @@ const App: React.FC = () => {
     rewriteType,
     editTab, setEditTab,
     rewriteModel, setRewriteModel,
+    modalImages, setModalImages,
     selectionRangeRef,
     activeEditIdRef,
     openSelectionRewriteModal,
@@ -460,6 +461,8 @@ const App: React.FC = () => {
         isRewriting={isRewriting}
         handleRewriteSubmit={handleRewriteSubmit}
         selectionText={rewriteType === 'section' ? 'Selected Section Context...' : ((selectionRangeRef.current?.toString().substring(0, 150) ?? '') + '...')}
+        modalImages={modalImages}
+        setModalImages={setModalImages}
       />
     </div>
   );
