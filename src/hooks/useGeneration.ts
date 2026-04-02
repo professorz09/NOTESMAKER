@@ -41,6 +41,12 @@ export function useGeneration({
   const [files, setFiles] = useState<{ name: string; mimeType: string; data: string }[]>([]);
   const [translatePdfFile, setTranslatePdfFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
   const [translateProgress, setTranslateProgress] = useState<{ current: number; total: number; secondsLeft?: number } | null>(null);
+  const [translateResumeState, setTranslateResumeState] = useState<{
+    pdfName: string;
+    startPage: number;
+    total: number;
+    pageHtmlParts: string[];
+  } | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -76,20 +82,19 @@ export function useGeneration({
     e.target.value = '';
   };
 
-  const handleTranslatePdf = async () => {
-    if (!translatePdfFile) return;
-    setStatus(GenerationStatus.GENERATING_CHAPTER);
-    setTranslateProgress(null);
-    const pageHtmlParts: string[] = [];
-    let failedAt: number | null = null;
+  const PDF_TRANSLATE_MODEL = 'gemini-3-flash-preview';
+  const MAX_RETRIES = 2;
 
-    const pushLive = (isPartial: boolean, failedPage?: number) => {
+  const runPdfTranslation = async (startPage: number, total: number, pdf: any, initialParts: string[]) => {
+    const pageHtmlParts: string[] = [...initialParts];
+
+    const pushLive = (failedPage?: number) => {
       if (isResettingRef.current) return;
       const parts = [...pageHtmlParts];
-      if (isPartial && failedPage != null) {
+      if (failedPage != null) {
         parts.push(
           `<div style="border:1.5px dashed #f97316;border-radius:10px;padding:14px 18px;margin:20px 0;color:#f97316;font-size:13px;background:rgba(249,115,22,0.06)">` +
-          `⚠️ पृष्ठ ${failedPage} पर error आई — पिछले ${parts.length} पृष्ठ सुरक्षित हैं। PDF फिर से upload करके बाकी translate करें।` +
+          `⚠️ पृष्ठ ${failedPage} translate नहीं हुआ। नीचे "पृष्ठ ${failedPage} से जारी रखें" बटन दबाएं।` +
           `</div>`
         );
       }
@@ -97,52 +102,104 @@ export function useGeneration({
       setGeneratedHtml(html);
       pushToHistory(html);
       localStorage.setItem(STORAGE_KEY, html);
-      if (window.innerWidth < 1024) setSidebarOpen(false);
     };
 
-    try {
-      const { numPages, pdf } = await loadPdf(translatePdfFile.data);
-      const total = numPages;
-      setTranslateProgress({ current: 0, total });
+    const pageTimes: number[] = [];
 
-      const pageTimes: number[] = [];
+    for (let i = startPage - 1; i < total; i++) {
+      if (isResettingRef.current) return;
+      const pageNum = i + 1;
 
-      for (let i = 0; i < total; i++) {
-        if (isResettingRef.current) return;
-        const pageStart = Date.now();
+      const avgMs = pageTimes.length > 0
+        ? pageTimes.reduce((a, b) => a + b, 0) / pageTimes.length
+        : 15000;
+      const secondsLeft = Math.round((avgMs * (total - i)) / 1000);
+      setTranslateProgress({ current: pageNum, total, secondsLeft });
 
-        const avgMs = pageTimes.length > 0
-          ? pageTimes.reduce((a, b) => a + b, 0) / pageTimes.length
-          : 18000;
-        const secondsLeft = Math.round((avgMs * (total - i)) / 1000);
-        setTranslateProgress({ current: i + 1, total, secondsLeft });
+      const pageStart = Date.now();
+      let pageHtml = '';
+      let succeeded = false;
 
-        const page = await renderSinglePage(pdf, i + 1, 2);
-        const pageImgBase64 = canvasPageToJpegBase64(page.canvas, 0.82);
-        let pageHtml = await translatePdfPageToHindi(pageImgBase64, i + 1, total, aiModel, 'image/jpeg');
-        pageHtml = injectRealImages(pageHtml, page.canvas);
-        releaseCanvas(page.canvas);
-
-        if (i < total - 1) {
-          pageHtml += '<hr class="page-break" />';
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const page = await renderSinglePage(pdf, pageNum, 2);
+          const pageImgBase64 = canvasPageToJpegBase64(page.canvas, 0.82);
+          pageHtml = await translatePdfPageToHindi(pageImgBase64, pageNum, total, PDF_TRANSLATE_MODEL, 'image/jpeg');
+          pageHtml = injectRealImages(pageHtml, page.canvas);
+          releaseCanvas(page.canvas);
+          succeeded = true;
+          break;
+        } catch (err) {
+          console.error(`Page ${pageNum} attempt ${attempt} failed:`, err);
+          if (attempt === MAX_RETRIES) {
+            if (!isResettingRef.current) {
+              setTranslateResumeState({
+                pdfName: translatePdfFile!.name,
+                startPage: pageNum,
+                total,
+                pageHtmlParts,
+              });
+              pushLive(pageNum);
+            }
+            return;
+          }
+          await new Promise(r => setTimeout(r, 2000 * attempt));
         }
-        pageHtmlParts.push(pageHtml);
-        pageTimes.push(Date.now() - pageStart);
-
-        pushLive(false);
       }
 
-      if (window.innerWidth < 1024) setSidebarOpen(false);
+      if (!succeeded) return;
+
+      if (i < total - 1) pageHtml += '<hr class="page-break" />';
+      pageHtmlParts.push(pageHtml);
+      pageTimes.push(Date.now() - pageStart);
+      pushLive();
+    }
+
+    setTranslateResumeState(null);
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+  };
+
+  const handleTranslatePdf = async () => {
+    if (!translatePdfFile) return;
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    setTranslateProgress(null);
+    try {
+      const { numPages, pdf } = await loadPdf(translatePdfFile.data);
+      setTranslateProgress({ current: 1, total: numPages });
+      await runPdfTranslation(1, numPages, pdf, []);
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
-        failedAt = pageHtmlParts.length + 1;
-        if (pageHtmlParts.length > 0) {
-          pushLive(true, failedAt);
-          alert(`पृष्ठ ${failedAt} पर error आई। पिछले ${pageHtmlParts.length} पृष्ठ editor में save हो गए हैं।`);
-        } else {
-          alert(`PDF translate error: ${error.message || 'Unknown error'}`);
+        alert(`PDF load error: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) {
+        setStatus(GenerationStatus.IDLE);
+        setTranslateProgress(null);
+      }
+    }
+  };
+
+  const handleResumePdf = async () => {
+    if (!translatePdfFile || !translateResumeState) return;
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    setTranslateProgress(null);
+    try {
+      const { numPages, pdf } = await loadPdf(translatePdfFile.data);
+      const resumeFrom = translateResumeState.startPage;
+      const prevParts = [...translateResumeState.pageHtmlParts];
+      if (prevParts.length > 0) {
+        const last = prevParts[prevParts.length - 1];
+        if (!last.endsWith('<hr class="page-break" />')) {
+          prevParts[prevParts.length - 1] = last + '<hr class="page-break" />';
         }
+      }
+      setTranslateProgress({ current: resumeFrom, total: numPages });
+      await runPdfTranslation(resumeFrom, numPages, pdf, prevParts);
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        alert(`Resume error: ${error.message || 'Unknown error'}`);
       }
     } finally {
       if (!isResettingRef.current) {
@@ -278,6 +335,9 @@ export function useGeneration({
     setTranslatePdfFile,
     handleTranslatePdfUpload,
     handleTranslatePdf,
+    handleResumePdf,
     translateProgress,
+    translateResumeState,
+    setTranslateResumeState,
   };
 }

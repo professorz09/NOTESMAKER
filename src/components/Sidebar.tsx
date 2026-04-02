@@ -70,8 +70,11 @@ interface SidebarProps {
   translatePdfFile: { name: string; mimeType: string; data: string } | null;
   handleTranslatePdfUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleTranslatePdf: () => void;
+  handleResumePdf: () => void;
   setTranslatePdfFile: (f: null) => void;
   translateProgress: { current: number; total: number; secondsLeft?: number } | null;
+  translateResumeState: { pdfName: string; startPage: number; total: number } | null;
+  setTranslateResumeState: (s: null) => void;
 }
 
 const MODELS = [
@@ -102,8 +105,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   projects, projectsLoading, projectsError, activeProjectId, isSupabaseConfigured,
   lastSavedAt, onFetchProjects, onSync, onSaveNow, onSelectProject, onCreateProject, onDeleteProject,
   onRenameProject, hasContent,
-  translatePdfFile, handleTranslatePdfUpload, handleTranslatePdf, setTranslatePdfFile,
-  translateProgress,
+  translatePdfFile, handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
+  setTranslatePdfFile, translateProgress, translateResumeState, setTranslateResumeState,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
@@ -419,6 +422,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                  {translateResumeState && translateResumeState.pdfName === translatePdfFile?.name && !isGenerating && (
+                    <div className="rounded-xl border border-orange-500/30 bg-orange-500/8 p-3 space-y-2">
+                      <p className="text-[10px] text-orange-300 text-center">
+                        पृष्ठ {translateResumeState.startPage} से रुका हुआ है ({translateResumeState.total} में से)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleResumePdf}
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold text-white active:scale-[0.98] transition-all"
+                        style={{ background: 'linear-gradient(135deg, #ea580c 0%, #b45309 100%)' }}
+                      >
+                        <Languages className="w-3.5 h-3.5" />
+                        पृष्ठ {translateResumeState.startPage} से जारी रखें
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTranslateResumeState(null)}
+                        className="w-full text-[10px] text-slate-600 hover:text-slate-400 transition-colors py-0.5"
+                      >
+                        नई शुरुआत करें
+                      </button>
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={handleTranslatePdf}
@@ -436,7 +462,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ) : (
                       <>
                         <Languages className="w-3.5 h-3.5" />
-                        हिन्दी में अनुवाद करें
+                        {translateResumeState?.pdfName === translatePdfFile?.name ? 'शुरू से अनुवाद करें' : 'हिन्दी में अनुवाद करें'}
                       </>
                     )}
                   </button>
