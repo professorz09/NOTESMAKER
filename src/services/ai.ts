@@ -933,6 +933,90 @@ export const translatePdfToHindi = async (
   return cleanHtmlOutput(response.text || "");
 };
 
+export const analyzeAnswerPdf = async (
+  pageImages: { base64: string; mimeType: string }[],
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+You are Professor UPSC — an expert UPSC Mains examiner and senior IAS mentor with 25+ years of experience evaluating civil services answers.
+
+The uploaded images show a handwritten or typed UPSC answer (possibly spread across multiple pages). Your job is to:
+1. Identify the question being answered (read from the paper itself if visible, or infer from the answer content).
+2. Thoroughly evaluate the answer as a strict UPSC examiner.
+3. Provide a high-quality Model Answer.
+
+Return your entire response as clean HTML using this EXACT structure:
+
+<div class="answer-analysis">
+
+<div class="section-card" style="border-left:4px solid #6366f1;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(99,102,241,0.02));border-radius:12px;padding:20px 24px;margin-bottom:20px">
+<h2 style="color:#818cf8;font-size:1.1rem;margin:0 0 10px;font-weight:700">📋 पहचाना गया प्रश्न</h2>
+<p style="color:#e2e8f0;margin:0;line-height:1.7">[Write the identified question here in both Hindi and English if possible]</p>
+</div>
+
+<div class="section-card" style="border-left:4px solid #f59e0b;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border-radius:12px;padding:20px 24px;margin-bottom:20px">
+<h2 style="color:#fbbf24;font-size:1.1rem;margin:0 0 14px;font-weight:700">📊 उत्तर का मूल्यांकन</h2>
+<table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+<thead><tr>
+<th style="text-align:left;padding:8px 12px;background:rgba(245,158,11,0.15);color:#fbbf24;border-radius:6px 0 0 6px">पहलू</th>
+<th style="text-align:center;padding:8px 12px;background:rgba(245,158,11,0.15);color:#fbbf24">अंक (10 में से)</th>
+<th style="text-align:left;padding:8px 12px;background:rgba(245,158,11,0.15);color:#fbbf24;border-radius:0 6px 6px 0">टिप्पणी</th>
+</tr></thead>
+<tbody>
+[Add 5-6 rows like: Introduction, Content Depth, Structure, Examples/Facts, Conclusion, Language]
+Each row: <tr style="border-bottom:1px solid rgba(255,255,255,0.06)"><td style="padding:8px 12px;color:#e2e8f0">[Aspect in Hindi]</td><td style="padding:8px 12px;text-align:center;color:#fbbf24;font-weight:700">[Score]/10</td><td style="padding:8px 12px;color:#94a3b8;font-size:0.8rem">[Brief comment]</td></tr>
+</tbody></table>
+<div style="margin-top:14px;padding:12px 16px;background:rgba(245,158,11,0.12);border-radius:8px;display:flex;align-items:center;gap:12px">
+<span style="color:#fbbf24;font-size:1.3rem;font-weight:800">[Total]/60</span>
+<span style="color:#94a3b8;font-size:0.82rem">अनुमानित UPSC Mains अंक</span>
+</div>
+</div>
+
+<div class="section-card" style="border-left:4px solid #ef4444;background:linear-gradient(135deg,rgba(239,68,68,0.08),rgba(239,68,68,0.02));border-radius:12px;padding:20px 24px;margin-bottom:20px">
+<h2 style="color:#f87171;font-size:1.1rem;margin:0 0 14px;font-weight:700">❌ कमियाँ (Weaknesses)</h2>
+<ul style="margin:0;padding-left:20px;space-y:8px">
+[4-6 specific weaknesses as <li style="color:#e2e8f0;margin-bottom:10px;line-height:1.6"> items. Be specific, not generic.]
+</ul>
+</div>
+
+<div class="section-card" style="border-left:4px solid #22c55e;background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(34,197,94,0.02));border-radius:12px;padding:20px 24px;margin-bottom:20px">
+<h2 style="color:#4ade80;font-size:1.1rem;margin:0 0 14px;font-weight:700">✅ सुझाव (Suggestions to Improve)</h2>
+<ol style="margin:0;padding-left:20px">
+[4-6 actionable, specific suggestions as <li style="color:#e2e8f0;margin-bottom:10px;line-height:1.6"> items]
+</ol>
+</div>
+
+<div class="section-card" style="border-left:4px solid #06b6d4;background:linear-gradient(135deg,rgba(6,182,212,0.08),rgba(6,182,212,0.02));border-radius:12px;padding:20px 24px;margin-bottom:8px">
+<h2 style="color:#22d3ee;font-size:1.1rem;margin:0 0 16px;font-weight:700">🏆 आदर्श उत्तर (Model Answer)</h2>
+<div style="color:#e2e8f0;line-height:1.8">
+[Write a complete, UPSC-standard model answer here. Use proper structure: Introduction → Body (with sub-headings, points, examples, data) → Conclusion. Use <h3> for sub-headings, <ul>/<ol> for lists, <strong> for key terms. The model answer should be around ${250}-300 words or as appropriate for the question type. Write in Hindi.]
+</div>
+</div>
+
+</div>
+
+RULES:
+- Write ALL analysis content in Hindi (Devanagari script). The model answer should also be in Hindi unless the question specifically asks for English.
+- Be very specific about weaknesses — quote or reference actual parts of the student's answer.
+- The model answer must be UPSC-exam quality, not generic. Include relevant facts, schemes, data, constitutional articles, or examples.
+- Return ONLY the HTML — no markdown, no code fences.
+`;
+
+  const parts: any[] = [
+    ...pageImages.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } })),
+    { text: prompt }
+  ];
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: { parts }
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
+
 export const translatePdfPageToHindi = async (
   pageImageBase64: string,
   pageNumber: number,

@@ -7,6 +7,7 @@ import {
   generateUPSCAnswer,
   generateResearchPaper,
   translatePdfPageToHindi,
+  analyzeAnswerPdf,
 } from '../services/ai';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -47,6 +48,8 @@ export function useGeneration({
     total: number;
     pageHtmlParts: string[];
   } | null>(null);
+  const [answerPdfFile, setAnswerPdfFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
+  const [answerAnalyzing, setAnswerAnalyzing] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -80,6 +83,50 @@ export function useGeneration({
     reader.readAsDataURL(file);
     // Reset input so same file can be re-selected
     e.target.value = '';
+  };
+
+  const handleAnswerPdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = (event.target?.result as string).split(',')[1];
+      setAnswerPdfFile({ name: file.name, mimeType: 'application/pdf', data: base64Data });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleAnalyzeAnswer = async () => {
+    if (!answerPdfFile) return;
+    setAnswerAnalyzing(true);
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    try {
+      const { numPages, pdf } = await loadPdf(answerPdfFile.data);
+      const pagesToRender = Math.min(numPages, 8);
+      const pageImages: { base64: string; mimeType: string }[] = [];
+      for (let i = 1; i <= pagesToRender; i++) {
+        const page = await renderSinglePage(pdf, i, 1.5);
+        const base64 = canvasPageToJpegBase64(page.canvas, 0.85);
+        releaseCanvas(page.canvas);
+        pageImages.push({ base64, mimeType: 'image/jpeg' });
+      }
+      const html = await analyzeAnswerPdf(pageImages, aiModel);
+      setGeneratedHtml(html);
+      pushToHistory(html);
+      localStorage.setItem(STORAGE_KEY, html);
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        alert(`Analysis error: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) {
+        setStatus(GenerationStatus.IDLE);
+        setAnswerAnalyzing(false);
+      }
+    }
   };
 
   const PDF_TRANSLATE_MODEL = 'gemini-3-flash-preview';
@@ -339,5 +386,10 @@ export function useGeneration({
     translateProgress,
     translateResumeState,
     setTranslateResumeState,
+    answerPdfFile,
+    setAnswerPdfFile,
+    handleAnswerPdfUpload,
+    handleAnalyzeAnswer,
+    answerAnalyzing,
   };
 }

@@ -104,6 +104,7 @@ const App: React.FC = () => {
     translatePdfFile, setTranslatePdfFile,
     handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
     translateProgress, translateResumeState, setTranslateResumeState,
+    answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen });
 
   const {
@@ -370,6 +371,11 @@ const App: React.FC = () => {
         translateProgress={translateProgress}
         translateResumeState={translateResumeState}
         setTranslateResumeState={setTranslateResumeState}
+        answerPdfFile={answerPdfFile}
+        setAnswerPdfFile={setAnswerPdfFile}
+        handleAnswerPdfUpload={handleAnswerPdfUpload}
+        handleAnalyzeAnswer={handleAnalyzeAnswer}
+        answerAnalyzing={answerAnalyzing}
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">

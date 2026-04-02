@@ -75,6 +75,12 @@ interface SidebarProps {
   translateProgress: { current: number; total: number; secondsLeft?: number } | null;
   translateResumeState: { pdfName: string; startPage: number; total: number } | null;
   setTranslateResumeState: (s: null) => void;
+  // Answer Analysis
+  answerPdfFile: { name: string; mimeType: string; data: string } | null;
+  setAnswerPdfFile: (f: null) => void;
+  handleAnswerPdfUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAnalyzeAnswer: () => void;
+  answerAnalyzing: boolean;
 }
 
 const MODELS = [
@@ -107,6 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRenameProject, hasContent,
   translatePdfFile, handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
   setTranslatePdfFile, translateProgress, translateResumeState, setTranslateResumeState,
+  answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
@@ -492,6 +499,69 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <p className="text-[10px] text-slate-600 text-center">पूर्ण पृष्ठ editor में दिख रहे हैं • Export कभी भी करें</p>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            {/* ── ANSWER ANALYSIS ── */}
+            <div className="space-y-3 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                  <GraduationCap className="w-4 h-4 text-rose-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-rose-300 leading-none">उत्तर विश्लेषण</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">PDF upload करें, कमियाँ + आदर्श उत्तर पाएं</p>
+                </div>
+              </div>
+
+              {!answerPdfFile ? (
+                <label className="block relative cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleAnswerPdfUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    disabled={isGenerating}
+                  />
+                  <div className="flex flex-col items-center gap-2 py-5 px-3 rounded-xl border-2 border-dashed border-rose-500/20 hover:border-rose-500/50 hover:bg-rose-500/8 transition-all">
+                    <Upload className="w-5 h-5 text-rose-400/70" />
+                    <p className="text-xs text-slate-400 text-center">अपना लिखा उत्तर upload करें<br /><span className="text-[10px] text-slate-600">केवल PDF (max 8 pages)</span></p>
+                  </div>
+                </label>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 bg-white/4 rounded-xl px-3 py-2.5 border border-white/6">
+                    <FileText className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                    <span className="text-xs text-slate-300 truncate flex-1">{answerPdfFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAnswerPdfFile(null)}
+                      disabled={isGenerating}
+                      className="text-slate-600 hover:text-red-400 transition-colors flex-shrink-0 disabled:opacity-40"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAnalyzeAnswer}
+                    disabled={isGenerating}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                    style={{ background: 'linear-gradient(135deg, #e11d48 0%, #9f1239 100%)' }}
+                  >
+                    {answerAnalyzing ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin flex-shrink-0" />
+                        विश्लेषण हो रहा है...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        उत्तर Analyse करें
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
