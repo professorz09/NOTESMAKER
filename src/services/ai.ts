@@ -58,17 +58,30 @@ export const generateTopicContent = async (
     2. **Depth:** Every sub-section (1.1.1) must contain substantial academic value.
     3. **Key Concepts:** Wrap vital definitions in: <div class="key-point"><strong>Key Concept:</strong> ...text...</div>
     4. **Notes (Optional):** Use <div class="note-box">...text...</div> for extra facts or interesting trivia only if relevant.
-    5. **Tables (Optional):** Use strict HTML tables with <thead> for complex data comparisons or data-heavy sections.
 
-    **VISUALIZATION LOGIC (Optional):**
-    Analyze the topic and generate ONE detailed SVG diagram inside <div class="flowchart-container"> ONLY IF it significantly aids understanding (e.g., for processes, cycles, or hierarchies). If not needed, do not include it.
-    *Rules for SVG (if included):*
-    - Must be highly detailed, educational, and visually appealing.
-    - Use a clean, professional color palette (e.g., #f8fafc background, #0f172a text, #3b82f6 accents).
-    - **NO BORDERS** on the SVG itself or its main container.
-    - Ensure all text inside the SVG is readable (use font-family: sans-serif, font-size: 14px or larger).
-    - Use proper viewBox attributes for responsiveness.
-    - Include meaningful connections, labels, and icons if possible.
+    **TABLE FORMAT — AI selects the most appropriate type for this topic:**
+    Choose the table format that best organizes the information — do NOT default to comparison every time:
+    • **Comparison Matrix** — comparing 2–4 entities on shared parameters (e.g., Act A vs Act B vs Act C)
+    • **Timeline Table** — chronological data: (Year | Event | Significance / Impact)
+    • **Pros & Cons** — advantages vs disadvantages, with optional weight/severity column
+    • **Factor Analysis** — causes / effects / challenges: (Factor | Details | Examples / Data)
+    • **Feature Matrix** — multiple attributes of one subject: (Attribute | Description | Current Status)
+    • **Data / Statistics** — numerical facts, rankings, percentages across entities or time
+    • **Process Steps** — sequential phases: (Phase/Step | Action | Outcome / Indicator)
+    • **Concept Map Table** — concept → sub-concepts → real-world applications (3 columns)
+    Include a table ONLY where it adds clear value over prose. Use <thead><tr><th> and <tbody>. Use <ul><li> inside <td> for multiple points per cell.
+
+    **SVG DIAGRAM — AI selects the best visual type for this topic:**
+    Analyze the topic deeply and pick ONE visual that maximizes understanding:
+    • **Flowchart** → sequential steps, decision trees, policy or administrative processes
+    • **Mindmap** → concept clusters, radial layout — central node + labeled branches + sub-branches
+    • **Timeline** → chronological events, historical progression, constitutional/legislative history
+    • **Cycle / Loop** → recurring processes, feedback loops, ecological or policy cycles
+    • **Hierarchy / Tree** → classification trees, org structures, taxonomies
+    • **Venn Diagram** → overlapping concepts, shared vs unique properties of 2–3 entities
+    • **Network / Web** → interconnected actors, systems, or relationships
+    • **SVG Comparison Table** → side-by-side data with colored header row and alternating row fills
+    SVG rules: Always set viewBox (e.g. "0 0 900 600"). No fixed width/height on <svg>. font-family="sans-serif", min font-size 13px. Background #f8fafc or white. Primary #3b82f6. No overlapping text. Wrap in <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Only create a diagram if it genuinely aids comprehension beyond text.
     
     **Output:** Return ONLY raw HTML.
   `;
@@ -108,8 +121,15 @@ export const generateUPSCAnswer = async (
        - Highlight key terms using <strong>.
     3. **Data/Facts/Committees (Optional):** Sprinkle relevant data, articles of the constitution, or committee recommendations if they exist for this topic. Use <div class="note-box">...</div> for highlighting facts.
     4. **Visual Elements (Optional):**
-       - Include a **Table** for comparison or data presentation if it adds value.
-       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it visually represents a process, hierarchy, or relationship that is complex. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
+       **TABLE** — Include ONE table if it genuinely aids understanding. Choose the format that fits:
+       • Comparison Matrix (two or more entities), Timeline (Year | Event | Impact), Pros & Cons,
+         Factor Analysis (Cause/Challenge | Details | Examples), Process Steps, Data/Statistics.
+       **SVG DIAGRAM** — Include ONE SVG if it visually clarifies something text cannot. Pick the right type:
+       • Flowchart (processes/steps), Mindmap (concept clusters), Timeline SVG (chronology),
+         Cycle (recurring processes), Hierarchy/Tree (classifications), Venn (overlapping entities),
+         Network (interconnected actors), SVG Table (structured comparison with colored header).
+       SVG rules: viewBox always set, no fixed width/height, font-family="sans-serif", min 13px font, no overlapping text.
+       Wrap diagram in: <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion (e.g., mentioning SDGs or constitutional ethos).
 
     **WORD COUNT CONSTRAINT:**
@@ -136,22 +156,29 @@ export const generateTopicComparisonTable = async (
 
   const prompt = `
     Role: Data Analyst & Academic Expert.
-    Task: Create a highly detailed, comprehensive Comparison Matrix (Table) for the topic.
+    Task: Create a highly detailed, comprehensive table for the topic. First analyze the topic, then choose the table format that best suits it — do NOT always default to a comparison matrix.
     
     Topic: "${topic}"
     Language: ${language}
 
-    **TABLE REQUIREMENTS:**
-    1. **Structure:** Create a multi-column HTML table (<table>).
-    2. **Headers:** Use <thead> with <th> for clear category titles (e.g., "Parameters", "Entity 1", "Entity 2").
-    3. **Content:** 
-       - Inside <td> cells, use bullet points (<ul><li>...</li></ul>) if there are multiple points per cell.
-       - Be exhaustive and highly detailed. Do not just write 1-2 words if more context is needed.
-    4. **Formatting:**
-       - Use <strong> for key terms inside cells.
-       - Ensure the table covers all aspects of the topic exhaustively.
+    **TABLE FORMAT SELECTION — pick the type that genuinely fits this topic:**
+    • **Comparison Matrix** — use when 2–4 distinct entities share common parameters (e.g., two policies, two rivers, pre vs post reform)
+    • **Timeline Table** — use for topics with historical evolution: (Year | Event | Significance)
+    • **Pros & Cons** — use for evaluative topics: (Aspect | Advantages | Disadvantages) or add a Weight column
+    • **Factor Analysis** — use for cause-effect or challenge topics: (Factor/Cause | Details | Examples/Data)
+    • **Feature Matrix** — use for single-subject cataloguing: (Attribute | Description | Current Status/Value)
+    • **Data / Statistics** — use when numerical data, rankings, or percentages are central
+    • **Process Steps** — use for procedural or sequential topics: (Phase | Action | Outcome/Indicator)
+    • **Concept Map Table** — use for conceptual topics: (Concept | Sub-Concepts | Real-World Applications)
 
-    Output: Return ONLY the valid HTML <table> code. Do not wrap it in markdown blocks.
+    **CONTENT RULES:**
+    1. Use <table> with <thead><tr><th> and <tbody><tr><td>. Add <caption> with a descriptive title.
+    2. Inside <td> cells, use <ul><li>...</li></ul> when there are multiple points.
+    3. Use <strong> for key terms, figures, and proper nouns inside cells.
+    4. Be exhaustive — cover all important aspects of the topic, not just surface-level facts.
+    5. Ensure every row adds distinct value; no repetitive or filler rows.
+
+    Output: Return ONLY the valid HTML <table> code (with <caption>). No markdown, no explanation.
   `;
 
   const response = await ai.models.generateContent({
@@ -172,22 +199,29 @@ export const generateTopicDetailedTable = async (
 
   const prompt = `
     Role: Senior Data Analyst & Subject Matter Expert.
-    Task: Create a highly detailed, comprehensive DATA TABLE for the topic.
+    Task: Create a highly detailed, comprehensive table for the topic. First think about what the topic is — then choose the table format that best reveals its structure.
     
     Topic: "${topic}"
     Language: ${language}
 
-    **TABLE REQUIREMENTS:**
-    1. **Structure:** Create a multi-column HTML table (<table>) that breaks down the topic into its constituent parts, facts, data, or categories.
-    2. **Headers:** Use <thead> with <th> for clear, descriptive titles.
-    3. **Content:** 
-       - Inside <td> cells, use bullet points (<ul><li>...</li></ul>) if there are multiple points per cell.
-       - Be exhaustive and highly detailed. Provide deep insights, not just surface-level facts.
-    4. **Formatting:**
-       - Use <strong> for key terms inside cells.
-       - Ensure the table is logically organized and covers the topic from multiple dimensions.
+    **TABLE FORMAT SELECTION — analyze the topic and pick the most appropriate type:**
+    • **Comparison Matrix** — two or more entities compared on shared parameters
+    • **Timeline Table** — historical or sequential data: (Year/Period | Event | Impact)
+    • **Pros & Cons** — evaluative: (Aspect | Advantages | Disadvantages) ± Severity column
+    • **Factor Analysis** — causal/challenge topics: (Factor | Explanation | Real-World Examples)
+    • **Feature Matrix** — single-entity deep-dive: (Attribute | Description | Value/Status)
+    • **Data / Statistics** — quantitative: figures, rankings, percentages, growth rates
+    • **Process Steps** — procedural: (Step/Phase | What Happens | Output/Indicator)
+    • **Concept Map Table** — conceptual: (Core Concept | Sub-Concepts | Applications/Examples)
 
-    Output: Return ONLY the valid HTML <table> code. Do not wrap it in markdown blocks.
+    **CONTENT RULES:**
+    1. Use <table> with <thead><tr><th> headers and <tbody><tr><td> rows. Add a <caption> title.
+    2. Use <ul><li> inside <td> for multiple points per cell.
+    3. Use <strong> for key terms, dates, figures, and names.
+    4. Cover the topic from multiple dimensions — be exhaustive and insightful, not surface-level.
+    5. Every row must add distinct, non-repetitive value.
+
+    Output: Return ONLY valid HTML <table> code (including <caption>). No markdown, no explanation.
   `;
 
   const response = await ai.models.generateContent({
@@ -209,24 +243,30 @@ export const generateSmartTable = async (
 
   const prompt = `
     Role: Senior Data Analyst & Subject Matter Expert.
-    Task: Create a highly detailed HTML table for the given topic, guided by the user's instruction.
+    Task: Analyze the topic + user instruction together, then create the most insightful and well-structured HTML table. Think carefully about what table format best reveals the topic's structure — do NOT default to comparison every time.
     
     Topic: "${topic}"
     User Instruction: "${instruction || 'Create the most appropriate and comprehensive table for this topic'}"
     Language: ${language}
     
-    DECISION RULES:
-    - Read the instruction carefully and choose the most suitable table format:
-      • Comparison/contrast requested → comparison matrix with entities as columns
-      • List/data/facts requested → detailed data table with categories as rows  
-      • No specific instruction → infer the best table format for the topic (prefer detailed data table for single topics, comparison for multiple entities)
+    **TABLE FORMAT SELECTION — match format to the topic and instruction:**
+    • **Comparison Matrix** — user asks "compare" / "vs" / "difference" OR topic has 2+ distinct entities with shared parameters → columns are entities, rows are parameters
+    • **Timeline Table** — user asks "history" / "evolution" / "chronology" OR topic is time-based → (Year/Period | Event | Significance / Impact)
+    • **Pros & Cons** — user asks "advantages/disadvantages" / "merits/demerits" / "evaluate" → (Aspect | Pros | Cons) ± Weight/Severity column
+    • **Factor Analysis** — topic is cause-effect, challenges, or impact-based → (Factor / Cause | Explanation | Examples / Data)
+    • **Feature Matrix** — topic is a single subject / scheme / institution → (Attribute | Description | Current Status / Value)
+    • **Data / Statistics** — user asks "data" / "numbers" / "figures" OR topic is quantitative → columns are entities/years, rows are metrics
+    • **Process Steps** — topic is a procedure, policy flow, or scheme implementation → (Phase/Step | Action | Output / Indicator)
+    • **Concept Map Table** — topic is abstract or multi-dimensional conceptual → (Core Concept | Sub-Concepts | Real-World Applications)
+    • **Ranking / Priority Table** — topic involves ordering by importance → (Rank | Item | Score/Criteria | Reason)
     
-    CONTENT RULES:
-    1. Use valid HTML: <table> with <thead>, <tbody>, <th>, <tr>, <td>
-    2. Use <ul><li>...</li></ul> inside <td> for multiple points per cell
-    3. Use <strong> for key terms
-    4. Be exhaustive — cover all important aspects of the topic
-    5. Return ONLY valid HTML <table> code. No markdown, no explanation.
+    **CONTENT RULES:**
+    1. Use <table> with <caption> (descriptive title), <thead><tr><th>, <tbody><tr><td>.
+    2. Use <ul><li> inside <td> when a cell has multiple points.
+    3. Use <strong> for key terms, figures, dates, and names.
+    4. Be exhaustive — cover all important dimensions of the topic.
+    5. Every row must carry distinct, non-repetitive value.
+    6. Return ONLY valid HTML <table> code (with <caption>). No markdown, no explanation.
   `;
 
   const response = await ai.models.generateContent({
@@ -263,8 +303,14 @@ export const generateFormattedNotes = async (
        - Highlight key terms using <strong>.
     3. **Data/Facts/Committees (Optional):** Sprinkle relevant data if applicable. Use <div class="note-box">...</div> for highlighting facts.
     4. **Visual Elements (Optional):**
-       - Include a **Table** for comparison or data presentation if relevant.
-       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it helps visualize the content. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
+       **TABLE** — Include ONE table if relevant. Choose the format that fits the content:
+       • Comparison Matrix, Timeline (Year | Event | Impact), Pros & Cons,
+         Factor Analysis (Cause | Details | Examples), Process Steps, Data/Statistics.
+       **SVG DIAGRAM** — Include ONE SVG diagram if it adds visual clarity. Choose the right type:
+       • Flowchart (steps/process), Mindmap (concept clusters), Timeline SVG (chronology),
+         Cycle (recurring processes), Hierarchy/Tree, Venn (overlapping concepts), Network.
+       Wrap SVG in: <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">
+       SVG rules: viewBox set, no fixed width/height, font-family="sans-serif", min 13px, no overlapping text.
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion.
 
     **WORD COUNT CONSTRAINT:**
@@ -280,12 +326,12 @@ export const generateFormattedNotes = async (
 
     **STRICT STRUCTURE & FORMATTING RULES:**
     1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis.
-    2. **Literature Review & Methodology (Body):**
-       - Break down into logical academic sections.
-       - Use extensive bullet points for readability.
-       - Highlight key terms, dates, and authors using <strong>.
-    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the text.
-    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the text.
+    2. **Body Sections:** Break down into logical academic sections with bullet points and <strong> for key terms.
+    3. **Data & Evidence (Table):** Include at least one detailed HTML <table> with <caption>. Choose the format:
+       • Timeline, Comparison Matrix, Factor Analysis, Data/Statistics, Feature Matrix — whichever best fits.
+    4. **Visual Explanation (Diagram):** Include ONE SVG diagram inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">.
+       Choose the type: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, Venn, or Network — whichever best represents the content.
+       SVG rules: viewBox set, no fixed width/height, font-family="sans-serif", min 13px text, no overlapping.
     5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
@@ -300,7 +346,8 @@ export const generateFormattedNotes = async (
     1. **Structure:** Strict tree (1. -> 1.1 -> 1.1.1).
     2. **Density:** Remove conversational filler. Make it concise but complete.
     3. **Formatting:** Use <div class="key-point"> and <div class="note-box">.
-    4. **Visuals:** Create an SVG diagram inside <div class="flowchart-container"> if complex logic exists.
+    4. **Table (Optional):** If the content has comparative or structured data, include an appropriate table (Timeline, Factor Analysis, Comparison, or Process Steps — whichever fits).
+    5. **Visual (Optional):** If complex logic/process exists, add an SVG inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the type that fits: Flowchart, Mindmap, Cycle, Hierarchy, or Timeline SVG. viewBox set, no overlapping text.
 
     **Output:** Return ONLY raw HTML.
   `;
@@ -345,8 +392,14 @@ export const generateFileNotes = async (
        - Highlight key terms using <strong>.
     3. **Data/Facts/Committees (Optional):** Sprinkle relevant data if relevant. Use <div class="note-box">...</div> for highlighting facts.
     4. **Visual Elements (Optional):**
-       - Include a **Table** for comparison or data presentation if it adds value.
-       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it helps explain the content. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
+       **TABLE** — Include ONE table if it genuinely aids understanding. Choose the format that fits the file content:
+       • Comparison Matrix, Timeline (Year | Event | Impact), Pros & Cons,
+         Factor Analysis (Cause | Details | Examples), Process Steps, Data/Statistics.
+       **SVG DIAGRAM** — Include ONE SVG if it adds visual clarity. Choose the right type from the file content:
+       • Flowchart (steps/process), Mindmap (concept clusters), Timeline SVG (chronology),
+         Cycle (recurring processes), Hierarchy/Tree, Venn (overlapping concepts), Network.
+       Wrap SVG in: <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">
+       SVG rules: viewBox set, no fixed width/height, font-family="sans-serif", min 13px, no overlapping text.
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion.
 
     **WORD COUNT CONSTRAINT:**
@@ -360,13 +413,13 @@ export const generateFileNotes = async (
     Language: ${language}
 
     **STRICT STRUCTURE & FORMATTING RULES:**
-    1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis based on the files.
-    2. **Literature Review & Methodology (Body):**
-       - Break down into logical academic sections.
-       - Use extensive bullet points for readability.
-       - Highlight key terms, dates, and authors using <strong>.
-    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the files.
-    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the files.
+    1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis.
+    2. **Body Sections:** Logical academic sections with bullet points and <strong> for key terms, dates, authors.
+    3. **Data & Evidence (Table):** Include at least one detailed HTML <table> with <caption>. Pick the format that best fits the file content:
+       • Timeline, Comparison Matrix, Factor Analysis, Data/Statistics, Feature Matrix.
+    4. **Visual Explanation (Diagram):** Include ONE SVG diagram inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">.
+       Pick the type that best represents the content: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, Venn, or Network.
+       SVG rules: viewBox set, no fixed width/height, font-family="sans-serif", min 13px, no overlapping text.
     5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
@@ -380,7 +433,8 @@ export const generateFileNotes = async (
     1. **Structure:** Strict tree (1. -> 1.1 -> 1.1.1).
     2. **Density:** Extract all key information. Make it concise but complete.
     3. **Formatting:** Use <div class="key-point"> and <div class="note-box">.
-    4. **Visuals:** Create an SVG diagram inside <div class="flowchart-container"> if complex logic exists.
+    4. **Table (Optional):** If file content has structured data, include an appropriate table (Timeline, Comparison, Factor Analysis, or Process Steps — whichever fits).
+    5. **Visual (Optional):** If complex logic/process found in files, add an SVG inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the type: Flowchart, Mindmap, Cycle, Hierarchy, or Timeline SVG. viewBox set, no overlapping text.
 
     **Output:** Return ONLY raw HTML.
   `;
@@ -505,8 +559,12 @@ export const expandSection = async (
     **Requirements:**
     1. **High Density:** Maximize information per page. Avoid fluff.
     2. **Structure:** Explode bullet points into full sub-sections (convert 1.1 into 1.1.1, 1.1.2, 1.1.3).
-    3. **Data:** Use tables for comparisons to save space and increase clarity.
-    4. **Volume:** Significantly increase depth of knowledge, not just word count.
+    3. **Tables:** Add a table where it saves space and increases clarity. Choose the most appropriate format:
+       • Comparison Matrix, Timeline (Year | Event | Impact), Pros & Cons, Factor Analysis,
+         Feature Matrix, Data/Statistics, Process Steps — whichever best fits the content being expanded.
+       Use <caption>, <thead><th>, <tbody><td>, <ul><li> inside cells, <strong> for key terms.
+    4. **Diagram (Optional):** If the expanded content has a clear process, cycle, or relationship, add ONE SVG diagram inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the right type: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, or Venn. viewBox set, no overlapping text, min 13px font.
+    5. **Volume:** Significantly increase depth of knowledge, not just word count.
 
     Output: Valid HTML only.
   `;
@@ -543,7 +601,9 @@ export const generateNextContent = async (
        - If the last point was 1.2.1, continue with 1.2.2, 1.2.3, etc.
        - If the current section is finished, move to the next logical sub-heading (e.g., from 1.2 to 1.3).
     4. **High Density:** Maintain a professional, academic, high-fact-density tone.
-    5. **Formatting:** Use <strong>, <div class="key-point">, or tables where appropriate.
+    5. **Formatting:** Use <strong>, <div class="key-point">, <div class="note-box"> where appropriate.
+    6. **Table (Optional):** If a section being added has structured/comparative data, include ONE appropriately-formatted table (Timeline, Comparison, Factor Analysis, Pros/Cons, Process Steps, Feature Matrix — whichever fits). Add <caption>, use <thead><th>, <tbody><td>, <ul><li> for multi-point cells.
+    7. **Diagram (Optional):** If the new content has a clear visual structure, add ONE SVG inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the type: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, or Venn. viewBox set, min 13px font, no overlapping text.
     
     Output: Return ONLY the HTML for the NEW content.
   `;
@@ -576,8 +636,12 @@ export const generateDetailedNextTopic = async (
     2. **Numbering:** Detect the last MAJOR heading number (e.g., 1.0 or 2.0) and start this as the next major section (e.g., 2.0 or 3.0).
     3. **Structure:** Use <h1> or <h2> for the new topic title, followed by detailed sub-sections (2.1, 2.1.1, etc.).
     4. **Depth:** Provide comprehensive coverage of this new topic.
-    5. **Visual Aids:** Use <div class="key-point">, <div class="note-box">, and <table> where relevant.
-    6. **Tone:** Professional academic tone.
+    5. **Visual Aids:** Use <div class="key-point">, <div class="note-box"> where relevant.
+    6. **Table (Optional):** If the topic benefits from structured data, include ONE appropriate table with <caption>. Choose the format that fits:
+       • Timeline, Comparison Matrix, Factor Analysis, Pros & Cons, Feature Matrix, Process Steps, Data/Statistics.
+       Use <thead><th>, <tbody><td>, <ul><li> inside cells, <strong> for key terms.
+    7. **Diagram (Optional):** If the topic has a clear visual structure, include ONE SVG inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the best type: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, or Venn. viewBox set, min 13px font, no overlapping text.
+    8. **Tone:** Professional academic tone.
 
     Output: HTML for the new MAJOR section only.
   `;
@@ -823,8 +887,23 @@ export const generateResearchPaper = async (
     2. **Overview (h2):** A factual, concise executive summary — what this topic IS, its significance, and scope. 2-3 paragraphs.
     3. **Historical Background / Context (h2):** Origins, evolution, timeline. Use <strong> for key dates and names.
     4. **Core Subject Sections (h2/h3):** 3-5 detailed thematic or structural sections breaking down every important dimension of the topic. Use bullet points (<ul><li>) within each section. Be exhaustive.
-    5. **Key Data / Statistics / Facts (Table):** MUST include one detailed HTML <table> with real data, comparisons, timelines, or structured facts about the topic.
-    6. **Visual Diagram (SVG):** MUST include ONE clear SVG diagram inside <div class="flowchart-container"> — a flowchart, mindmap, timeline, or process diagram directly related to the topic. Use viewBox, clean layout, readable text.
+    5. **Key Data / Statistics / Facts (Table):** MUST include one detailed HTML <table> with <caption>. Choose the format that best fits this specific topic — do NOT default to comparison every time:
+       • **Timeline** (Year | Event | Significance) — for topics with historical evolution
+       • **Comparison Matrix** — for topics with 2+ comparable entities
+       • **Factor Analysis** (Factor | Details | Examples) — for cause-effect or challenge topics
+       • **Data / Statistics** — for topics with quantitative data, rankings, or percentages
+       • **Feature Matrix** (Attribute | Description | Status) — for single-subject cataloguing
+       • **Process Steps** (Phase | Action | Outcome) — for procedural or policy topics
+       Use <thead><th>, <tbody><td>, <ul><li> inside cells for multiple points, <strong> for key terms.
+    6. **Visual Diagram (SVG):** MUST include ONE SVG diagram inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center"> — choose the type that best suits this specific topic:
+       • **Flowchart** → policy/administrative processes, decision trees
+       • **Mindmap** → concept clusters, topic relationships (radial layout)
+       • **Timeline SVG** → chronological events, historical progressions
+       • **Cycle / Loop** → recurring or feedback processes
+       • **Hierarchy / Tree** → classification trees, org structures
+       • **Venn Diagram** → overlapping entities with shared/unique attributes
+       • **Network** → interconnected actors or systems
+       SVG rules: viewBox set (e.g. "0 0 900 600"), no fixed width/height on <svg>, font-family="sans-serif", min 13px font, no overlapping text, background #f8fafc or white, primary color #3b82f6.
     7. **Key Takeaways (h2):** 5-8 bullet points summarizing the most important aspects of the topic.
 
     **Output:** Return ONLY raw HTML. No markdown. Use <h1>, <h2>, <h3>, <ul>, <li>, <table>, <strong>, <p>, <svg> etc.
