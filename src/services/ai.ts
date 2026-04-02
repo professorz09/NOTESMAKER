@@ -883,3 +883,52 @@ export const generateImage = async (
   const mimeType = prediction.mimeType || 'image/png';
   return `data:${mimeType};base64,${prediction.bytesBase64Encoded}`;
 };
+
+// Translate PDF to Hindi — preserves layout, tables, headings & image positions
+export const translatePdfToHindi = async (
+  fileData: string,
+  fileMimeType: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Expert Hindi Translator & Academic Editor.
+    Task: Translate the ENTIRE content of the provided PDF document into Hindi (Devanagari script).
+
+    **CRITICAL RULES:**
+    1. **Translate EVERYTHING:** Every single word of text — headings, subheadings, bullet points, table cells, captions, labels, footnotes — must be translated into Hindi. Do NOT leave any English text.
+    2. **Preserve Structure EXACTLY:** Maintain the exact same document structure:
+       - All headings → use same <h1>, <h2>, <h3>, <h4> tags
+       - All bullet/numbered lists → use same <ul><li> or <ol><li> tags
+       - All tables → recreate as full HTML <table> with <thead>/<tbody>/<tr>/<th>/<td>
+       - Bold text → keep <strong> tags around translated bold terms
+       - Key points → use <div class="key-point"> for highlighted definitions
+       - Note boxes → use <div class="note-box"> for facts/notes
+    3. **Images & Diagrams — POSITION MATTERS:**
+       - Wherever an image, chart, flowchart, diagram, or map appears in the PDF, insert a placeholder block at THAT EXACT POSITION in the output HTML.
+       - Use this format for each image/diagram:
+         <div class="image-placeholder">
+           <div class="image-placeholder-icon">🖼️</div>
+           <div class="image-placeholder-title">[Hindi title/name of what the image shows]</div>
+           <div class="image-placeholder-desc">[2-3 lines describing in Hindi what this image/diagram depicts — its key elements, labels, arrows, etc.]</div>
+         </div>
+       - If the image has labels or a legend, describe those labels in Hindi inside the description.
+    4. **Tables:** Translate ALL table headers and cell content to Hindi. Keep the full table structure intact.
+    5. **Technical terms:** For proper nouns (names of people, places, organizations) keep them in Hindi transliteration. For scientific/technical terms, write Hindi translation followed by English in parentheses if helpful.
+    6. **Page breaks:** Use <hr class="page-break"> between major sections if the original had clear page separations.
+    7. **Output:** Return ONLY raw HTML — no markdown code blocks, no explanations.
+  `;
+
+  const parts: any[] = [
+    { inlineData: { data: fileData, mimeType: fileMimeType } },
+    { text: prompt }
+  ];
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: { parts }
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};
