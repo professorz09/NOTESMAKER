@@ -932,3 +932,59 @@ export const translatePdfToHindi = async (
 
   return cleanHtmlOutput(response.text || "");
 };
+
+export const translatePdfPageToHindi = async (
+  pageImageBase64: string,
+  pageNumber: number,
+  totalPages: number,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Expert Hindi Translator & Academic Document Processor.
+    Task: This is page ${pageNumber} of ${totalPages} from an English PDF. Translate ALL text into Hindi (Devanagari script) and mark every image/diagram region with a special tag.
+
+    **CRITICAL RULES:**
+
+    1. **Translate EVERYTHING:** Every visible word of text — headings, subheadings, body text, bullet points, numbered lists, table cells, captions, labels, footnotes — must be translated to Hindi. Do NOT leave any English text.
+
+    2. **Preserve HTML Structure EXACTLY:**
+       - Headings → <h1>, <h2>, <h3>, <h4> (match the visual heading level)
+       - Bullet/numbered lists → <ul><li> or <ol><li>
+       - Tables → full HTML <table><thead><tbody><tr><th><td>
+       - Bold/key terms → <strong>
+       - Key definitions → <div class="key-point">
+       - Highlighted notes/boxes → <div class="note-box">
+
+    3. **Images & Diagrams — EXACT POSITION IS CRITICAL:**
+       - For EVERY image, photograph, diagram, chart, graph, map, flowchart, or illustration visible on this page, output a self-closing marker tag at THAT EXACT position in the HTML flow.
+       - Use PERCENTAGE coordinates (0-100) relative to the page dimensions:
+         - data-x: left edge of the image as % of page width
+         - data-y: top edge of the image as % of page height
+         - data-w: width of the image as % of page width
+         - data-h: height of the image as % of page height
+       - Example: <pdf-img data-x="5" data-y="30" data-w="90" data-h="25" data-alt="मानचित्र का विवरण"/>
+       - The data-alt should be a brief Hindi description of what the image shows.
+       - IMPORTANT: Place the <pdf-img> tag INLINE in the HTML exactly where the image appears relative to surrounding text — not all at the start or end.
+       - Do NOT use placeholder divs for images — use ONLY the <pdf-img> self-closing tag.
+
+    4. **Tables:** Translate ALL table headers and cells to Hindi. Preserve the complete table HTML structure.
+
+    5. **Technical terms:** Keep proper nouns (people, places, organizations) in Hindi transliteration. For scientific/technical terms, write the Hindi translation followed by the English term in parentheses.
+
+    6. **Output:** Return ONLY raw HTML — no markdown code fences, no \`\`\`html, no explanations. Just the HTML content for this page.
+  `;
+
+  const parts: any[] = [
+    { inlineData: { data: pageImageBase64, mimeType: 'image/png' } },
+    { text: prompt }
+  ];
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: { parts }
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};

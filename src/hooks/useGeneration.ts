@@ -6,10 +6,11 @@ import {
   generateFileNotes,
   generateUPSCAnswer,
   generateResearchPaper,
-  translatePdfToHindi,
+  translatePdfPageToHindi,
 } from '../services/ai';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
+import { renderPdfPages, canvasPageToPngBase64, cropImageFromCanvas } from '../utils/pdfRenderer';
 
 interface UseGenerationProps {
   pushToHistory: (content: string) => void;
@@ -39,6 +40,7 @@ export function useGeneration({
   const [textInput, setTextInput] = useState('');
   const [files, setFiles] = useState<{ name: string; mimeType: string; data: string }[]>([]);
   const [translatePdfFile, setTranslatePdfFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
+  const [translateProgress, setTranslateProgress] = useState<{ current: number; total: number } | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -77,17 +79,71 @@ export function useGeneration({
   const handleTranslatePdf = async () => {
     if (!translatePdfFile) return;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
+    setTranslateProgress(null);
     try {
-      const result = await translatePdfToHindi(translatePdfFile.data, translatePdfFile.mimeType, aiModel);
-      finishGeneration(result);
+      const pages = await renderPdfPages(translatePdfFile.data, 2);
+      const total = pages.length;
+      setTranslateProgress({ current: 0, total });
+
+      const pageHtmlParts: string[] = [];
+
+      for (let i = 0; i < pages.length; i++) {
+        if (isResettingRef.current) return;
+        const page = pages[i];
+        setTranslateProgress({ current: i + 1, total });
+
+        const pageImgBase64 = canvasPageToPngBase64(page.canvas);
+        let pageHtml = await translatePdfPageToHindi(pageImgBase64, i + 1, total, aiModel);
+
+        pageHtml = injectRealImages(pageHtml, page.canvas);
+
+        if (i < pages.length - 1) {
+          pageHtml += '<hr class="page-break" />';
+        }
+        pageHtmlParts.push(pageHtml);
+      }
+
+      finishGeneration(pageHtmlParts.join('\n'));
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
         alert(`PDF translate error: ${error.message || 'Unknown error'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      if (!isResettingRef.current) {
+        setStatus(GenerationStatus.IDLE);
+        setTranslateProgress(null);
+      }
     }
+  };
+
+  const injectRealImages = (html: string, canvas: HTMLCanvasElement): string => {
+    return html.replace(
+      /<pdf-img([^/]*)\/?>/gi,
+      (_match, attrs) => {
+        const getAttr = (name: string) => {
+          const m = attrs.match(new RegExp(`data-${name}="([^"]*)"`, 'i'));
+          return m ? parseFloat(m[1]) : null;
+        };
+        const x = getAttr('x');
+        const y = getAttr('y');
+        const w = getAttr('w');
+        const h = getAttr('h');
+        const altMatch = attrs.match(/data-alt="([^"]*)"/i);
+        const alt = altMatch ? altMatch[1] : 'चित्र';
+
+        if (x === null || y === null || w === null || h === null) return '';
+
+        try {
+          const base64 = cropImageFromCanvas(canvas, x, y, w, h);
+          const naturalW = Math.round((w / 100) * canvas.width);
+          const naturalH = Math.round((h / 100) * canvas.height);
+          return `<img src="data:image/png;base64,${base64}" alt="${alt}" style="display:block;max-width:100%;width:${naturalW}px;height:auto;margin:12px auto;" />`;
+        } catch {
+          return `<div class="image-placeholder"><div class="image-placeholder-icon">🖼️</div><div class="image-placeholder-title">${alt}</div></div>`;
+        }
+      }
+    );
   };
 
   const finishGeneration = (result: string) => {
@@ -176,5 +232,6 @@ export function useGeneration({
     setTranslatePdfFile,
     handleTranslatePdfUpload,
     handleTranslatePdf,
+    translateProgress,
   };
 }

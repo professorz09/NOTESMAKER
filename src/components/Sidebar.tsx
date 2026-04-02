@@ -71,6 +71,7 @@ interface SidebarProps {
   handleTranslatePdfUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleTranslatePdf: () => void;
   setTranslatePdfFile: (f: null) => void;
+  translateProgress: { current: number; total: number } | null;
 }
 
 const MODELS = [
@@ -102,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   lastSavedAt, onFetchProjects, onSync, onSaveNow, onSelectProject, onCreateProject, onDeleteProject,
   onRenameProject, hasContent,
   translatePdfFile, handleTranslatePdfUpload, handleTranslatePdf, setTranslatePdfFile,
+  translateProgress,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
@@ -426,8 +428,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     {isGenerating ? (
                       <>
-                        <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        अनुवाद हो रहा है...
+                        <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin flex-shrink-0" />
+                        {translateProgress
+                          ? `पृष्ठ ${translateProgress.current}/${translateProgress.total} अनुवाद हो रहा है...`
+                          : 'PDF लोड हो रहा है...'}
                       </>
                     ) : (
                       <>
@@ -436,6 +440,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </>
                     )}
                   </button>
+                  {isGenerating && translateProgress && (
+                    <div className="w-full bg-white/8 rounded-full h-1 overflow-hidden">
+                      <div
+                        className="h-1 rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.round((translateProgress.current / translateProgress.total) * 100)}%`,
+                          background: 'linear-gradient(90deg, #ea580c, #dc2626)',
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
