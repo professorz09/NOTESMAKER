@@ -43,17 +43,19 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
 
   const handleImageAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const dataUrl = evt.target?.result as string;
-        if (!dataUrl) return;
-        const base64 = dataUrl.split(',')[1];
-        const mimeType = file.type;
-        setModalImages([...modalImages, { base64, mimeType, dataUrl }]);
-      };
-      reader.readAsDataURL(file);
+    if (!files || files.length === 0) return;
+    const promises = Array.from(files).map(
+      file => new Promise<{ base64: string; mimeType: string; dataUrl: string }>(resolve => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const dataUrl = evt.target?.result as string;
+          resolve({ base64: dataUrl.split(',')[1], mimeType: file.type, dataUrl });
+        };
+        reader.readAsDataURL(file);
+      })
+    );
+    Promise.all(promises).then(newImgs => {
+      setModalImages([...modalImages, ...newImgs]);
     });
     e.target.value = '';
   };

@@ -338,6 +338,7 @@ export function useAIEdit({
       }
 
       setRewriteModalOpen(false);
+      setModalImages([]);
       if (editorRef.current) {
         const raw = getCurrentHtml();
         setGeneratedHtml(raw);

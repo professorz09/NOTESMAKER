@@ -52,6 +52,7 @@ export const buildPrintHtml = (content: string, fontSize: number): string => {
     li { margin-bottom: 4px; }
     strong { color: #0f172a; font-weight: 700; }
     .key-point { background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 10px; margin: 12px 0; font-family: 'Inter', sans-serif; font-size: 0.95em; page-break-inside: avoid; }
+    .note-box { background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 10px; margin: 12px 0; font-family: 'Inter', sans-serif; font-size: 0.95em; page-break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 2px solid #000 !important; page-break-inside: auto; font-size: 0.9em; }
     tr { page-break-inside: avoid; page-break-after: auto; }
     thead { display: table-header-group; }
