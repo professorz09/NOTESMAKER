@@ -410,10 +410,21 @@ export const generateFileNotes = async (
 
 // Rewrite specific text selection
 // CHANGED: Uses Flash for speed, focused on structure preservation
+const buildContents = (prompt: string, images?: { base64: string; mimeType: string }[]) => {
+  if (!images || images.length === 0) return prompt;
+  return {
+    parts: [
+      ...images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } })),
+      { text: prompt },
+    ]
+  };
+};
+
 export const rewriteContent = async (
     textToRewrite: string,
     instruction: string,
-    modelName: string = "gemini-3-flash-preview"
+    modelName: string = "gemini-3-flash-preview",
+    images?: { base64: string; mimeType: string }[]
   ): Promise<string> => {
     const ai = createAIClient();
   
@@ -435,7 +446,7 @@ export const rewriteContent = async (
   
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: prompt,
+      contents: buildContents(prompt, images),
     });
   
     return cleanHtmlOutput(response.text || textToRewrite);
@@ -446,7 +457,8 @@ export const rewriteContent = async (
 export const rewriteSection = async (
   sectionContent: string,
   instruction: string,
-  modelName: string = "gemini-3-flash-preview"
+  modelName: string = "gemini-3-flash-preview",
+  images?: { base64: string; mimeType: string }[]
 ): Promise<string> => {
   const ai = createAIClient();
     const prompt = `
@@ -467,7 +479,7 @@ export const rewriteSection = async (
   `;
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: prompt
+    contents: buildContents(prompt, images)
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -477,7 +489,8 @@ export const rewriteSection = async (
 export const expandSection = async (
   sectionContent: string,
   instruction: string,
-  modelName: string = "gemini-3.1-pro-preview"
+  modelName: string = "gemini-3.1-pro-preview",
+  images?: { base64: string; mimeType: string }[]
 ): Promise<string> => {
   const ai = createAIClient();
   const prompt = `
@@ -499,7 +512,7 @@ export const expandSection = async (
   `;
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: prompt
+    contents: buildContents(prompt, images)
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -509,7 +522,8 @@ export const expandSection = async (
 export const generateNextContent = async (
   previousContext: string,
   instruction: string,
-  modelName: string = "gemini-3.1-pro-preview"
+  modelName: string = "gemini-3.1-pro-preview",
+  images?: { base64: string; mimeType: string }[]
 ): Promise<string> => {
   const ai = createAIClient();
     const prompt = `
@@ -535,7 +549,7 @@ export const generateNextContent = async (
   `;
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: prompt
+    contents: buildContents(prompt, images)
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -544,7 +558,8 @@ export const generateNextContent = async (
 export const generateDetailedNextTopic = async (
   previousContext: string,
   topicName: string,
-  modelName: string = "gemini-3.1-pro-preview"
+  modelName: string = "gemini-3.1-pro-preview",
+  images?: { base64: string; mimeType: string }[]
 ): Promise<string> => {
   const ai = createAIClient();
     const prompt = `
@@ -569,7 +584,7 @@ export const generateDetailedNextTopic = async (
 
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: prompt
+    contents: buildContents(prompt, images)
   });
   return cleanHtmlOutput(response.text || "");
 };

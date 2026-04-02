@@ -1,5 +1,15 @@
 export const STORAGE_KEY = 'ai_book_writer_draft';
 
+export const extractImagesFromHtml = (html: string): { base64: string; mimeType: string }[] => {
+  const results: { base64: string; mimeType: string }[] = [];
+  const regex = /<img[^>]+src="(data:(image\/[a-zA-Z+]+);base64,([^"]+))"[^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    results.push({ base64: match[3], mimeType: match[2] });
+  }
+  return results;
+};
+
 export const getSectionNodes = (startNode: Element): Element[] => {
   const nodes: Element[] = [startNode];
   const getLevel = (tag: string) => {

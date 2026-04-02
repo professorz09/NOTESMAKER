@@ -9,7 +9,7 @@ import {
   generateDiagram,
   extendTableRows,
 } from '../services/ai';
-import { getSectionNodes } from '../utils/editorUtils';
+import { getSectionNodes, extractImagesFromHtml } from '../utils/editorUtils';
 
 type EditTab = 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram' | 'table';
 
@@ -275,18 +275,27 @@ export function useAIEdit({
       }
 
       if (rewriteType === 'section') {
-        if (editTab === 'rewrite') resultHtml = await rewriteSection(activeSectionHtml, rewriteInstruction, rewriteModel);
-        else if (editTab === 'expand') resultHtml = await expandSection(activeSectionHtml, rewriteInstruction, rewriteModel);
-        else if (editTab === 'continue') resultHtml = await generateNextContent(activeSectionHtml, rewriteInstruction, rewriteModel);
-        else if (editTab === 'next_topic') resultHtml = await generateDetailedNextTopic(activeSectionHtml, rewriteInstruction, rewriteModel);
+        const sectionImages = extractImagesFromHtml(activeSectionHtml);
+        if (editTab === 'rewrite') resultHtml = await rewriteSection(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
+        else if (editTab === 'expand') resultHtml = await expandSection(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
+        else if (editTab === 'continue') resultHtml = await generateNextContent(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
+        else if (editTab === 'next_topic') resultHtml = await generateDetailedNextTopic(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
         else if (editTab === 'image') resultHtml = activeSectionHtml + await generateSectionImage(activeSectionHtml, rewriteInstruction);
         else if (editTab === 'diagram') resultHtml = activeSectionHtml + await generateDiagram(activeSectionHtml, rewriteInstruction, rewriteModel);
       } else {
-        const selectedText = selectionRangeRef.current?.toString() || '';
-        if (editTab === 'rewrite') resultHtml = await rewriteContent(selectedText, rewriteInstruction, rewriteModel);
-        else if (editTab === 'expand') resultHtml = await expandSection(selectedText, rewriteInstruction, rewriteModel);
-        else if (editTab === 'continue') resultHtml = selectedText + ' ' + await generateNextContent(selectedText, rewriteInstruction, rewriteModel);
-        else if (editTab === 'next_topic') resultHtml = selectedText + ' ' + await generateDetailedNextTopic(selectedText, rewriteInstruction, rewriteModel);
+        const range = selectionRangeRef.current;
+        const selectionHtml = (() => {
+          if (!range) return '';
+          const div = document.createElement('div');
+          div.appendChild(range.cloneContents());
+          return div.innerHTML;
+        })();
+        const selectedText = range?.toString() || '';
+        const selectionImages = extractImagesFromHtml(selectionHtml);
+        if (editTab === 'rewrite') resultHtml = await rewriteContent(selectedText, rewriteInstruction, rewriteModel, selectionImages);
+        else if (editTab === 'expand') resultHtml = await expandSection(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages);
+        else if (editTab === 'continue') resultHtml = selectionHtml + ' ' + await generateNextContent(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages);
+        else if (editTab === 'next_topic') resultHtml = selectionHtml + ' ' + await generateDetailedNextTopic(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages);
         else if (editTab === 'image') resultHtml = selectedText + '<br/>' + await generateSectionImage(selectedText, rewriteInstruction);
         else if (editTab === 'diagram') resultHtml = selectedText + '<br/>' + await generateDiagram(selectedText, rewriteInstruction, rewriteModel);
       }

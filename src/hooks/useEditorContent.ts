@@ -120,6 +120,43 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     }
   }, [handleEditorInput]);
 
+  const handleEditorPaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const dataUrl = evt.target?.result as string;
+          if (!dataUrl || !editorRef.current) return;
+          const img = document.createElement('img');
+          img.src = dataUrl;
+          img.style.maxWidth = '100%';
+          img.style.borderRadius = '8px';
+          img.style.margin = '8px 0';
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(img);
+            range.setStartAfter(img);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          } else {
+            editorRef.current.appendChild(img);
+          }
+          handleEditorInput();
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    }
+  }, [handleEditorInput]);
+
   const handleZoomIn = useCallback(() => setFontSize(p => Math.min(p + 1, 18)), []);
   const handleZoomOut = useCallback(() => setFontSize(p => Math.max(p - 1, 8)), []);
 
@@ -138,6 +175,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     handleEditorInput,
     handleEditorBlur,
     handleEditorKeyDown,
+    handleEditorPaste,
     handleZoomIn,
     handleZoomOut,
   };

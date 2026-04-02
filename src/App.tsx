@@ -83,7 +83,7 @@ const App: React.FC = () => {
     editorRef, isResettingRef,
     getCurrentHtml, getCleanHtml, saveToStorage,
     cancelPendingHistoryPush,
-    handleEditorInput, handleEditorBlur, handleEditorKeyDown,
+    handleEditorInput, handleEditorBlur, handleEditorKeyDown, handleEditorPaste,
     handleZoomIn, handleZoomOut,
   } = useEditorContent({ pushToHistory });
 
@@ -437,6 +437,7 @@ const App: React.FC = () => {
                   onInput={handleEditorInput}
                   onBlur={handleEditorBlur}
                   onKeyDown={handleEditorKeyDown}
+                  onPaste={handleEditorPaste}
                 />
               )}
             </div>
