@@ -6,6 +6,7 @@ import {
   generateFileNotes,
   generateUPSCAnswer,
   generateResearchPaper,
+  translatePdfToHindi,
 } from '../services/ai';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -37,6 +38,7 @@ export function useGeneration({
   const [topicInput, setTopicInput] = useState('');
   const [textInput, setTextInput] = useState('');
   const [files, setFiles] = useState<{ name: string; mimeType: string; data: string }[]>([]);
+  const [translatePdfFile, setTranslatePdfFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -57,6 +59,35 @@ export function useGeneration({
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleTranslatePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = (event.target?.result as string).split(',')[1];
+      setTranslatePdfFile({ name: file.name, mimeType: 'application/pdf', data: base64Data });
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleTranslatePdf = async () => {
+    if (!translatePdfFile) return;
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    try {
+      const result = await translatePdfToHindi(translatePdfFile.data, translatePdfFile.mimeType, aiModel);
+      finishGeneration(result);
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        alert(`PDF translate error: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+    }
   };
 
   const finishGeneration = (result: string) => {
@@ -141,5 +172,9 @@ export function useGeneration({
     handleGenerate,
     handleGenerateTable,
     handleClearCanvas,
+    translatePdfFile,
+    setTranslatePdfFile,
+    handleTranslatePdfUpload,
+    handleTranslatePdf,
   };
 }

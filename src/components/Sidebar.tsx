@@ -17,6 +17,7 @@ import {
   FlaskConical,
   Type,
   BarChart2,
+  Languages,
 } from 'lucide-react';
 import { GenerationStatus } from '../types';
 import { ProjectsPanel } from './ProjectsPanel';
@@ -65,6 +66,11 @@ interface SidebarProps {
   onDeleteProject: (id: string) => void;
   onRenameProject: (id: string, name: string) => void;
   hasContent: boolean;
+  // PDF Translate
+  translatePdfFile: { name: string; mimeType: string; data: string } | null;
+  handleTranslatePdfUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleTranslatePdf: () => void;
+  setTranslatePdfFile: (f: null) => void;
 }
 
 const MODELS = [
@@ -95,6 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   projects, projectsLoading, projectsError, activeProjectId, isSupabaseConfigured,
   lastSavedAt, onFetchProjects, onSync, onSaveNow, onSelectProject, onCreateProject, onDeleteProject,
   onRenameProject, hasContent,
+  translatePdfFile, handleTranslatePdfUpload, handleTranslatePdf, setTranslatePdfFile,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
@@ -370,6 +377,67 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* ── PDF → HINDI TRANSLATOR ── */}
+            <div className="space-y-3 rounded-2xl border border-orange-500/20 bg-orange-500/5 p-4">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center flex-shrink-0">
+                  <Languages className="w-4 h-4 text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-orange-300 leading-none">PDF → हिन्दी अनुवाद</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Upload PDF, get full Hindi translation</p>
+                </div>
+              </div>
+
+              {!translatePdfFile ? (
+                <label className="block relative cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleTranslatePdfUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="flex flex-col items-center gap-2 py-5 px-3 rounded-xl border-2 border-dashed border-orange-500/20 hover:border-orange-500/50 hover:bg-orange-500/8 transition-all">
+                    <Upload className="w-5 h-5 text-orange-400/70" />
+                    <p className="text-xs text-slate-400 text-center">Click to upload PDF<br /><span className="text-[10px] text-slate-600">Only PDF files supported</span></p>
+                  </div>
+                </label>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 bg-white/4 rounded-xl px-3 py-2.5 border border-white/6">
+                    <FileText className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <span className="text-xs text-slate-300 truncate flex-1">{translatePdfFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setTranslatePdfFile(null)}
+                      className="text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTranslatePdf}
+                    disabled={isGenerating}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                    style={{ background: 'linear-gradient(135deg, #ea580c 0%, #dc2626 100%)' }}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        अनुवाद हो रहा है...
+                      </>
+                    ) : (
+                      <>
+                        <Languages className="w-3.5 h-3.5" />
+                        हिन्दी में अनुवाद करें
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
 
           {/* ── PROJECTS PANEL ── */}

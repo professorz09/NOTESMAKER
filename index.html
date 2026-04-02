@@ -346,9 +346,43 @@
       }
       .dark .editor-content caption { color: #cbd5e1; }
 
+      /* --- IMAGE PLACEHOLDER (PDF Translation) --- */
+      .editor-content .image-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin: 1.5em 0;
+        padding: 20px 24px;
+        background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
+        border: 2px dashed #f97316;
+        border-radius: 12px;
+        text-align: center;
+        page-break-inside: avoid;
+      }
+      .dark .editor-content .image-placeholder {
+        background: linear-gradient(135deg, #1c0a00 0%, #1f1000 100%);
+        border-color: #c2410c;
+      }
+      .editor-content .image-placeholder-icon { font-size: 2rem; line-height: 1; }
+      .editor-content .image-placeholder-title {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #c2410c;
+        letter-spacing: 0.02em;
+      }
+      .dark .editor-content .image-placeholder-title { color: #fb923c; }
+      .editor-content .image-placeholder-desc {
+        font-size: 0.82rem;
+        color: #78350f;
+        line-height: 1.5;
+        max-width: 500px;
+      }
+      .dark .editor-content .image-placeholder-desc { color: #fcd34d; }
+
       /* --- VISUALIZATIONS & IMAGES --- */
-      .editor-content .flowchart-container { 
-        display: flex; 
+      .editor-content .flowchart-container {
+        display: flex;
         justify-content: center; 
         margin: 1.5em 0; 
         padding: 4px; 
