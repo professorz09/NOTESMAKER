@@ -199,17 +199,23 @@ const App: React.FC = () => {
     if (historyIndex < history.length - 1) applyHistoryIndex(historyIndex + 1, history);
   }, [historyIndex, history, applyHistoryIndex]);
 
-  // Global keyboard shortcuts for undo/redo
+  // Global keyboard shortcuts for undo/redo + edit toggle
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey;
       if (!ctrl) return;
       if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
       if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); handleRedo(); }
+      if (e.key === 'e' && !e.shiftKey && generatedHtml) {
+        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return;
+        e.preventDefault();
+        if (isEditing) { setIsEditing(false); saveToStorage(); } else { setIsEditing(true); }
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, isEditing, generatedHtml, setIsEditing, saveToStorage]);
 
   // Every generation → always create a BRAND NEW project entry in history
   const prevStatusRef = React.useRef(status);
@@ -244,6 +250,23 @@ const App: React.FC = () => {
   const onClearCanvas = () => {
     handleClearCanvas(activeEditIdRef, selectionRangeRef);
   };
+
+  // Auto-save active project before generating new content so no work is lost
+  const handleGenerateWithAutoSave = useCallback(async (e: React.FormEvent) => {
+    if (activeProjectId && generatedHtml) {
+      const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
+      if (html) await saveToProject(activeProjectId, html);
+    }
+    handleGenerate(e);
+  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, handleGenerate]);
+
+  const handleGenerateTableWithAutoSave = useCallback(async (e: React.MouseEvent) => {
+    if (activeProjectId && generatedHtml) {
+      const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
+      if (html) await saveToProject(activeProjectId, html);
+    }
+    handleGenerateTable(e);
+  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, handleGenerateTable]);
 
   // --- PDF EXPORT ---
   const handleExportPDF = () => {
@@ -344,8 +367,8 @@ const App: React.FC = () => {
         language={language} setLanguage={setLanguage}
         aiModel={aiModel} setAiModel={setAiModel}
         tableInstruction={tableInstruction} setTableInstruction={setTableInstruction}
-        handleGenerate={handleGenerate}
-        handleGenerateTable={handleGenerateTable}
+        handleGenerate={handleGenerateWithAutoSave}
+        handleGenerateTable={handleGenerateTableWithAutoSave}
         status={status}
         handleClearCanvas={onClearCanvas}
         handleUndo={handleUndo}

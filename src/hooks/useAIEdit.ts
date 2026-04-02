@@ -269,6 +269,7 @@ export function useAIEdit({
         setGeneratedHtml(updatedHtml);
         localStorage.setItem('ai_book_writer_draft', updatedHtml);
         setRewriteModalOpen(false);
+        setModalImages([]);
         isTableExtendMode.current = false;
         extendTableRef.current = null;
         extendContextRef.current = null;

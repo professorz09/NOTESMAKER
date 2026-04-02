@@ -22,6 +22,8 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     if (!editorRef.current) return generatedHtml || '';
     const clone = editorRef.current.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
+    clone.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
+    clone.querySelectorAll('caption.empty-caption').forEach(c => c.remove());
     clone.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
     clone.querySelectorAll('font').forEach(font => {
       const span = document.createElement('span');
@@ -39,12 +41,19 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     return content;
   }, [getCleanHtml]);
 
-  // Load saved draft on mount
+  // Load saved draft on mount — strip any editing-mode artifacts left in storage
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      setGeneratedHtml(saved);
-      pushToHistory(saved);
+      const temp = document.createElement('div');
+      temp.innerHTML = saved;
+      temp.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
+      temp.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
+      temp.querySelectorAll('caption.empty-caption').forEach(c => c.remove());
+      temp.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
+      const clean = temp.innerHTML;
+      setGeneratedHtml(clean);
+      pushToHistory(clean);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
