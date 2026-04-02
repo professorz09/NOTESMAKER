@@ -10,7 +10,7 @@ import {
 } from '../services/ai';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
-import { renderPdfPages, canvasPageToPngBase64, cropImageFromCanvas } from '../utils/pdfRenderer';
+import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
 
 interface UseGenerationProps {
   pushToHistory: (content: string) => void;
@@ -81,23 +81,25 @@ export function useGeneration({
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     setTranslateProgress(null);
     try {
-      const pages = await renderPdfPages(translatePdfFile.data, 2);
-      const total = pages.length;
+      const { numPages, pdf } = await loadPdf(translatePdfFile.data);
+      const total = numPages;
       setTranslateProgress({ current: 0, total });
 
       const pageHtmlParts: string[] = [];
 
-      for (let i = 0; i < pages.length; i++) {
+      for (let i = 0; i < total; i++) {
         if (isResettingRef.current) return;
-        const page = pages[i];
         setTranslateProgress({ current: i + 1, total });
 
-        const pageImgBase64 = canvasPageToPngBase64(page.canvas);
-        let pageHtml = await translatePdfPageToHindi(pageImgBase64, i + 1, total, aiModel);
+        const page = await renderSinglePage(pdf, i + 1, 2);
+
+        const pageImgBase64 = canvasPageToJpegBase64(page.canvas, 0.82);
+        let pageHtml = await translatePdfPageToHindi(pageImgBase64, i + 1, total, aiModel, 'image/jpeg');
 
         pageHtml = injectRealImages(pageHtml, page.canvas);
+        releaseCanvas(page.canvas);
 
-        if (i < pages.length - 1) {
+        if (i < total - 1) {
           pageHtml += '<hr class="page-break" />';
         }
         pageHtmlParts.push(pageHtml);

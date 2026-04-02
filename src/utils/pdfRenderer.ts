@@ -12,40 +12,50 @@ export interface RenderedPage {
   pageNumber: number;
 }
 
-export async function renderPdfPages(
-  base64Data: string,
-  scale: number = 2
-): Promise<RenderedPage[]> {
+export interface PdfMeta {
+  numPages: number;
+  pdf: pdfjsLib.PDFDocumentProxy;
+}
+
+export async function loadPdf(base64Data: string): Promise<PdfMeta> {
   const binary = atob(base64Data);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-
   const loadingTask = pdfjsLib.getDocument({ data: bytes });
   const pdf = await loadingTask.promise;
+  return { numPages: pdf.numPages, pdf };
+}
 
-  const pages: RenderedPage[] = [];
+export async function renderSinglePage(
+  pdf: pdfjsLib.PDFDocumentProxy,
+  pageNumber: number,
+  scale: number = 2
+): Promise<RenderedPage> {
+  const page = await pdf.getPage(pageNumber);
+  const viewport = page.getViewport({ scale });
 
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+  await page.render({ canvas, viewport }).promise;
+  page.cleanup();
 
-    await page.render({ canvas, viewport }).promise;
+  return {
+    canvas,
+    width: viewport.width,
+    height: viewport.height,
+    pageNumber,
+  };
+}
 
-    pages.push({
-      canvas,
-      width: viewport.width,
-      height: viewport.height,
-      pageNumber: pageNum,
-    });
-  }
-
-  return pages;
+export function canvasPageToJpegBase64(
+  canvas: HTMLCanvasElement,
+  quality: number = 0.82
+): string {
+  return canvas.toDataURL('image/jpeg', quality).split(',')[1];
 }
 
 export function canvasPageToPngBase64(canvas: HTMLCanvasElement): string {
@@ -70,4 +80,9 @@ export function cropImageFromCanvas(
   const ctx = crop.getContext('2d')!;
   ctx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
   return crop.toDataURL('image/png').split(',')[1];
+}
+
+export function releaseCanvas(canvas: HTMLCanvasElement) {
+  canvas.width = 0;
+  canvas.height = 0;
 }

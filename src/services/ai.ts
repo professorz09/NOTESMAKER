@@ -937,7 +937,8 @@ export const translatePdfPageToHindi = async (
   pageImageBase64: string,
   pageNumber: number,
   totalPages: number,
-  modelName: string = "gemini-3.1-pro-preview"
+  modelName: string = "gemini-3.1-pro-preview",
+  imageMimeType: string = "image/jpeg"
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -978,7 +979,7 @@ export const translatePdfPageToHindi = async (
   `;
 
   const parts: any[] = [
-    { inlineData: { data: pageImageBase64, mimeType: 'image/png' } },
+    { inlineData: { data: pageImageBase64, mimeType: imageMimeType } },
     { text: prompt }
   ];
 
