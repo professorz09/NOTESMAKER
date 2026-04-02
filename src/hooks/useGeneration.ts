@@ -121,24 +121,35 @@ export function useGeneration({
     return html.replace(
       /<pdf-img([^/]*)\/?>/gi,
       (_match, attrs) => {
-        const getAttr = (name: string) => {
+        const getAttr = (name: string): number | null => {
           const m = attrs.match(new RegExp(`data-${name}="([^"]*)"`, 'i'));
-          return m ? parseFloat(m[1]) : null;
+          if (!m) return null;
+          const v = parseFloat(m[1]);
+          return isNaN(v) ? null : v;
         };
-        const x = getAttr('x');
-        const y = getAttr('y');
-        const w = getAttr('w');
-        const h = getAttr('h');
+        const clamp = (v: number, min = 0, max = 100) => Math.min(Math.max(v, min), max);
+
+        let x = getAttr('x');
+        let y = getAttr('y');
+        let w = getAttr('w');
+        let h = getAttr('h');
         const altMatch = attrs.match(/data-alt="([^"]*)"/i);
         const alt = altMatch ? altMatch[1] : 'चित्र';
 
         if (x === null || y === null || w === null || h === null) return '';
 
+        x = clamp(x);
+        y = clamp(y);
+        w = clamp(w, 1);
+        h = clamp(h, 1);
+        if (x + w > 100) w = 100 - x;
+        if (y + h > 100) h = 100 - y;
+
         try {
           const base64 = cropImageFromCanvas(canvas, x, y, w, h);
-          const naturalW = Math.round((w / 100) * canvas.width);
-          const naturalH = Math.round((h / 100) * canvas.height);
-          return `<img src="data:image/png;base64,${base64}" alt="${alt}" style="display:block;max-width:100%;width:${naturalW}px;height:auto;margin:12px auto;" />`;
+          const marginLeftPct = x;
+          const widthPct = w;
+          return `<img src="data:image/png;base64,${base64}" alt="${alt}" style="display:block;max-width:${widthPct}%;margin:12px 0 12px ${marginLeftPct}%;height:auto;" />`;
         } catch {
           return `<div class="image-placeholder"><div class="image-placeholder-icon">🖼️</div><div class="image-placeholder-title">${alt}</div></div>`;
         }

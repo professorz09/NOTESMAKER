@@ -964,7 +964,8 @@ export const translatePdfPageToHindi = async (
          - data-y: top edge of the image as % of page height
          - data-w: width of the image as % of page width
          - data-h: height of the image as % of page height
-       - Example: <pdf-img data-x="5" data-y="30" data-w="90" data-h="25" data-alt="मानचित्र का विवरण"/>
+       - Example: <pdf-img data-x="5" data-y="30" data-w="90" data-h="25" data-page="${pageNumber}" data-alt="मानचित्र का विवरण"/>
+       - data-page must always be "${pageNumber}" (the current page number).
        - The data-alt should be a brief Hindi description of what the image shows.
        - IMPORTANT: Place the <pdf-img> tag INLINE in the HTML exactly where the image appears relative to surrounding text — not all at the start or end.
        - Do NOT use placeholder divs for images — use ONLY the <pdf-img> self-closing tag.
