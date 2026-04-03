@@ -71,17 +71,15 @@ export const generateTopicContent = async (
     • **Concept Map Table** — concept → sub-concepts → real-world applications (3 columns)
     Include a table ONLY where it adds clear value over prose. Use <thead><tr><th> and <tbody>. Use <ul><li> inside <td> for multiple points per cell.
 
-    **SVG DIAGRAM — AI selects the best visual type for this topic:**
-    Analyze the topic deeply and pick ONE visual that maximizes understanding:
-    • **Flowchart** → sequential steps, decision trees, policy or administrative processes
-    • **Mindmap** → concept clusters, radial layout — central node + labeled branches + sub-branches
-    • **Timeline** → chronological events, historical progression, constitutional/legislative history
-    • **Cycle / Loop** → recurring processes, feedback loops, ecological or policy cycles
-    • **Hierarchy / Tree** → classification trees, org structures, taxonomies
-    • **Venn Diagram** → overlapping concepts, shared vs unique properties of 2–3 entities
-    • **Network / Web** → interconnected actors, systems, or relationships
-    • **SVG Comparison Table** → side-by-side data with colored header row and alternating row fills
-    SVG rules: Always set viewBox (e.g. "0 0 900 600"). No fixed width/height on <svg>. font-family="sans-serif", min font-size 13px. Background #f8fafc or white. Primary #3b82f6. No overlapping text. Wrap in <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Only create a diagram if it genuinely aids comprehension beyond text.
+    **VISUALIZATION LOGIC (Optional):**
+    Analyze the topic and generate ONE detailed SVG diagram inside <div class="flowchart-container"> ONLY IF it significantly aids understanding (e.g., for processes, cycles, or hierarchies). If not needed, do not include it.
+    *Rules for SVG (if included):*
+    - Must be highly detailed, educational, and visually appealing.
+    - Use a clean, professional color palette (#f8fafc background, #0f172a text, #3b82f6 accents).
+    - **NO BORDERS** on the SVG itself or its main container.
+    - Ensure all text inside the SVG is readable (font-family="sans-serif", font-size 14px or larger).
+    - Use proper viewBox attributes for responsiveness. Do NOT set fixed width/height on <svg>.
+    - Include meaningful connections, labels, and icons if possible.
     
     **Output:** Return ONLY raw HTML.
   `;
@@ -121,15 +119,8 @@ export const generateUPSCAnswer = async (
        - Highlight key terms using <strong>.
     3. **Data/Facts/Committees (Optional):** Sprinkle relevant data, articles of the constitution, or committee recommendations if they exist for this topic. Use <div class="note-box">...</div> for highlighting facts.
     4. **Visual Elements (Optional):**
-       **TABLE** — Include ONE table if it genuinely aids understanding. Choose the format that fits:
-       • Comparison Matrix (two or more entities), Timeline (Year | Event | Impact), Pros & Cons,
-         Factor Analysis (Cause/Challenge | Details | Examples), Process Steps, Data/Statistics.
-       **SVG DIAGRAM** — Include ONE SVG if it visually clarifies something text cannot. Pick the right type:
-       • Flowchart (processes/steps), Mindmap (concept clusters), Timeline SVG (chronology),
-         Cycle (recurring processes), Hierarchy/Tree (classifications), Venn (overlapping entities),
-         Network (interconnected actors), SVG Table (structured comparison with colored header).
-       SVG rules: viewBox always set, no fixed width/height, font-family="sans-serif", min 13px font, no overlapping text.
-       Wrap diagram in: <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">
+       - Include a **Table** for comparison or data presentation if it adds value.
+       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it visually represents a process, hierarchy, or relationship that is complex. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion (e.g., mentioning SDGs or constitutional ethos).
 
     **WORD COUNT CONSTRAINT:**
@@ -303,14 +294,8 @@ export const generateFormattedNotes = async (
        - Highlight key terms using <strong>.
     3. **Data/Facts/Committees (Optional):** Sprinkle relevant data if applicable. Use <div class="note-box">...</div> for highlighting facts.
     4. **Visual Elements (Optional):**
-       **TABLE** — Include ONE table if relevant. Choose the format that fits the content:
-       • Comparison Matrix, Timeline (Year | Event | Impact), Pros & Cons,
-         Factor Analysis (Cause | Details | Examples), Process Steps, Data/Statistics.
-       **SVG DIAGRAM** — Include ONE SVG diagram if it adds visual clarity. Choose the right type:
-       • Flowchart (steps/process), Mindmap (concept clusters), Timeline SVG (chronology),
-         Cycle (recurring processes), Hierarchy/Tree, Venn (overlapping concepts), Network.
-       Wrap SVG in: <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">
-       SVG rules: viewBox set, no fixed width/height, font-family="sans-serif", min 13px, no overlapping text.
+       - Include a **Table** for comparison or data presentation if relevant.
+       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it helps visualize the content. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion.
 
     **WORD COUNT CONSTRAINT:**
@@ -326,12 +311,12 @@ export const generateFormattedNotes = async (
 
     **STRICT STRUCTURE & FORMATTING RULES:**
     1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis.
-    2. **Body Sections:** Break down into logical academic sections with bullet points and <strong> for key terms.
-    3. **Data & Evidence (Table):** Include at least one detailed HTML <table> with <caption>. Choose the format:
-       • Timeline, Comparison Matrix, Factor Analysis, Data/Statistics, Feature Matrix — whichever best fits.
-    4. **Visual Explanation (Diagram):** Include ONE SVG diagram inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">.
-       Choose the type: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, Venn, or Network — whichever best represents the content.
-       SVG rules: viewBox set, no fixed width/height, font-family="sans-serif", min 13px text, no overlapping.
+    2. **Literature Review & Methodology (Body):**
+       - Break down into logical academic sections.
+       - Use extensive bullet points for readability.
+       - Highlight key terms, dates, and authors using <strong>.
+    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the text.
+    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the text. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
@@ -346,8 +331,7 @@ export const generateFormattedNotes = async (
     1. **Structure:** Strict tree (1. -> 1.1 -> 1.1.1).
     2. **Density:** Remove conversational filler. Make it concise but complete.
     3. **Formatting:** Use <div class="key-point"> and <div class="note-box">.
-    4. **Table (Optional):** If the content has comparative or structured data, include an appropriate table (Timeline, Factor Analysis, Comparison, or Process Steps — whichever fits).
-    5. **Visual (Optional):** If complex logic/process exists, add an SVG inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the type that fits: Flowchart, Mindmap, Cycle, Hierarchy, or Timeline SVG. viewBox set, no overlapping text.
+    4. **Visuals:** Create an SVG diagram inside <div class="flowchart-container"> if complex logic exists.
 
     **Output:** Return ONLY raw HTML.
   `;
@@ -392,14 +376,8 @@ export const generateFileNotes = async (
        - Highlight key terms using <strong>.
     3. **Data/Facts/Committees (Optional):** Sprinkle relevant data if relevant. Use <div class="note-box">...</div> for highlighting facts.
     4. **Visual Elements (Optional):**
-       **TABLE** — Include ONE table if it genuinely aids understanding. Choose the format that fits the file content:
-       • Comparison Matrix, Timeline (Year | Event | Impact), Pros & Cons,
-         Factor Analysis (Cause | Details | Examples), Process Steps, Data/Statistics.
-       **SVG DIAGRAM** — Include ONE SVG if it adds visual clarity. Choose the right type from the file content:
-       • Flowchart (steps/process), Mindmap (concept clusters), Timeline SVG (chronology),
-         Cycle (recurring processes), Hierarchy/Tree, Venn (overlapping concepts), Network.
-       Wrap SVG in: <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">
-       SVG rules: viewBox set, no fixed width/height, font-family="sans-serif", min 13px, no overlapping text.
+       - Include a **Table** for comparison or data presentation if it adds value.
+       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it helps explain the content. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
     5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion.
 
     **WORD COUNT CONSTRAINT:**
@@ -413,13 +391,13 @@ export const generateFileNotes = async (
     Language: ${language}
 
     **STRICT STRUCTURE & FORMATTING RULES:**
-    1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis.
-    2. **Body Sections:** Logical academic sections with bullet points and <strong> for key terms, dates, authors.
-    3. **Data & Evidence (Table):** Include at least one detailed HTML <table> with <caption>. Pick the format that best fits the file content:
-       • Timeline, Comparison Matrix, Factor Analysis, Data/Statistics, Feature Matrix.
-    4. **Visual Explanation (Diagram):** Include ONE SVG diagram inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">.
-       Pick the type that best represents the content: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, Venn, or Network.
-       SVG rules: viewBox set, no fixed width/height, font-family="sans-serif", min 13px, no overlapping text.
+    1. **Abstract & Introduction:** Start with a comprehensive abstract, context, and the core thesis based on the files.
+    2. **Literature Review & Methodology (Body):**
+       - Break down into logical academic sections.
+       - Use extensive bullet points for readability.
+       - Highlight key terms, dates, and authors using <strong>.
+    3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the files.
+    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the files. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
@@ -433,8 +411,7 @@ export const generateFileNotes = async (
     1. **Structure:** Strict tree (1. -> 1.1 -> 1.1.1).
     2. **Density:** Extract all key information. Make it concise but complete.
     3. **Formatting:** Use <div class="key-point"> and <div class="note-box">.
-    4. **Table (Optional):** If file content has structured data, include an appropriate table (Timeline, Comparison, Factor Analysis, or Process Steps — whichever fits).
-    5. **Visual (Optional):** If complex logic/process found in files, add an SVG inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the type: Flowchart, Mindmap, Cycle, Hierarchy, or Timeline SVG. viewBox set, no overlapping text.
+    4. **Visuals:** Create an SVG diagram inside <div class="flowchart-container"> if complex logic exists.
 
     **Output:** Return ONLY raw HTML.
   `;
@@ -563,7 +540,7 @@ export const expandSection = async (
        • Comparison Matrix, Timeline (Year | Event | Impact), Pros & Cons, Factor Analysis,
          Feature Matrix, Data/Statistics, Process Steps — whichever best fits the content being expanded.
        Use <caption>, <thead><th>, <tbody><td>, <ul><li> inside cells, <strong> for key terms.
-    4. **Diagram (Optional):** If the expanded content has a clear process, cycle, or relationship, add ONE SVG diagram inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the right type: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, or Venn. viewBox set, no overlapping text, min 13px font.
+    4. **Diagram (Optional):** If the expanded content has a clear process, cycle, or relationship, add ONE SVG diagram inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     5. **Volume:** Significantly increase depth of knowledge, not just word count.
 
     Output: Valid HTML only.
@@ -603,7 +580,7 @@ export const generateNextContent = async (
     4. **High Density:** Maintain a professional, academic, high-fact-density tone.
     5. **Formatting:** Use <strong>, <div class="key-point">, <div class="note-box"> where appropriate.
     6. **Table (Optional):** If a section being added has structured/comparative data, include ONE appropriately-formatted table (Timeline, Comparison, Factor Analysis, Pros/Cons, Process Steps, Feature Matrix — whichever fits). Add <caption>, use <thead><th>, <tbody><td>, <ul><li> for multi-point cells.
-    7. **Diagram (Optional):** If the new content has a clear visual structure, add ONE SVG inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the type: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, or Venn. viewBox set, min 13px font, no overlapping text.
+    7. **Diagram (Optional):** If the new content has a clear visual structure, add ONE SVG inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     
     Output: Return ONLY the HTML for the NEW content.
   `;
@@ -640,7 +617,7 @@ export const generateDetailedNextTopic = async (
     6. **Table (Optional):** If the topic benefits from structured data, include ONE appropriate table with <caption>. Choose the format that fits:
        • Timeline, Comparison Matrix, Factor Analysis, Pros & Cons, Feature Matrix, Process Steps, Data/Statistics.
        Use <thead><th>, <tbody><td>, <ul><li> inside cells, <strong> for key terms.
-    7. **Diagram (Optional):** If the topic has a clear visual structure, include ONE SVG inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center">. Pick the best type: Flowchart, Mindmap, Timeline, Cycle, Hierarchy, or Venn. viewBox set, min 13px font, no overlapping text.
+    7. **Diagram (Optional):** If the topic has a clear visual structure, include ONE SVG inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     8. **Tone:** Professional academic tone.
 
     Output: HTML for the new MAJOR section only.
@@ -747,45 +724,23 @@ export const generateDiagram = async (
   const ai = createAIClient();
   
   const prompt = `
-    Role: Expert Information Designer & Academic Visualizer.
-    Task: Analyse the user's instruction and produce the BEST visual output for it using SVG.
-
-    Context (section text):
-    "${contextText}"
-
-    User Instruction: "${instruction}"
-
-    DIAGRAM TYPE SELECTION — pick the most appropriate:
-    - "mindmap" or "concept map" → radial layout, central node + branches
-    - "flowchart" or "process" or "steps" → top-to-bottom boxes with arrows
-    - "timeline" or "chronology" → horizontal/vertical timeline with events
-    - "hierarchy" or "org chart" or "tree" → hierarchical tree layout
-    - "comparison" or "table" or "matrix" or "vs" → SVG comparison table (header row + data rows, alternating fill, clear borders)
-    - "cycle" or "loop" → circular/cyclic diagram
-    - anything else → choose the most logical visual type
-
+    Role: Expert Information Designer & Data Visualizer.
+    Task: Create a highly detailed, visually appealing SVG Diagram (Flowchart, Mindmap, Hierarchy, Timeline, etc.) based on the user's instruction and context.
+    
+    Context: "${contextText}"
+    Instruction: "${instruction}"
+    
     **SVG REQUIREMENTS:**
-    1. **Format:** Return ONLY valid, raw <svg> code. No markdown fences (\`\`\`html / \`\`\`svg), no explanation.
-    2. **ViewBox:** Always set a viewBox (e.g. "0 0 900 600"). Do NOT use fixed width/height on the <svg> tag itself.
-    3. **Completeness:** The diagram MUST be fully complete — all nodes labeled, all rows filled, all arrows drawn.
-    4. **Styling — general:**
-       - Background: white (#ffffff) or very light grey (#f8fafc).
-       - Primary color: #3b82f6 (blue) for headers / main nodes.
-       - Secondary: #0f172a (dark) for text, #e2e8f0 for borders/lines.
-       - Use font-family="sans-serif" throughout. Minimum font-size: 12px.
-    5. **Styling — comparison/table SVG:**
-       - Header row: filled #3b82f6, white text.
-       - Odd rows: #f0f9ff, Even rows: #ffffff.
-       - Cell borders: <rect stroke="#cbd5e1">.
-       - Column headers bold, data cells regular weight.
-       - Enough height per row for text (min 36px per row).
-    6. **Styling — node diagrams:**
-       - Rounded rectangles (rx="10") for nodes.
-       - Arrow lines: stroke="#94a3b8" with arrowhead markers.
-       - Mindmap central node: larger, darker (#1e40af).
-    7. **Spacing:** No text/shape overlap. Well-padded cells/nodes. If content is large, expand the viewBox height accordingly.
-
-    Output: ONLY the <svg>...</svg> code. Nothing else.
+    1. **Format:** Return ONLY valid, raw <svg> code. Do NOT wrap it in markdown blocks (\`\`\`html or \`\`\`svg).
+    2. **Responsiveness:** Use a proper \`viewBox\` (e.g., \`viewBox="0 0 800 600"\`). Do NOT use fixed width/height attributes on the <svg> tag.
+    3. **Styling:** 
+       - Background: Transparent or very light (e.g., #f8fafc).
+       - Text: Must be readable, use standard fonts (font-family="sans-serif"), font-size 14px or larger.
+       - Colors: Use a professional palette (e.g., #3b82f6 for primary nodes, #1e293b for text, #cbd5e1 for lines).
+    4. **Layout:** Ensure nodes are well-spaced. Paths/lines connecting nodes should be clear.
+    5. **Content:** The diagram MUST accurately reflect the instruction (e.g., if asked for a mindmap, create a central node with branching paths).
+    
+    Output: ONLY the <svg>...</svg> code.
   `;
 
   const response = await ai.models.generateContent({
@@ -895,15 +850,7 @@ export const generateResearchPaper = async (
        • **Feature Matrix** (Attribute | Description | Status) — for single-subject cataloguing
        • **Process Steps** (Phase | Action | Outcome) — for procedural or policy topics
        Use <thead><th>, <tbody><td>, <ul><li> inside cells for multiple points, <strong> for key terms.
-    6. **Visual Diagram (SVG):** MUST include ONE SVG diagram inside <div class="flowchart-container my-8 w-full overflow-x-auto flex justify-center"> — choose the type that best suits this specific topic:
-       • **Flowchart** → policy/administrative processes, decision trees
-       • **Mindmap** → concept clusters, topic relationships (radial layout)
-       • **Timeline SVG** → chronological events, historical progressions
-       • **Cycle / Loop** → recurring or feedback processes
-       • **Hierarchy / Tree** → classification trees, org structures
-       • **Venn Diagram** → overlapping entities with shared/unique attributes
-       • **Network** → interconnected actors or systems
-       SVG rules: viewBox set (e.g. "0 0 900 600"), no fixed width/height on <svg>, font-family="sans-serif", min 13px font, no overlapping text, background #f8fafc or white, primary color #3b82f6.
+    6. **Visual Diagram (SVG):** MUST include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, framework, or timeline related to the topic. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     7. **Key Takeaways (h2):** 5-8 bullet points summarizing the most important aspects of the topic.
 
     **Output:** Return ONLY raw HTML. No markdown. Use <h1>, <h2>, <h3>, <ul>, <li>, <table>, <strong>, <p>, <svg> etc.
