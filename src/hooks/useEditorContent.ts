@@ -25,6 +25,8 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     clone.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
     clone.querySelectorAll('caption.empty-caption').forEach(c => c.remove());
     clone.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
+    // Strip AI-generated inline styles from caption so our CSS controls it
+    clone.querySelectorAll('caption').forEach(cap => cap.removeAttribute('style'));
     clone.querySelectorAll('font').forEach(font => {
       const span = document.createElement('span');
       span.innerHTML = font.innerHTML;
@@ -51,6 +53,8 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
       temp.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
       temp.querySelectorAll('caption.empty-caption').forEach(c => c.remove());
       temp.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
+      // Strip AI-generated inline styles from caption (we control caption via CSS)
+      temp.querySelectorAll('caption').forEach(cap => cap.removeAttribute('style'));
       const clean = temp.innerHTML;
       setGeneratedHtml(clean);
       pushToHistory(clean);

@@ -353,7 +353,22 @@ export function useGeneration({
         }
       });
 
+      // Strip AI-generated inline styles from caption elements — CSS controls their look
+      root.querySelectorAll('caption').forEach(cap => cap.removeAttribute('style'));
+
       return root.innerHTML;
+    } catch {
+      return html;
+    }
+  };
+
+  // Strip any AI-injected inline styles from caption elements before saving
+  const sanitizeCaptions = (html: string): string => {
+    try {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      div.querySelectorAll('caption').forEach(cap => cap.removeAttribute('style'));
+      return div.innerHTML;
     } catch {
       return html;
     }
@@ -361,9 +376,10 @@ export function useGeneration({
 
   const finishGeneration = (result: string) => {
     if (isResettingRef.current) return;
-    setGeneratedHtml(result);
-    pushToHistory(result);
-    localStorage.setItem(STORAGE_KEY, result);
+    const clean = sanitizeCaptions(result);
+    setGeneratedHtml(clean);
+    pushToHistory(clean);
+    localStorage.setItem(STORAGE_KEY, clean);
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
