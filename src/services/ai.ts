@@ -735,7 +735,7 @@ export const generateDiagram = async (
     2. **Responsiveness:** Use a proper \`viewBox\` (e.g., \`viewBox="0 0 800 600"\`). Do NOT use fixed width/height attributes on the <svg> tag.
     3. **Styling:** 
        - Background: Transparent or very light (e.g., #f8fafc).
-       - Text: Must be readable, use standard fonts (font-family="sans-serif"), font-size 14px or larger.
+       - Text: Must be readable, use standard fonts (font-family="sans-serif"), and appropriate sizes.
        - Colors: Use a professional palette (e.g., #3b82f6 for primary nodes, #1e293b for text, #cbd5e1 for lines).
     4. **Layout:** Ensure nodes are well-spaced. Paths/lines connecting nodes should be clear.
     5. **Content:** The diagram MUST accurately reflect the instruction (e.g., if asked for a mindmap, create a central node with branching paths).
