@@ -67,17 +67,27 @@ export function cropImageFromCanvas(
   xPct: number,
   yPct: number,
   wPct: number,
-  hPct: number
+  hPct: number,
+  paddingPct: number = 1.5
 ): string {
-  const x = Math.round((xPct / 100) * canvas.width);
-  const y = Math.round((yPct / 100) * canvas.height);
-  const w = Math.max(1, Math.round((wPct / 100) * canvas.width));
-  const h = Math.max(1, Math.round((hPct / 100) * canvas.height));
+  // Add a small padding so AI's approximate coords don't cut off image edges
+  const px = Math.max(0, xPct - paddingPct);
+  const py = Math.max(0, yPct - paddingPct);
+  const pw = Math.min(100 - px, wPct + paddingPct * 2);
+  const ph = Math.min(100 - py, hPct + paddingPct * 2);
+
+  const x = Math.round((px / 100) * canvas.width);
+  const y = Math.round((py / 100) * canvas.height);
+  const w = Math.max(1, Math.round((pw / 100) * canvas.width));
+  const h = Math.max(1, Math.round((ph / 100) * canvas.height));
 
   const crop = document.createElement('canvas');
   crop.width = w;
   crop.height = h;
   const ctx = crop.getContext('2d')!;
+  // White background so transparent PNGs render cleanly
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
   ctx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
   return crop.toDataURL('image/png').split(',')[1];
 }

@@ -169,10 +169,11 @@ export function useGeneration({
 
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const page = await renderSinglePage(pdf, pageNum, 2);
-          const pageImgBase64 = canvasPageToJpegBase64(page.canvas, 0.82);
+          const page = await renderSinglePage(pdf, pageNum, 2.5);
+          const pageImgBase64 = canvasPageToJpegBase64(page.canvas, 0.90);
           pageHtml = await translatePdfPageToHindi(pageImgBase64, pageNum, total, PDF_TRANSLATE_MODEL, 'image/jpeg');
           pageHtml = injectRealImages(pageHtml, page.canvas);
+          pageHtml = cleanupHtml(pageHtml);
           releaseCanvas(page.canvas);
           succeeded = true;
           break;
@@ -196,7 +197,7 @@ export function useGeneration({
 
       if (!succeeded) return;
 
-      if (i < total - 1) pageHtml += '<hr class="page-break" />';
+      if (i < total - 1) pageHtml += `<div class="pdf-page-divider"><span class="pdf-page-num">पृष्ठ ${pageNum}</span></div>`;
       pageHtmlParts.push(pageHtml);
       pageTimes.push(Date.now() - pageStart);
       pushLive();
@@ -302,21 +303,60 @@ export function useGeneration({
       }
     );
 
-    // Step 2: Move any <figure class="pdf-figure"> that ended up inside a <p> or <li> to outside it
-    // This prevents block-level figures from being trapped inside inline containers
-    result = result.replace(
-      /<p([^>]*)>([\s\S]*?)<figure class="pdf-figure"([\s\S]*?)<\/figure>([\s\S]*?)<\/p>/gi,
-      (_m, pAttrs, before, figRest, after) => {
-        const beforeTrimmed = before.trim();
-        const afterTrimmed = after.trim();
-        const openP = `<p${pAttrs}>`;
-        const beforeBlock = beforeTrimmed ? `${openP}${beforeTrimmed}</p>` : '';
-        const afterBlock = afterTrimmed ? `${openP}${afterTrimmed}</p>` : '';
-        return `${beforeBlock}<figure class="pdf-figure"${figRest}</figure>${afterBlock}`;
-      }
-    );
-
     return result;
+  };
+
+  // DOM-based post-processor: moves block figures out of inline containers, removes empty nodes
+  const cleanupHtml = (html: string): string => {
+    try {
+      const doc = new DOMParser().parseFromString(`<div id="__root">${html}</div>`, 'text/html');
+      const root = doc.getElementById('__root')!;
+
+      // Move any <figure class="pdf-figure"> that is a child of <p> or <li> to outside it
+      root.querySelectorAll('p figure.pdf-figure, li figure.pdf-figure').forEach(figure => {
+        const parent = figure.parentElement!;
+        const grandParent = parent.parentElement;
+        if (!grandParent) return;
+
+        // Split parent: before and after the figure
+        const childNodes = Array.from(parent.childNodes);
+        const figIdx = childNodes.indexOf(figure as ChildNode);
+
+        const beforeNodes = childNodes.slice(0, figIdx);
+        const afterNodes = childNodes.slice(figIdx + 1);
+
+        const tag = parent.tagName.toLowerCase();
+        const insertPoint = parent.nextSibling;
+
+        // Create before-sibling if it has content
+        if (beforeNodes.some(n => n.textContent?.trim())) {
+          const beforeEl = doc.createElement(tag);
+          beforeNodes.forEach(n => beforeEl.appendChild(n.cloneNode(true)));
+          grandParent.insertBefore(beforeEl, parent);
+        }
+        // Insert the figure itself
+        grandParent.insertBefore(figure, parent);
+        // Create after-sibling if it has content
+        if (afterNodes.some(n => n.textContent?.trim())) {
+          const afterEl = doc.createElement(tag);
+          afterNodes.forEach(n => afterEl.appendChild(n.cloneNode(true)));
+          grandParent.insertBefore(afterEl, insertPoint);
+        }
+        // Remove now-empty parent
+        parent.remove();
+      });
+
+      // Remove <p> and <div> elements that are completely empty or whitespace-only
+      root.querySelectorAll('p, div').forEach(el => {
+        if (!el.querySelector('img, figure, table, svg') && !el.textContent?.trim()) {
+          el.remove();
+        }
+      });
+
+      return root.innerHTML;
+    } catch {
+      return html;
+    }
   };
 
   const finishGeneration = (result: string) => {

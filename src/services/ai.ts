@@ -1138,46 +1138,60 @@ export const translatePdfPageToHindi = async (
     ═══ RULE 2 — TRANSLATE ALL EDUCATIONAL CONTENT: ═══
     Every heading, subheading, paragraph, bullet point, numbered list, table cell, caption, label, footnote — translate fully to Hindi. Do NOT leave any English text (except technical terms in parentheses).
 
-    ═══ RULE 3 — HTML STRUCTURE: ═══
-    Match the visual hierarchy of the page:
-    • Main section title → <h2>
-    • Sub-section → <h3>
-    • Sub-sub-section → <h4>
-    • Body paragraphs → <p>
-    • Bullet/numbered lists → <ul><li> or <ol><li>
-    • Tables → full <table><thead><tbody><tr><th><td>
-    • Bold/key terms → <strong>
-    • Important definitions/concepts → <div class="key-point"><strong>मुख्य बिंदु:</strong> ...</div>
-    • Highlighted notes/boxes/sidebars → <div class="note-box">...</div>
-    All content of a logical section must be grouped inside a <div class="page-section"> wrapper.
+    ═══ RULE 3 — READING ORDER & LAYOUT: ═══
+    • Single-column: read top → bottom.
+    • Two-column layout: read the ENTIRE LEFT column (top → bottom) first, then the ENTIRE RIGHT column (top → bottom). DO NOT interleave columns.
+    • If a heading spans the full width above two columns, output it first, then left column, then right column.
+    • Ignore decorative dividers, ornamental borders, and visual separators between columns.
 
-    ═══ RULE 4 — IMAGES & DIAGRAMS (CRITICAL — NO TEXT OVERLAP): ═══
+    ═══ RULE 4 — HTML STRUCTURE: ═══
+    Match the visual hierarchy exactly:
+    • Full-width section title (large heading) → <h2>
+    • Sub-section heading → <h3>
+    • Minor sub-heading → <h4>
+    • Body text paragraphs → <p>
+    • Bullet/numbered lists → <ul><li> or <ol><li>
+    • Tables → full <table><caption>Hindi title</caption><thead><tbody><tr><th><td>
+    • Bold/key terms → <strong>
+    • Shaded/colored definition/concept box → <div class="key-point"><strong>मुख्य बिंदु:</strong> ...</div>
+    • Shaded fact box, "Did You Know", sidebar, tip box → <div class="note-box">...</div>
+    • Practice question / numbered MCQ → <ol class="question-list"><li class="question-item">...</li></ol>
+    • Mathematical expressions → use Unicode symbols (₂, ³, ≥, ≤, →, ∑ etc.) inside <span class="math">
+    • All sections must be wrapped in <div class="page-section">
+
+    ═══ RULE 5 — IMAGES & DIAGRAMS (CRITICAL — NO TEXT OVERLAP): ═══
     For EVERY image, photo, diagram, chart, graph, map, flowchart, or illustration:
-    • Place the <pdf-img> tag AS A STANDALONE BLOCK — NEVER inside a <p>, <li>, or <td>.
-    • Always place it BETWEEN paragraphs/sections, not embedded inside text.
-    • Use PERCENTAGE coordinates (0–100) relative to the page:
+    • Output <pdf-img> as a STANDALONE BLOCK — NEVER inside <p>, <li>, or <td>.
+    • Always place it BETWEEN complete block elements (after a closing </p>, </ul>, </div>, NOT inside them).
+    • Precise PERCENTAGE coordinates (0–100) relative to this page:
         data-x = left edge % of page width
         data-y = top edge % of page height
         data-w = width % of page width
         data-h = height % of page height
-    • Example (placed between two paragraphs, NOT inside one):
+    • CORRECT placement example:
         </p>
-        <pdf-img data-x="5" data-y="30" data-w="90" data-h="25" data-page="${pageNumber}" data-alt="नदी बेसिन का मानचित्र"/>
+        <pdf-img data-x="5" data-y="30" data-w="88" data-h="22" data-page="${pageNumber}" data-alt="भारत का राजनीतिक मानचित्र — राज्य सीमाएँ दर्शाता है"/>
         <p>अगला पैराग्राफ...
+    • WRONG placement: <p>कुछ text <pdf-img .../> और text</p>  ← NEVER do this.
     • data-page must always be "${pageNumber}".
-    • data-alt = brief Hindi description of what the image shows.
-    • NEVER skip an image/diagram — mark every one.
+    • data-alt = descriptive Hindi caption (what the image shows, its key labels/elements).
+    • NEVER skip or omit any image/diagram — always mark every one.
 
-    ═══ RULE 5 — TABLES: ═══
-    Translate ALL headers and cell content to Hindi. Keep full table structure. Place <caption> with Hindi table title.
+    ═══ RULE 6 — TABLES: ═══
+    • Translate ALL headers and cells to Hindi.
+    • Keep the complete table structure — same number of rows and columns.
+    • Add <caption> with a descriptive Hindi title.
+    • Use <strong> inside <th> cells.
 
-    ═══ RULE 6 — TECHNICAL TERMS: ═══
-    Proper nouns (people, places, organizations) → Hindi transliteration.
-    Scientific/technical terms → Hindi translation + (English) in parentheses.
+    ═══ RULE 7 — TECHNICAL TERMS & NAMES: ═══
+    • Proper nouns (people, places, organizations, acts, schemes) → Hindi transliteration.
+    • Scientific/technical terms → Hindi translation (English) in parentheses.
+    • Numbers, dates, and statistics → keep in original numerals.
+    • Article numbers (अनुच्छेद 21), schedule names → translate label, keep number.
 
-    ═══ RULE 7 — OUTPUT FORMAT: ═══
+    ═══ RULE 8 — OUTPUT FORMAT: ═══
     Return ONLY raw HTML — no markdown fences (\`\`\`html), no explanations, no comments.
-    Just clean HTML starting with <div class="page-section"> or <h2> etc.
+    Start directly with <div class="page-section"> or the first heading tag.
   `;
 
   const parts: any[] = [

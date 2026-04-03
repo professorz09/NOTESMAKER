@@ -352,6 +352,78 @@
         margin-bottom: 1.5em;
       }
 
+      /* --- PDF PAGE DIVIDER --- */
+      .editor-content .pdf-page-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 2.5em 0 2em;
+        page-break-before: always;
+      }
+      .editor-content .pdf-page-divider::before,
+      .editor-content .pdf-page-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #cbd5e1;
+      }
+      .dark .editor-content .pdf-page-divider::before,
+      .dark .editor-content .pdf-page-divider::after { background: #334155; }
+      .editor-content .pdf-page-num {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #94a3b8;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        padding: 2px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+      }
+      .dark .editor-content .pdf-page-num { color: #64748b; border-color: #334155; }
+
+      /* --- QUESTION LIST (practice questions in PDF translation) --- */
+      .editor-content ol.question-list {
+        list-style: none;
+        padding: 0;
+        margin: 1em 0;
+        counter-reset: q-counter;
+      }
+      .editor-content ol.question-list li.question-item {
+        counter-increment: q-counter;
+        display: flex;
+        gap: 10px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        background: #f8fafc;
+        border-left: 3px solid #3b82f6;
+        border-radius: 0 6px 6px 0;
+        line-height: 1.6;
+      }
+      .editor-content ol.question-list li.question-item::before {
+        content: 'Q' counter(q-counter) '.';
+        font-weight: 700;
+        color: #3b82f6;
+        white-space: nowrap;
+        min-width: 2.2em;
+      }
+      .dark .editor-content ol.question-list li.question-item {
+        background: #0f172a;
+        border-left-color: #60a5fa;
+      }
+      .dark .editor-content ol.question-list li.question-item::before { color: #60a5fa; }
+
+      /* --- MATH SPAN --- */
+      .editor-content .math {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.92em;
+        background: #f1f5f9;
+        padding: 1px 5px;
+        border-radius: 3px;
+        color: #0f172a;
+      }
+      .dark .editor-content .math { background: #1e293b; color: #e2e8f0; }
+
       /* --- PDF FIGURE (real cropped images from PDF) --- */
       .editor-content figure.pdf-figure {
         display: block;
