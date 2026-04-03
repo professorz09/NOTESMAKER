@@ -105,7 +105,8 @@ const App: React.FC = () => {
     handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
     translateProgress, translateResumeState, setTranslateResumeState,
     answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
-  } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen });
+    onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
+  } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml });
 
   const {
     rewriteModalOpen, closeRewriteModal,
@@ -400,6 +401,11 @@ const App: React.FC = () => {
         handleAnswerPdfUpload={handleAnswerPdfUpload}
         handleAnalyzeAnswer={handleAnalyzeAnswer}
         answerAnalyzing={answerAnalyzing}
+        onePagerTopicInput={onePagerTopicInput}
+        setOnePagerTopicInput={setOnePagerTopicInput}
+        onePagerTopics={onePagerTopics}
+        onePagerLoading={onePagerLoading}
+        handleAddOnePager={handleAddOnePager}
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">

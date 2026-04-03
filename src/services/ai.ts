@@ -1153,3 +1153,60 @@ export const translatePdfPageToHindi = async (
 
   return cleanHtmlOutput(response.text || "");
 };
+
+// Generate One Pager Notes — compact, single-page per topic
+export const generateOnePagerNotes = async (
+  topic: string,
+  language: string,
+  modelName: string = "gemini-3.1-pro-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Expert Academic Note-Writer.
+    Task: Create ULTRA-COMPACT, SINGLE-PAGE notes for the given topic that are dense with information but easy to scan.
+    Language: ${language}
+    Topic: "${topic}"
+
+    **STRICT ONE-PAGER DESIGN RULES:**
+    Wrap everything inside: <div class="one-pager-card">
+
+    1. **Header block** (required):
+       <div class="op-header">
+         <h2 class="op-title">[Topic Name]</h2>
+         <div class="op-meta">[Subject/Category] • [2-3 word tagline]</div>
+       </div>
+
+    2. **Content layout** — use a 2-column grid where possible:
+       <div class="op-grid">
+         <div class="op-col">...</div>
+         <div class="op-col">...</div>
+       </div>
+
+    3. **Section types to use** (mix them as appropriate):
+       - Key facts list: <div class="op-section"><h4 class="op-section-title">📌 Key Facts</h4><ul class="op-list">...</ul></div>
+       - Important dates/numbers: <div class="op-section"><h4 class="op-section-title">📅 Important Dates</h4>...</div>
+       - Definitions: <div class="op-section"><h4 class="op-section-title">📖 Key Terms</h4>...</div>
+       - Causes/Effects: <div class="op-section"><h4 class="op-section-title">⚡ Causes & Effects</h4>...</div>
+       - ONE compact table (if adds value): <table class="op-table">...</table>
+       - Quick summary box: <div class="op-summary">...</div>
+
+    4. **Density rules:**
+       - No fluff sentences — only direct, factual points
+       - Use <strong> for critical terms/numbers/years
+       - Bullet points max 6-8 words each — ultra-brief
+       - Pack maximum information — at least 30-40 key facts/points
+       - Include actual data: years, article numbers, percentages, names
+
+    5. Close with: </div> (closing the one-pager-card)
+
+    **Output:** Return ONLY raw HTML. No markdown, no explanations. Start directly with <div class="one-pager-card">.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt,
+  });
+
+  return cleanHtmlOutput(response.text || "");
+};

@@ -8,6 +8,7 @@ import {
   generateResearchPaper,
   translatePdfPageToHindi,
   analyzeAnswerPdf,
+  generateOnePagerNotes,
 } from '../services/ai';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -20,11 +21,13 @@ interface UseGenerationProps {
   resetHistory: () => void;
   setIsEditing: (editing: boolean) => void;
   setSidebarOpen: (open: boolean) => void;
+  getCurrentHtml: () => string;
 }
 
 export function useGeneration({
   pushToHistory,
   isResettingRef,
+  getCurrentHtml,
   setGeneratedHtml,
   resetHistory,
   setIsEditing,
@@ -50,6 +53,11 @@ export function useGeneration({
   } | null>(null);
   const [answerPdfFile, setAnswerPdfFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
   const [answerAnalyzing, setAnswerAnalyzing] = useState(false);
+
+  // One Pager state
+  const [onePagerTopicInput, setOnePagerTopicInput] = useState('');
+  const [onePagerTopics, setOnePagerTopics] = useState<string[]>([]);
+  const [onePagerLoading, setOnePagerLoading] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -359,6 +367,32 @@ export function useGeneration({
     }
   };
 
+  const handleAddOnePager = async () => {
+    const topic = onePagerTopicInput.trim();
+    if (!topic) return;
+    setOnePagerLoading(true);
+    try {
+      const newHtml = await generateOnePagerNotes(topic, language, aiModel);
+      const existing = getCurrentHtml();
+      const combined = existing
+        ? existing + '\n<div class="one-pager-divider"></div>\n' + newHtml
+        : newHtml;
+      setGeneratedHtml(combined);
+      pushToHistory(combined);
+      localStorage.setItem(STORAGE_KEY, combined);
+      setOnePagerTopics(prev => [...prev, topic]);
+      setOnePagerTopicInput('');
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        alert(`One Pager error: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      setOnePagerLoading(false);
+    }
+  };
+
   const finishGeneration = (result: string) => {
     if (isResettingRef.current) return;
     setGeneratedHtml(result);
@@ -454,5 +488,10 @@ export function useGeneration({
     handleAnswerPdfUpload,
     handleAnalyzeAnswer,
     answerAnalyzing,
+    onePagerTopicInput,
+    setOnePagerTopicInput,
+    onePagerTopics,
+    onePagerLoading,
+    handleAddOnePager,
   };
 }
