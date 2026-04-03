@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&family=Inter:wght@400;500;600;700&family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
       /* --- GLOBAL SCROLLBAR --- */
       ::-webkit-scrollbar {
@@ -71,7 +71,7 @@
       
       /* Base Typography */
       .editor-content {
-          font-family: 'Inter', sans-serif; /* CHANGED TO SIMPLE FONT */
+          font-family: 'Noto Sans Devanagari', 'Noto Sans', 'Inter', sans-serif;
           font-size: 12pt; /* Normal Size */
           line-height: 1.6; /* Normal Line Height */
           color: #1e293b; 
@@ -577,43 +577,114 @@
 
       /* --- PRINT STYLES --- */
       @media print {
+        /* Reset layout for print */
         html, body, #root, main {
           width: 100% !important; height: auto !important; min-height: auto !important;
           overflow: visible !important; display: block !important; margin: 0 !important; padding: 0 !important;
           background: white !important; position: static !important;
+          font-family: 'Noto Sans Devanagari', 'Noto Sans', 'Inter', sans-serif !important;
         }
 
-        aside, button, header, .no-print, .ai-edit-trigger, .toolbar-container { display: none !important; }
+        /* Hide UI chrome */
+        aside, button, header, nav, .no-print, .ai-edit-trigger,
+        .toolbar-container, .pdf-page-divider::before, .pdf-page-divider::after { display: none !important; }
+
         .flex { display: block !important; }
         .w-full { width: 100% !important; }
 
         .editor-container {
-           width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important;
-           box-shadow: none !important; border: none !important;
+          width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important;
+          box-shadow: none !important; border: none !important;
         }
 
+        /* Force dark mode reset — print is always white */
+        .dark .editor-content, .dark .editor-content * {
+          color: #1e293b !important;
+          background-color: transparent !important;
+        }
+        .dark .editor-content h1 { color: #0f172a !important; border-color: #0f172a !important; }
+        .dark .editor-content h2 { color: #1e3a8a !important; border-color: #e2e8f0 !important; }
+        .dark .editor-content h3 { color: #334155 !important; }
+        .dark .editor-content h4 { color: #475569 !important; }
+        .dark .editor-content strong { color: #0f172a !important; }
+
+        /* Print color accuracy */
         .editor-content { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .editor-content * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-        h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
-        
+        /* Headings */
+        h1, h2, h3, h4 { page-break-after: avoid; break-after: avoid; }
+
+        /* Key-point & note-box */
+        .key-point {
+          background-color: #f8fafc !important;
+          border-left: 4px solid #3b82f6 !important;
+          page-break-inside: avoid; break-inside: avoid;
+        }
         .note-box {
           background-color: #fefce8 !important;
           border: 1px solid #facc15 !important;
           border-left: 4px solid #eab308 !important;
-          page-break-inside: avoid;
+          page-break-inside: avoid; break-inside: avoid;
         }
+        .note-box::before { color: #a16207 !important; }
 
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; border: 2px solid #000 !important; page-break-inside: auto; font-size: 9.5pt; }
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 1.5px solid #000 !important; page-break-inside: auto; font-size: 9.5pt; }
         tr { page-break-inside: avoid; page-break-after: auto; }
         thead { display: table-header-group; }
-        th { background-color: #f1f5f9 !important; color: #000 !important; padding: 10px; border: 1px solid #000 !important; font-weight: bold !important; }
-        td { border: 1px solid #000 !important; padding: 10px; vertical-align: top; }
+        th { background-color: #f1f5f9 !important; color: #000 !important; padding: 8px; border: 1px solid #000 !important; font-weight: bold !important; }
+        td { border: 1px solid #000 !important; padding: 8px; vertical-align: top; }
+        caption { font-weight: 600; text-align: center; padding: 4px 0 6px; font-size: 0.9em; color: #1e293b !important; }
 
-        figure, .flowchart-container, svg, .key-point, img { page-break-inside: avoid; break-inside: avoid; }
-        .flowchart-container { border: 2px solid #000 !important; }
-        figure { border: none !important; box-shadow: none !important; }
+        /* Figures & Images */
+        figure { page-break-inside: avoid; break-inside: avoid; border: none !important; box-shadow: none !important; background: transparent !important; padding: 8px 0 !important; }
+        figure.pdf-figure { display: block; text-align: center; margin: 12px auto; }
+        figure.pdf-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; border: 1px solid #e2e8f0 !important; border-radius: 0 !important; }
+        img { max-width: 100%; height: auto; border: none !important; border-radius: 0 !important; }
+        figcaption, .pdf-figcaption { font-size: 0.8em; color: #555 !important; font-style: italic; display: block; text-align: center; margin-top: 4px; }
+
+        /* SVG / Flowchart */
+        svg { max-width: 100% !important; height: auto !important; display: block !important; }
+        .flowchart-container { border: 1px solid #e2e8f0 !important; page-break-inside: avoid; break-inside: avoid; }
+
+        /* PDF page divider — just a clean page break */
+        .pdf-page-divider {
+          display: block !important;
+          page-break-before: always !important;
+          break-before: page !important;
+          border: none !important;
+          margin: 0 !important;
+          height: 0 !important;
+          overflow: hidden !important;
+        }
+        .pdf-page-num { display: none !important; }
+
+        /* Question list */
+        ol.question-list { list-style: none !important; padding: 0 !important; counter-reset: q-counter; }
+        ol.question-list li.question-item {
+          counter-increment: q-counter;
+          background: #f8fafc !important;
+          border-left: 3px solid #3b82f6 !important;
+          padding: 8px 10px !important;
+          margin-bottom: 6px;
+          display: flex !important;
+          gap: 8px;
+          page-break-inside: avoid; break-inside: avoid;
+        }
+        ol.question-list li.question-item::before { content: 'Q' counter(q-counter) '.'; font-weight: 700; color: #3b82f6 !important; white-space: nowrap; min-width: 1.8em; }
+
+        /* Math span */
+        .math { font-family: 'Courier New', monospace !important; font-size: 0.9em; background: #f1f5f9 !important; padding: 1px 4px; border-radius: 2px; }
+
+        /* Page section */
+        .page-section { display: block; margin-bottom: 1em; }
+
+        /* Prevent orphans */
         p, li { orphans: 3; widows: 3; }
+
+        /* Answer analysis cards */
+        .answer-analysis .section-card { page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px !important; }
       }
     </style>
 
