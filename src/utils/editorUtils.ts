@@ -99,12 +99,12 @@ export const buildPrintHtml = (content: string, fontSize: number): string => {
     }
 
     /* Tables */
-    table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 1.5px solid #000 !important; page-break-inside: auto; font-size: 0.88em; }
+    table { display: table !important; width: 100% !important; max-width: none !important; overflow: visible !important; border-collapse: collapse; margin: 12px 0; border: 1.5px solid #000 !important; page-break-inside: auto; font-size: 0.88em; }
     caption { font-weight: 600; font-size: 0.9em; text-align: center; padding: 4px 0 6px; color: #1e293b; }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; page-break-after: auto; }
-    th { background-color: #f1f5f9 !important; color: #0f172a !important; padding: 7px 8px; font-weight: 700; text-align: left; border: 1px solid #000 !important; }
-    td { border: 1px solid #000 !important; padding: 7px 8px; vertical-align: top; }
+    th { background-color: #f1f5f9 !important; color: #0f172a !important; padding: 7px 8px; font-weight: 700; text-align: left; border: 1px solid #000 !important; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
+    td { border: 1px solid #000 !important; padding: 7px 8px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
     tr:nth-child(even) { background-color: #f8fafc !important; }
 
     /* SVG / Flowchart */

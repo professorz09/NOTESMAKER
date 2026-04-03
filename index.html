@@ -598,9 +598,12 @@
         .flex { display: block !important; }
         .w-full { width: 100% !important; }
 
-        .editor-container {
+        .editor-container, .page-container, .editor-content {
           width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important;
-          box-shadow: none !important; border: none !important; overflow: visible !important;
+          box-shadow: none !important; border: none !important;
+          overflow: visible !important;
+          overflow-x: visible !important;
+          overflow-y: visible !important;
         }
 
         /* Force dark mode reset — print is always white */
@@ -635,8 +638,9 @@
         }
         .note-box::before { color: #a16207 !important; }
 
-        /* Tables */
-        table { width: 100%; border-collapse: collapse; margin: 12px 0; border: 1.5px solid #000 !important; page-break-inside: auto; font-size: 9.5pt; box-shadow: none !important; }
+        /* Tables — ensure full table prints, no clipping from scroll container */
+        table { display: table !important; width: 100% !important; max-width: none !important; overflow: visible !important; border-collapse: collapse; margin: 12px 0; border: 1.5px solid #000 !important; page-break-inside: auto; font-size: 9.5pt; box-shadow: none !important; }
+        th, td { word-break: break-word !important; overflow-wrap: break-word !important; white-space: normal !important; }
         tr { page-break-inside: avoid; page-break-after: auto; }
         thead { display: table-header-group; }
         th { background-color: #f1f5f9 !important; color: #000 !important; padding: 8px; border: 1px solid #000 !important; font-weight: bold !important; }
