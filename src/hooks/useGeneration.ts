@@ -257,7 +257,8 @@ export function useGeneration({
   };
 
   const injectRealImages = (html: string, canvas: HTMLCanvasElement): string => {
-    return html.replace(
+    // Step 1: Replace <pdf-img> tags with proper <figure> blocks
+    let result = html.replace(
       /<pdf-img([^/]*)\/?>/gi,
       (_match, attrs) => {
         const getAttr = (name: string): number | null => {
@@ -284,16 +285,38 @@ export function useGeneration({
         if (x + w > 100) w = 100 - x;
         if (y + h > 100) h = 100 - y;
 
+        // Determine alignment: if image starts past 40% from left, right-align; otherwise center
+        const align = x > 55 ? 'right' : x < 10 ? 'left' : 'center';
+        const marginStyle = align === 'center'
+          ? `margin: 16px auto`
+          : align === 'right'
+            ? `margin: 16px 0 16px auto`
+            : `margin: 16px auto 16px 0`;
+
         try {
           const base64 = cropImageFromCanvas(canvas, x, y, w, h);
-          const marginLeftPct = x;
-          const widthPct = w;
-          return `<img src="data:image/png;base64,${base64}" alt="${alt}" style="display:block;max-width:${widthPct}%;margin:12px 0 12px ${marginLeftPct}%;height:auto;" />`;
+          return `<figure class="pdf-figure" style="display:block;width:${w}%;${marginStyle};text-align:center;"><img src="data:image/png;base64,${base64}" alt="${alt}" style="max-width:100%;height:auto;display:block;margin:0 auto;" /><figcaption class="pdf-figcaption">${alt}</figcaption></figure>`;
         } catch {
           return `<div class="image-placeholder"><div class="image-placeholder-icon">🖼️</div><div class="image-placeholder-title">${alt}</div></div>`;
         }
       }
     );
+
+    // Step 2: Move any <figure class="pdf-figure"> that ended up inside a <p> or <li> to outside it
+    // This prevents block-level figures from being trapped inside inline containers
+    result = result.replace(
+      /<p([^>]*)>([\s\S]*?)<figure class="pdf-figure"([\s\S]*?)<\/figure>([\s\S]*?)<\/p>/gi,
+      (_m, pAttrs, before, figRest, after) => {
+        const beforeTrimmed = before.trim();
+        const afterTrimmed = after.trim();
+        const openP = `<p${pAttrs}>`;
+        const beforeBlock = beforeTrimmed ? `${openP}${beforeTrimmed}</p>` : '';
+        const afterBlock = afterTrimmed ? `${openP}${afterTrimmed}</p>` : '';
+        return `${beforeBlock}<figure class="pdf-figure"${figRest}</figure>${afterBlock}`;
+      }
+    );
+
+    return result;
   };
 
   const finishGeneration = (result: string) => {

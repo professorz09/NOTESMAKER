@@ -346,6 +346,41 @@
       }
       .dark .editor-content caption { color: #cbd5e1; }
 
+      /* --- PAGE SECTION (PDF Translation wrapper) --- */
+      .editor-content .page-section {
+        display: block;
+        margin-bottom: 1.5em;
+      }
+
+      /* --- PDF FIGURE (real cropped images from PDF) --- */
+      .editor-content figure.pdf-figure {
+        display: block;
+        page-break-inside: avoid;
+        margin: 20px auto;
+        text-align: center;
+        max-width: 100%;
+      }
+      .editor-content figure.pdf-figure img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+      }
+      .editor-content .pdf-figcaption {
+        display: block;
+        margin-top: 6px;
+        font-size: 0.78rem;
+        color: #64748b;
+        font-style: italic;
+        text-align: center;
+      }
+      .dark .editor-content .pdf-figcaption { color: #94a3b8; }
+
+      /* Ensure any block image inside a <p> doesn't cause overlap */
+      .editor-content p img { display: block; margin: 12px auto; max-width: 100%; height: auto; }
+
       /* --- IMAGE PLACEHOLDER (PDF Translation) --- */
       .editor-content .image-placeholder {
         display: flex;

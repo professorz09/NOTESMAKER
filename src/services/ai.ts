@@ -1122,38 +1122,62 @@ export const translatePdfPageToHindi = async (
 
   const prompt = `
     Role: Expert Hindi Translator & Academic Document Processor.
-    Task: This is page ${pageNumber} of ${totalPages} from an English PDF. Translate ALL text into Hindi (Devanagari script) and mark every image/diagram region with a special tag.
+    Task: This is page ${pageNumber} of ${totalPages} from a PDF. Translate ALL academic/educational content into Hindi (Devanagari script) with proper structure.
 
-    **CRITICAL RULES:**
+    ═══ RULE 1 — SKIP COMPLETELY (do NOT include in output): ═══
+    • Coaching institute logos, institute name banners, institute address
+    • Watermarks (e.g. "VISION IAS", "DRISHTI IAS", "SHANKAR IAS" etc.)
+    • Page headers that only contain institute branding or batch/course names
+    • Contact info: phone numbers, email addresses, websites (www.xxx.com)
+    • Social media handles (@instagram, @youtube etc.)
+    • "Powered by", "Visit us at", copyright lines
+    • Standalone page numbers (e.g. just "12" or "Page 12")
+    • Advertisement banners or promotional content
+    Output NOTHING for these — just skip them silently.
 
-    1. **Translate EVERYTHING:** Every visible word of text — headings, subheadings, body text, bullet points, numbered lists, table cells, captions, labels, footnotes — must be translated to Hindi. Do NOT leave any English text.
+    ═══ RULE 2 — TRANSLATE ALL EDUCATIONAL CONTENT: ═══
+    Every heading, subheading, paragraph, bullet point, numbered list, table cell, caption, label, footnote — translate fully to Hindi. Do NOT leave any English text (except technical terms in parentheses).
 
-    2. **Preserve HTML Structure EXACTLY:**
-       - Headings → <h1>, <h2>, <h3>, <h4> (match the visual heading level)
-       - Bullet/numbered lists → <ul><li> or <ol><li>
-       - Tables → full HTML <table><thead><tbody><tr><th><td>
-       - Bold/key terms → <strong>
-       - Key definitions → <div class="key-point">
-       - Highlighted notes/boxes → <div class="note-box">
+    ═══ RULE 3 — HTML STRUCTURE: ═══
+    Match the visual hierarchy of the page:
+    • Main section title → <h2>
+    • Sub-section → <h3>
+    • Sub-sub-section → <h4>
+    • Body paragraphs → <p>
+    • Bullet/numbered lists → <ul><li> or <ol><li>
+    • Tables → full <table><thead><tbody><tr><th><td>
+    • Bold/key terms → <strong>
+    • Important definitions/concepts → <div class="key-point"><strong>मुख्य बिंदु:</strong> ...</div>
+    • Highlighted notes/boxes/sidebars → <div class="note-box">...</div>
+    All content of a logical section must be grouped inside a <div class="page-section"> wrapper.
 
-    3. **Images & Diagrams — EXACT POSITION IS CRITICAL:**
-       - For EVERY image, photograph, diagram, chart, graph, map, flowchart, or illustration visible on this page, output a self-closing marker tag at THAT EXACT position in the HTML flow.
-       - Use PERCENTAGE coordinates (0-100) relative to the page dimensions:
-         - data-x: left edge of the image as % of page width
-         - data-y: top edge of the image as % of page height
-         - data-w: width of the image as % of page width
-         - data-h: height of the image as % of page height
-       - Example: <pdf-img data-x="5" data-y="30" data-w="90" data-h="25" data-page="${pageNumber}" data-alt="मानचित्र का विवरण"/>
-       - data-page must always be "${pageNumber}" (the current page number).
-       - The data-alt should be a brief Hindi description of what the image shows.
-       - IMPORTANT: Place the <pdf-img> tag INLINE in the HTML exactly where the image appears relative to surrounding text — not all at the start or end.
-       - Do NOT use placeholder divs for images — use ONLY the <pdf-img> self-closing tag.
+    ═══ RULE 4 — IMAGES & DIAGRAMS (CRITICAL — NO TEXT OVERLAP): ═══
+    For EVERY image, photo, diagram, chart, graph, map, flowchart, or illustration:
+    • Place the <pdf-img> tag AS A STANDALONE BLOCK — NEVER inside a <p>, <li>, or <td>.
+    • Always place it BETWEEN paragraphs/sections, not embedded inside text.
+    • Use PERCENTAGE coordinates (0–100) relative to the page:
+        data-x = left edge % of page width
+        data-y = top edge % of page height
+        data-w = width % of page width
+        data-h = height % of page height
+    • Example (placed between two paragraphs, NOT inside one):
+        </p>
+        <pdf-img data-x="5" data-y="30" data-w="90" data-h="25" data-page="${pageNumber}" data-alt="नदी बेसिन का मानचित्र"/>
+        <p>अगला पैराग्राफ...
+    • data-page must always be "${pageNumber}".
+    • data-alt = brief Hindi description of what the image shows.
+    • NEVER skip an image/diagram — mark every one.
 
-    4. **Tables:** Translate ALL table headers and cells to Hindi. Preserve the complete table HTML structure.
+    ═══ RULE 5 — TABLES: ═══
+    Translate ALL headers and cell content to Hindi. Keep full table structure. Place <caption> with Hindi table title.
 
-    5. **Technical terms:** Keep proper nouns (people, places, organizations) in Hindi transliteration. For scientific/technical terms, write the Hindi translation followed by the English term in parentheses.
+    ═══ RULE 6 — TECHNICAL TERMS: ═══
+    Proper nouns (people, places, organizations) → Hindi transliteration.
+    Scientific/technical terms → Hindi translation + (English) in parentheses.
 
-    6. **Output:** Return ONLY raw HTML — no markdown code fences, no \`\`\`html, no explanations. Just the HTML content for this page.
+    ═══ RULE 7 — OUTPUT FORMAT: ═══
+    Return ONLY raw HTML — no markdown fences (\`\`\`html), no explanations, no comments.
+    Just clean HTML starting with <div class="page-section"> or <h2> etc.
   `;
 
   const parts: any[] = [
