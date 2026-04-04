@@ -42,13 +42,13 @@ html, body {
 .editor-content h2 { font-size: 1.25em; font-weight: 700; margin-bottom: 0.4em; color: #1e3a5f; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3em; }
 .editor-content h3 { font-size: 1.1em; font-weight: 600; margin-bottom: 0.3em; color: #2563eb; }
 .editor-content h4 { font-size: 1em; font-weight: 600; margin-bottom: 0.25em; color: #475569; }
-.editor-content p { margin-bottom: 0.75em; line-height: 1.7; }
+.editor-content p { margin-bottom: 0.75em; line-height: var(--editor-lh, 1.7); }
 .editor-content ul, .editor-content ol { padding-left: 1.5em; margin-bottom: 0.75em; }
-.editor-content li { margin-bottom: 0.3em; line-height: 1.6; }
+.editor-content li { margin-bottom: 0.3em; line-height: var(--editor-lh, 1.6); }
 .editor-content strong { font-weight: 700; color: #1e293b; }
 .editor-content table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.9em; border: 1px solid #cbd5e1; }
 .editor-content th { background: #2d3748; color: #f8fafc; padding: 9px 13px; text-align: left; font-weight: 700; font-size: 0.85em; border: 1px solid #4a5568; letter-spacing: 0.01em; }
-.editor-content td { padding: 7px 12px; border: 1px solid #e2e8f0; vertical-align: top; line-height: 1.5; }
+.editor-content td { padding: 7px 12px; border: 1px solid #e2e8f0; vertical-align: top; line-height: var(--editor-lh, 1.5); }
 .editor-content tr:nth-child(even) td { background: #f8fafc; }
 .editor-content tr:hover td { background: #f1f5f9; }
 .editor-content .key-point { background: #eff6ff; border-left: 4px solid #2563eb; padding: 10px 14px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9em; }

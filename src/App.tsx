@@ -79,12 +79,13 @@ const App: React.FC = () => {
   const {
     generatedHtml, setGeneratedHtml,
     isEditing, setIsEditing,
-    fontSize,
+    fontSize, lineHeight,
     editorRef, isResettingRef,
     getCurrentHtml, getCleanHtml, saveToStorage,
     cancelPendingHistoryPush,
     handleEditorInput, handleEditorBlur, handleEditorKeyDown, handleEditorPaste,
     handleZoomIn, handleZoomOut,
+    handleLineHeightIncrease, handleLineHeightDecrease,
   } = useEditorContent({ pushToHistory });
 
   const {
@@ -281,7 +282,7 @@ const App: React.FC = () => {
     const win = window.open('', '_blank');
     if (!win) { alert('Enable pop-ups.'); return; }
     win.document.open();
-    win.document.write(buildPrintHtml(content, fontSize));
+    win.document.write(buildPrintHtml(content, fontSize, lineHeight));
     win.document.close();
   };
 
@@ -416,6 +417,9 @@ const App: React.FC = () => {
           canUndo={canUndo} canRedo={canRedo}
           fontSize={fontSize}
           handleZoomOut={handleZoomOut} handleZoomIn={handleZoomIn}
+          lineHeight={lineHeight}
+          handleLineHeightIncrease={handleLineHeightIncrease}
+          handleLineHeightDecrease={handleLineHeightDecrease}
           isEditing={isEditing} setIsEditing={setIsEditing}
           openSelectionRewriteModal={openSelectionRewriteModal}
           saveToStorage={saveToStorage}
@@ -438,7 +442,7 @@ const App: React.FC = () => {
 
           <div className="w-full mx-auto">
             <div className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
-              style={{ fontSize: `${fontSize}pt` }}>
+              style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}>
               {!generatedHtml && status === GenerationStatus.IDLE ? (
                 <div className="flex flex-col items-center justify-center text-center p-6 sm:p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50/50 dark:bg-slate-800/50" style={{ minHeight: '250mm' }}>
                   <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white dark:bg-slate-800 rounded-2xl shadow-xl ring-1 ring-slate-100 dark:ring-slate-700 flex items-center justify-center mb-6 sm:mb-8 hover:scale-105 transition-transform duration-500 rotate-3">
