@@ -9,6 +9,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [fontSize, setFontSize] = useState(12);
+  const [lineHeight, setLineHeight] = useState(1.7);
 
   const editorRef = useRef<HTMLDivElement>(null);
   const isResettingRef = useRef(false);
@@ -174,6 +175,8 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
 
   const handleZoomIn = useCallback(() => setFontSize(p => Math.min(p + 1, 18)), []);
   const handleZoomOut = useCallback(() => setFontSize(p => Math.max(p - 1, 8)), []);
+  const handleLineHeightIncrease = useCallback(() => setLineHeight(p => Math.min(+(p + 0.1).toFixed(1), 2.5)), []);
+  const handleLineHeightDecrease = useCallback(() => setLineHeight(p => Math.max(+(p - 0.1).toFixed(1), 1.2)), []);
 
   return {
     generatedHtml,
@@ -181,6 +184,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     isEditing,
     setIsEditing,
     fontSize,
+    lineHeight,
     editorRef,
     isResettingRef,
     getCurrentHtml,
@@ -193,5 +197,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     handleEditorPaste,
     handleZoomIn,
     handleZoomOut,
+    handleLineHeightIncrease,
+    handleLineHeightDecrease,
   };
 }

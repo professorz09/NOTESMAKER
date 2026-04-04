@@ -32,7 +32,7 @@ export const getSectionNodes = (startNode: Element): Element[] => {
   return nodes;
 };
 
-export const buildPrintHtml = (content: string, fontSize: number): string => {
+export const buildPrintHtml = (content: string, fontSize: number, lineHeight: number = 1.7): string => {
   const printFontSize = fontSize < 10 ? 10 : fontSize;
   return `<!DOCTYPE html>
 <html lang="hi">
@@ -48,7 +48,7 @@ export const buildPrintHtml = (content: string, fontSize: number): string => {
     body {
       font-family: 'Noto Sans Devanagari', 'Noto Sans', 'Inter', sans-serif;
       font-size: ${printFontSize}pt;
-      line-height: 1.5;
+      line-height: ${lineHeight};
       color: #1e293b;
       background: white;
       margin: 0;
@@ -62,9 +62,10 @@ export const buildPrintHtml = (content: string, fontSize: number): string => {
     h4 { font-size: 1.05em; font-weight: 600; color: #475569; margin: 10px 0 4px; page-break-after: avoid; break-after: avoid; }
 
     /* Body text */
-    p { margin-bottom: 8px; text-align: justify; line-height: 1.55; }
+    p { margin-bottom: 8px; text-align: justify; line-height: ${lineHeight}; }
     ul, ol { margin-bottom: 8px; padding-left: 20px; }
-    li { margin-bottom: 4px; }
+    li { margin-bottom: 4px; line-height: ${lineHeight}; }
+    td { line-height: ${Math.max(1.3, lineHeight - 0.2)}; }
     strong { color: #0f172a; font-weight: 700; }
 
     /* Rich elements */
@@ -103,7 +104,7 @@ export const buildPrintHtml = (content: string, fontSize: number): string => {
     caption { font-weight: 600; font-size: 0.9em; text-align: center; padding: 4px 0 6px; color: #1e293b; }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; page-break-after: auto; }
-    th { background-color: #f1f5f9 !important; color: #0f172a !important; padding: 7px 8px; font-weight: 700; text-align: left; border: 1px solid #000 !important; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
+    th { background-color: #2d3748 !important; color: #f8fafc !important; padding: 7px 8px; font-weight: 700; text-align: left; border: 1px solid #2d3748 !important; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
     td { border: 1px solid #000 !important; padding: 7px 8px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
     tr:nth-child(even) { background-color: #f8fafc !important; }
 

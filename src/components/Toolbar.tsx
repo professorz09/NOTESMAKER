@@ -1,17 +1,18 @@
 import React from 'react';
-import { 
-  PanelLeft, 
-  Undo, 
-  Redo, 
-  Minus, 
-  Plus, 
-  Wand2, 
-  Check, 
-  PenTool, 
+import {
+  PanelLeft,
+  Undo,
+  Redo,
+  Minus,
+  Plus,
+  Wand2,
+  Check,
+  PenTool,
   Printer,
   Moon,
   Sun,
-  ListOrdered
+  ListOrdered,
+  AlignJustify
 } from 'lucide-react';
 import { Button } from './Button';
 
@@ -25,6 +26,9 @@ interface ToolbarProps {
   fontSize: number;
   handleZoomOut: () => void;
   handleZoomIn: () => void;
+  lineHeight: number;
+  handleLineHeightIncrease: () => void;
+  handleLineHeightDecrease: () => void;
   isEditing: boolean;
   setIsEditing: (editing: boolean) => void;
   openSelectionRewriteModal: () => void;
@@ -45,6 +49,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   fontSize,
   handleZoomOut,
   handleZoomIn,
+  lineHeight,
+  handleLineHeightIncrease,
+  handleLineHeightDecrease,
   isEditing,
   setIsEditing,
   openSelectionRewriteModal,
@@ -83,6 +90,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button onClick={handleZoomOut} className="p-1.5 rounded-md hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm text-slate-600 dark:text-slate-300 transition-all" title="Decrease Font Size"><Minus className="w-3 h-3" /></button>
             <span className="text-xs font-semibold w-5 text-center text-slate-600 dark:text-slate-300 select-none">{fontSize}</span>
             <button onClick={handleZoomIn} className="p-1.5 rounded-md hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm text-slate-600 dark:text-slate-300 transition-all" title="Increase Font Size"><Plus className="w-3 h-3" /></button>
+          </div>
+
+          {/* Line height — hidden on xs, shown on sm+ */}
+          <div className="hidden sm:flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-1 border border-slate-200/60 dark:border-slate-700/60" title="Line Spacing">
+            <button onClick={handleLineHeightDecrease} className="p-1.5 rounded-md hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm text-slate-600 dark:text-slate-300 transition-all" title="Decrease Line Spacing"><Minus className="w-3 h-3" /></button>
+            <span className="flex items-center gap-0.5 px-0.5">
+              <AlignJustify className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+              <span className="text-xs font-semibold w-6 text-center text-slate-600 dark:text-slate-300 select-none">{lineHeight.toFixed(1)}</span>
+            </span>
+            <button onClick={handleLineHeightIncrease} className="p-1.5 rounded-md hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm text-slate-600 dark:text-slate-300 transition-all" title="Increase Line Spacing"><Plus className="w-3 h-3" /></button>
           </div>
         </div>
       </div>
