@@ -67,37 +67,37 @@ export function useAIEdit({
         btn.title = 'Rewrite/Expand';
 
         if (el.tagName === 'TABLE') {
-          let cap = el.querySelector('caption');
-          if (!cap) {
-            cap = document.createElement('caption');
-            cap.className = 'empty-caption';
-            el.prepend(cap);
+          // ── Top bar: ✨ button inserted BEFORE the table (not inside caption) ──
+          const parentEl = el.parentElement;
+          if (parentEl && !parentEl.querySelector(`.table-sparkle-bar[data-for="${(el as HTMLElement).dataset.tableId}"]`)) {
+            const tableId = `tbl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            (el as HTMLElement).dataset.tableId = tableId;
+            const topBar = document.createElement('div');
+            topBar.className = 'table-sparkle-bar no-print';
+            topBar.contentEditable = 'false';
+            topBar.dataset.for = tableId;
+            topBar.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:2px;';
+            btn.contentEditable = 'false';
+            btn.style.cssText = 'display:inline-flex;align-items:center;cursor:pointer;font-size:15px;padding:2px 6px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#2563eb;user-select:none;';
+            btn.title = 'Edit / Expand this table';
+            topBar.appendChild(btn);
+            parentEl.insertBefore(topBar, el);
           }
-          btn.style.cssText = 'position:absolute;right:-10px;top:-10px;z-index:10;';
-          cap.appendChild(btn);
 
-          let tfoot = el.querySelector('tfoot.table-extend-tfoot');
-          if (!tfoot) {
-            tfoot = document.createElement('tfoot');
-            tfoot.className = 'table-extend-tfoot no-print';
-            const tr = document.createElement('tr');
-            const td = document.createElement('td');
-            const firstRow = el.querySelector('tr');
-            td.colSpan = firstRow ? firstRow.children.length : 1;
-            td.style.cssText = 'text-align:center;padding:12px;border:none;background:transparent;';
-            tr.appendChild(td);
-            tfoot.appendChild(tr);
-            el.appendChild(tfoot);
-          }
-          const td = tfoot.querySelector('td');
-          if (td && !td.querySelector('.table-extend-btn')) {
+          // ── Bottom bar: Extend Table button inserted AFTER the table (not inside tfoot) ──
+          if (!el.nextElementSibling?.classList.contains('table-extend-bar')) {
+            const bottomBar = document.createElement('div');
+            bottomBar.className = 'table-extend-bar no-print';
+            bottomBar.contentEditable = 'false';
+            bottomBar.style.cssText = 'display:flex;justify-content:center;margin-top:4px;margin-bottom:12px;';
             const extendBtn = document.createElement('span');
             extendBtn.contentEditable = 'false';
             extendBtn.className = 'ai-edit-trigger table-extend-btn no-print';
             extendBtn.innerHTML = '➕ Extend Table';
             extendBtn.title = 'Add rows or columns';
-            extendBtn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 16px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;color:#475569;cursor:pointer;font-weight:600;transition:all 0.2s;';
-            td.appendChild(extendBtn);
+            extendBtn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;font-size:12px;color:#15803d;cursor:pointer;font-weight:600;';
+            bottomBar.appendChild(extendBtn);
+            el.insertAdjacentElement('afterend', bottomBar);
           }
         } else if (el.classList.contains('flowchart-container')) {
           btn.style.cssText = 'position:absolute;right:10px;top:10px;z-index:10;background:#fff;';
@@ -110,9 +110,11 @@ export function useAIEdit({
       });
     } else {
       editorRef.current.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
-      editorRef.current.querySelectorAll('caption').forEach(cap => {
-        if (cap.innerHTML.trim() === '') cap.remove();
-      });
+      editorRef.current.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
+      editorRef.current.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
+      editorRef.current.querySelectorAll('[data-table-id]').forEach(el => (el as HTMLElement).removeAttribute('data-table-id'));
+      // legacy cleanup
+      editorRef.current.querySelectorAll('caption.empty-caption').forEach(cap => cap.remove());
       editorRef.current.querySelectorAll('tfoot.table-extend-tfoot').forEach(tfoot => tfoot.remove());
     }
   }, [isEditing, generatedHtml, editorRef]);
@@ -200,17 +202,36 @@ export function useAIEdit({
       if (!trigger) return;
       e.preventDefault();
       e.stopPropagation();
+
+      // ── Extend table button (now in .table-extend-bar after the table) ──
+      if (trigger.classList.contains('table-extend-btn')) {
+        const bar = trigger.closest('.table-extend-bar') as HTMLElement;
+        // The table is the previous sibling of the bar
+        const table = bar?.previousElementSibling as Element;
+        if (table?.tagName === 'TABLE') handleTableExtend(table);
+        return;
+      }
+
+      // ── Sparkle button (now in .table-sparkle-bar before the table) ──
+      const sparkleBar = trigger.closest('.table-sparkle-bar') as HTMLElement;
+      if (sparkleBar) {
+        const tableId = sparkleBar.dataset.for;
+        const table = tableId
+          ? editorRef.current?.querySelector(`[data-table-id="${tableId}"]`)
+          : sparkleBar.nextElementSibling;
+        if (table) handleSectionEdit(table as Element);
+        return;
+      }
+
+      // ── All other elements (headings, li, flowchart-container) ──
       let parent = trigger.parentElement;
+      // Legacy caption/tfoot fallback
       if (parent?.tagName === 'CAPTION') parent = parent.parentElement;
       if (parent?.tagName === 'TD' && parent.parentElement?.parentElement?.tagName === 'TFOOT') {
         parent = parent.parentElement!.parentElement!.parentElement;
       }
       if (!parent) return;
-      if (trigger.classList.contains('table-extend-btn')) {
-        handleTableExtend(parent);
-      } else {
-        handleSectionEdit(parent);
-      }
+      handleSectionEdit(parent);
     };
     const editor = editorRef.current;
     if (editor) editor.addEventListener('click', handleEditorClick);
@@ -307,6 +328,19 @@ export function useAIEdit({
       if (isResettingRef.current) return;
       if (!resultHtml) throw new Error('No content generated');
 
+      // ── Safety net for Deep Dive: ensure the original heading is preserved ──
+      if (editTab === 'expand' && rewriteType === 'section') {
+        const headingMatch = activeSectionHtml.match(/^(\s*<(h[1-4])[^>]*>[\s\S]*?<\/\2>)/i);
+        if (headingMatch) {
+          const originalHeading = headingMatch[1];
+          const headingTag = headingMatch[2]; // e.g. 'h2'
+          const startsWithHeading = new RegExp(`^\\s*<${headingTag}[\\s>]`, 'i').test(resultHtml);
+          if (!startsWithHeading) {
+            resultHtml = originalHeading + '\n' + resultHtml;
+          }
+        }
+      }
+
       // Replace content in DOM
       if (rewriteType === 'section') {
         const editId = activeEditIdRef.current;
@@ -325,6 +359,13 @@ export function useAIEdit({
           else parent.appendChild(fragment);
           startNode.removeAttribute('data-edit-id');
         } else {
+          // Remove any table editor bars adjacent to nodes being replaced
+          nodesToReplace.forEach(n => {
+            const prev = n.previousElementSibling;
+            const next = n.nextElementSibling;
+            if (prev?.classList.contains('table-sparkle-bar')) prev.remove();
+            if (next?.classList.contains('table-extend-bar')) next.remove();
+          });
           parent.insertBefore(fragment, nodesToReplace[0]);
           nodesToReplace.forEach(n => n.remove());
         }
@@ -360,6 +401,25 @@ export function useAIEdit({
     }
   };
 
+  // Remove the currently selected section from the editor
+  const handleSectionRemove = useCallback(() => {
+    if (!editorRef.current) return;
+    const editId = activeEditIdRef.current;
+    if (!editId) return;
+    const startNode = editorRef.current.querySelector(`[data-edit-id="${editId}"]`);
+    if (!startNode) return;
+    const nodesToRemove = getSectionNodes(startNode);
+    pushToHistory(getCurrentHtml());
+    nodesToRemove.forEach(n => n.remove());
+    // Also remove adjacent table bars if present
+    editorRef.current.querySelectorAll('.table-sparkle-bar, .table-extend-bar').forEach(bar => bar.remove());
+    const raw = editorRef.current.innerHTML;
+    setGeneratedHtml(raw);
+    saveToStorage();
+    setRewriteModalOpen(false);
+    activeEditIdRef.current = null;
+  }, [editorRef, activeEditIdRef, getCurrentHtml, pushToHistory, setGeneratedHtml, saveToStorage]);
+
   const closeRewriteModal = useCallback(() => {
     setRewriteModalOpen(false);
     setIsExtendTableOpen(false);
@@ -385,5 +445,6 @@ export function useAIEdit({
     activeEditIdRef,
     openSelectionRewriteModal,
     handleRewriteSubmit,
+    handleSectionRemove,
   };
 }

@@ -527,23 +527,25 @@ export const expandSection = async (
   const prompt = `
     Role: Academic Researcher.
     Task: DEEP DIVE & EXPAND the selected section.
-    
+
     Input HTML:
     ${sectionContent}
 
     Instruction: "${instruction}"
-    
-    **Requirements:**
-    1. **High Density:** Maximize information per page. Avoid fluff.
-    2. **Structure:** Explode bullet points into full sub-sections (convert 1.1 into 1.1.1, 1.1.2, 1.1.3).
-    3. **Tables:** Add a table where it saves space and increases clarity. Choose the most appropriate format:
+
+    **CRITICAL RULES — READ FIRST:**
+    0. **PRESERVE THE HEADING:** The Input HTML starts with a heading element (h1/h2/h3/h4). You MUST output that EXACT heading element (same tag, same number, same text) as the VERY FIRST element of your output. NEVER remove, rename, or skip it. Example: if input starts with <h2>1.3 Topic Name</h2>, your output MUST start with <h2>1.3 Topic Name</h2>.
+    1. **ALL content goes AFTER the heading.** Do not insert any content before the heading.
+    2. **High Density:** Maximize information per page. Avoid fluff.
+    3. **Structure:** Explode bullet points into full sub-sections (convert 1.1 into 1.1.1, 1.1.2, 1.1.3).
+    4. **Tables:** Add a table where it saves space and increases clarity. Choose the most appropriate format:
        • Comparison Matrix, Timeline (Year | Event | Impact), Pros & Cons, Factor Analysis,
          Feature Matrix, Data/Statistics, Process Steps — whichever best fits the content being expanded.
-       Use <caption>, <thead><th>, <tbody><td>, <ul><li> inside cells, <strong> for key terms.
-    4. **Diagram (Optional):** If the expanded content has a clear process, cycle, or relationship, add ONE SVG diagram inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
-    5. **Volume:** Significantly increase depth of knowledge, not just word count.
+       Use <thead><th>, <tbody><td>, <ul><li> inside cells, <strong> for key terms.
+    5. **Diagram (Optional):** If the expanded content has a clear process, cycle, or relationship, add ONE SVG diagram inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    6. **Volume:** Significantly increase depth of knowledge, not just word count.
 
-    Output: Valid HTML only.
+    Output: Valid HTML only. Start directly with the heading element.
   `;
   const response = await ai.models.generateContent({
     model: modelName,
