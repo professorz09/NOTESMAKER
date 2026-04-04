@@ -46,11 +46,11 @@ html, body {
 .editor-content ul, .editor-content ol { padding-left: 1.5em; margin-bottom: 0.75em; }
 .editor-content li { margin-bottom: 0.3em; line-height: 1.6; }
 .editor-content strong { font-weight: 700; color: #1e293b; }
-.editor-content table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.9em; }
-.editor-content th { background: #2563eb; color: white; padding: 8px 12px; text-align: left; font-weight: 700; font-size: 0.85em; }
+.editor-content table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.9em; border: 1px solid #cbd5e1; }
+.editor-content th { background: #2d3748; color: #f8fafc; padding: 9px 13px; text-align: left; font-weight: 700; font-size: 0.85em; border: 1px solid #4a5568; letter-spacing: 0.01em; }
 .editor-content td { padding: 7px 12px; border: 1px solid #e2e8f0; vertical-align: top; line-height: 1.5; }
 .editor-content tr:nth-child(even) td { background: #f8fafc; }
-.editor-content tr:hover td { background: #eff6ff; }
+.editor-content tr:hover td { background: #f1f5f9; }
 .editor-content .key-point { background: #eff6ff; border-left: 4px solid #2563eb; padding: 10px 14px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9em; }
 .editor-content .note-box { background: #fefce8; border: 1px solid #fde68a; padding: 10px 14px; margin: 12px 0; border-radius: 8px; font-size: 0.9em; }
 .editor-content .table-of-contents { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
@@ -69,9 +69,10 @@ html, body {
 .dark .editor-content h3 { color: #60a5fa; }
 .dark .editor-content h4 { color: #94a3b8; }
 .dark .editor-content strong { color: #e2e8f0; }
+.dark .editor-content th { background: #1a202c; border-color: #2d3748; }
 .dark .editor-content td { border-color: #334155; }
 .dark .editor-content tr:nth-child(even) td { background: #1e293b; }
-.dark .editor-content tr:hover td { background: #1e3a5f; }
+.dark .editor-content tr:hover td { background: #243347; }
 .dark .editor-content .key-point { background: #1e3a5f; border-left-color: #3b82f6; }
 .dark .editor-content .note-box { background: #292524; border-color: #78350f; }
 .dark .editor-content .table-of-contents { background: #1e293b; border-color: #334155; }

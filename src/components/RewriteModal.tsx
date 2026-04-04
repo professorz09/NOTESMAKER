@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Sparkles, Wand2, ArrowLeft, TableProperties, ImagePlus, X } from 'lucide-react';
+import { Sparkles, Wand2, ArrowLeft, TableProperties, ImagePlus, X, Trash2 } from 'lucide-react';
 import { Button } from './Button';
 
 interface RewriteModalProps {
@@ -16,6 +16,7 @@ interface RewriteModalProps {
   setRewriteInstruction: (instruction: string) => void;
   isRewriting: boolean;
   handleRewriteSubmit: (e: React.FormEvent) => void;
+  handleSectionRemove?: () => void;
   selectionText: string;
   modalImages: { base64: string; mimeType: string; dataUrl: string }[];
   setModalImages: (imgs: { base64: string; mimeType: string; dataUrl: string }[]) => void;
@@ -35,6 +36,7 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
   setRewriteInstruction,
   isRewriting,
   handleRewriteSubmit,
+  handleSectionRemove,
   selectionText,
   modalImages,
   setModalImages,
@@ -232,11 +234,23 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                 className="w-full px-4 py-3.5 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-8 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 transition-shadow shadow-sm"
                 autoFocus
                 />
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
+                    {rewriteType === 'section' && handleSectionRemove ? (
+                      <button
+                        type="button"
+                        onClick={() => { if (confirm('Remove this section?')) handleSectionRemove(); }}
+                        disabled={isRewriting}
+                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors disabled:opacity-40"
+                        title="Remove selected section"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    ) : <span />}
+                    <div className="flex gap-3">
                     <Button type="button" variant="secondary" onClick={onClose} disabled={isRewriting} className="border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300">Cancel</Button>
-                    <Button 
-                        type="submit" 
-                        isLoading={isRewriting} 
+                    <Button
+                        type="submit"
+                        isLoading={isRewriting}
                         className={`text-white shadow-lg rounded-xl ${
                             editTab === 'expand' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20' : 
                             editTab === 'continue' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20' : 
@@ -255,6 +269,7 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                             'Apply Changes'
                         }
                     </Button>
+                    </div>
                 </div>
             </form>
           </div>

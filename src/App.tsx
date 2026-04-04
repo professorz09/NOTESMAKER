@@ -122,6 +122,7 @@ const App: React.FC = () => {
     activeEditIdRef,
     openSelectionRewriteModal,
     handleRewriteSubmit,
+    handleSectionRemove,
   } = useAIEdit({ isEditing, generatedHtml, getCurrentHtml, pushToHistory, saveToStorage, editorRef, isResettingRef, setGeneratedHtml });
 
   // --- PROJECTS ---
@@ -489,6 +490,7 @@ const App: React.FC = () => {
         rewriteInstruction={rewriteInstruction} setRewriteInstruction={setRewriteInstruction}
         isRewriting={isRewriting}
         handleRewriteSubmit={handleRewriteSubmit}
+        handleSectionRemove={rewriteType === 'section' ? handleSectionRemove : undefined}
         selectionText={rewriteType === 'section' ? 'Selected Section Context...' : ((selectionRangeRef.current?.toString().substring(0, 150) ?? '') + '...')}
         modalImages={modalImages}
         setModalImages={setModalImages}

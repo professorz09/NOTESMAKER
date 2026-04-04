@@ -22,6 +22,9 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     if (!editorRef.current) return generatedHtml || '';
     const clone = editorRef.current.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
+    clone.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
+    clone.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
+    clone.querySelectorAll('[data-table-id]').forEach(el => el.removeAttribute('data-table-id'));
     clone.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
     clone.querySelectorAll('caption.empty-caption').forEach(c => c.remove());
     clone.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
@@ -48,6 +51,9 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
       const temp = document.createElement('div');
       temp.innerHTML = saved;
       temp.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
+      temp.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
+      temp.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
+      temp.querySelectorAll('[data-table-id]').forEach(el => el.removeAttribute('data-table-id'));
       temp.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
       temp.querySelectorAll('caption.empty-caption').forEach(c => c.remove());
       temp.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
