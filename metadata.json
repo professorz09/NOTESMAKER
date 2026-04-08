@@ -1,5 +1,5 @@
 {
-  "name": "BOOKMAKER",
-  "description": "An intelligent book writing assistant that generates structured content, tables, and flowcharts based on your topic, with PDF export capabilities.",
+  "name": "UPSC NotesMaker",
+  "description": "AI-powered smart notes generator for UPSC and competitive exam preparation. Generates structured study notes, tables, flowcharts, and exports to PDF.",
   "requestFramePermissions": []
 }
