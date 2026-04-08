@@ -1,5 +1,16 @@
 export const STORAGE_KEY = 'ai_book_writer_draft';
 
+/** Walk up the DOM tree and return the first element that scrolls vertically. */
+export const getScrollParent = (el: Element): HTMLElement | null => {
+  let node = el.parentElement;
+  while (node && node !== document.body) {
+    const oy = window.getComputedStyle(node).overflowY;
+    if (oy === 'auto' || oy === 'scroll') return node as HTMLElement;
+    node = node.parentElement;
+  }
+  return null;
+};
+
 export const extractImagesFromHtml = (html: string): { base64: string; mimeType: string }[] => {
   const results: { base64: string; mimeType: string }[] = [];
   const regex = /<img[^>]+src="(data:(image\/[a-zA-Z+]+);base64,([^"]+))"[^>]*>/gi;
