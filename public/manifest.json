@@ -1,0 +1,36 @@
+{
+  "name": "UPSC NotesMaker",
+  "short_name": "NotesMaker",
+  "description": "AI-powered smart notes generator for UPSC and competitive exam preparation",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#f1f5f9",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "lang": "hi",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Notes",
+      "short_name": "New",
+      "description": "Start generating new notes",
+      "url": "/"
+    }
+  ]
+}
