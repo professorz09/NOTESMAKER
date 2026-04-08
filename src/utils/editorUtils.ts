@@ -174,11 +174,65 @@ export const buildPrintHtml = (content: string, fontSize: number, lineHeight: nu
 
     /* Hide edit buttons */
     .no-print, .ai-edit-trigger { display: none !important; }
+
+    /* Floating print controls — screen only */
+    #print-controls {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      display: flex;
+      gap: 5px;
+      z-index: 9999;
+      background: rgba(255,255,255,0.97);
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 5px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.13);
+    }
+    #print-controls button {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      padding: 0;
+      transition: background 0.15s;
+    }
+    #print-controls button:hover { background: #e0e7ff; color: #4338ca; border-color: #a5b4fc; }
+    #print-controls button.btn-print {
+      background: #6366f1;
+      color: white;
+      border-color: #6366f1;
+      font-size: 15px;
+    }
+    #print-controls button.btn-print:hover { background: #4f46e5; border-color: #4f46e5; }
+    @media print {
+      #print-controls { display: none !important; }
+    }
   </style>
 </head>
 <body>
+  <div id="print-controls">
+    <button onclick="adjustSize(-1)" title="Font size kam karo">A−</button>
+    <button onclick="adjustSize(1)"  title="Font size badhao">A+</button>
+    <button class="btn-print" onclick="window.print()" title="Print karo">⎙</button>
+  </div>
   ${content}
-  <script>window.onload = function() { setTimeout(function() { window.print(); }, 900); }</script>
+  <script>
+    var _fs = ${printFontSize};
+    function adjustSize(d) {
+      _fs = Math.max(7, Math.min(20, _fs + d));
+      document.body.style.fontSize = _fs + 'pt';
+    }
+  </script>
 </body>
 </html>`;
 };
