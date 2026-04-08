@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Dev-session artifacts (AI Studio / Replit auto-generated)
+attached_assets/
+migrated_prompt_history/
+prompt_*.json
