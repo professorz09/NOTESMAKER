@@ -9,7 +9,7 @@ import {
   generateDiagram,
   extendTableRows,
 } from '../services/ai';
-import { getSectionNodes, extractImagesFromHtml } from '../utils/editorUtils';
+import { getSectionNodes, extractImagesFromHtml, getScrollParent } from '../utils/editorUtils';
 
 type EditTab = 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram' | 'table';
 
@@ -328,18 +328,43 @@ export function useAIEdit({
       if (isResettingRef.current) return;
       if (!resultHtml) throw new Error('No content generated');
 
-      // ── Safety net for Deep Dive: ensure the original heading is preserved ──
-      if (editTab === 'expand' && rewriteType === 'section') {
+      // ── Safety net: ensure original heading is present in rewrite / expand / next_topic ──
+      // Check anywhere in the result (not just the start) to avoid creating duplicates.
+      if (rewriteType === 'section' && (editTab === 'rewrite' || editTab === 'expand' || editTab === 'next_topic')) {
         const headingMatch = activeSectionHtml.match(/^(\s*<(h[1-4])[^>]*>[\s\S]*?<\/\2>)/i);
         if (headingMatch) {
           const originalHeading = headingMatch[1];
           const headingTag = headingMatch[2]; // e.g. 'h2'
-          const startsWithHeading = new RegExp(`^\\s*<${headingTag}[\\s>]`, 'i').test(resultHtml);
-          if (!startsWithHeading) {
+          // If the result contains NO heading of this level at all, prepend the original
+          const resultHasHeading = new RegExp(`<${headingTag}[\\s>]`, 'i').test(resultHtml);
+          if (!resultHasHeading) {
             resultHtml = originalHeading + '\n' + resultHtml;
           }
         }
       }
+
+      // ── Duplicate-strip for continue / next_topic ──
+      // The AI sometimes echoes back the original section heading at the top of its
+      // "continue" response.  Since we APPEND (not replace) for these tabs, that
+      // produces a duplicated heading in the document.  Strip it when it matches.
+      if (rewriteType === 'section' && (editTab === 'continue' || editTab === 'next_topic')) {
+        const origHeadingMatch = activeSectionHtml.match(/<(h[1-4])[^>]*>([\s\S]*?)<\/\1>/i);
+        if (origHeadingMatch) {
+          const origText = origHeadingMatch[2].replace(/<[^>]+>/g, '').trim().toLowerCase();
+          const leadMatch = resultHtml.match(/^(\s*<(h[1-4])[^>]*>([\s\S]*?)<\/\2>)/i);
+          if (leadMatch) {
+            const leadText = leadMatch[3].replace(/<[^>]+>/g, '').trim().toLowerCase();
+            // Strip if texts are identical or one contains the other (fuzzy match)
+            if (leadText === origText || origText.includes(leadText) || leadText.includes(origText)) {
+              resultHtml = resultHtml.slice(leadMatch[0].length).trimStart();
+            }
+          }
+        }
+      }
+
+      // Save scroll position before any DOM mutation so the viewport doesn't jump
+      const scrollEl = editorRef.current ? getScrollParent(editorRef.current) : null;
+      const savedScroll = scrollEl ? scrollEl.scrollTop : 0;
 
       // Replace content in DOM
       if (rewriteType === 'section') {
@@ -378,6 +403,9 @@ export function useAIEdit({
           window.getSelection()?.removeAllRanges();
         }
       }
+
+      // Restore scroll so the page doesn't jump to the insertion point
+      if (scrollEl) scrollEl.scrollTop = savedScroll;
 
       setRewriteModalOpen(false);
       setModalImages([]);

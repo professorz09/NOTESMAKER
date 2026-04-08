@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { STORAGE_KEY } from '../utils/editorUtils';
+import { STORAGE_KEY, getScrollParent } from '../utils/editorUtils';
 
 interface UseEditorContentProps {
   pushToHistory: (content: string) => void;
@@ -65,11 +65,16 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync DOM with state (without disrupting cursor during typing)
+  // Sync DOM with state (without disrupting cursor during typing).
+  // Preserve the scroll position so incremental updates (e.g. PDF page-by-page
+  // translation) don't jump the viewport back to the top on every chunk.
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== (generatedHtml || '')) {
-      editorRef.current.innerHTML = generatedHtml || '';
-    }
+    if (!editorRef.current) return;
+    if (editorRef.current.innerHTML === (generatedHtml || '')) return;
+    const scrollEl = getScrollParent(editorRef.current);
+    const savedScroll = scrollEl ? scrollEl.scrollTop : 0;
+    editorRef.current.innerHTML = generatedHtml || '';
+    if (scrollEl) scrollEl.scrollTop = savedScroll;
   }, [generatedHtml]);
 
   // Auto-save on tab-switch, page hide, and every 5s while editing
