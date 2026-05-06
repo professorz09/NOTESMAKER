@@ -83,28 +83,56 @@
       /* Mobile: reduce page padding, prevent horizontal overflow */
       @media (max-width: 640px) {
           .page-container {
-              padding: 12px 10px;
+              padding: 14px 12px;
               min-height: auto;
-              border-radius: 0 !important;
+              border-radius: 6px !important;
           }
           .size-a4 {
               max-width: 100%;
               min-height: auto;
           }
           .editor-content {
-              overflow-x: auto;
+              overflow-x: hidden;
               -webkit-overflow-scrolling: touch;
               font-size: 11pt !important;
+              word-break: break-word;
           }
-          .editor-content h1 { font-size: 1.6em; }
-          .editor-content h2 { font-size: 1.35em; }
-          .editor-content h3 { font-size: 1.15em; }
+          .editor-content h1 { font-size: 1.5em; }
+          .editor-content h2 { font-size: 1.3em; }
+          .editor-content h3 { font-size: 1.1em; }
+          .editor-content h4 { font-size: 1em; }
           /* Tables scroll horizontally on small screens */
           .editor-content table {
               display: block;
               overflow-x: auto;
               -webkit-overflow-scrolling: touch;
               max-width: 100%;
+              font-size: 0.85em;
+          }
+          /* SVG diagrams scale on mobile */
+          .flowchart-container svg {
+              max-width: 100%;
+              height: auto;
+          }
+          .key-point, .note-box {
+              padding: 10px 12px;
+              font-size: 0.9em;
+          }
+      }
+
+      /* Tablet (641px - 1023px) */
+      @media (min-width: 641px) and (max-width: 1023px) {
+          .size-a4 {
+              max-width: 100%;
+              padding: 16mm 14mm;
+          }
+          .editor-content {
+              font-size: 11.5pt !important;
+          }
+          .editor-content table {
+              display: block;
+              overflow-x: auto;
+              -webkit-overflow-scrolling: touch;
           }
       }
       

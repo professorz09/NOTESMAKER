@@ -5,10 +5,12 @@ import {
   generateFormattedNotes,
   generateFileNotes,
   generateUPSCAnswer,
+  generateNextUPSCQuestion,
   generateResearchPaper,
   translatePdfPageToHindi,
   analyzeAnswerPdf,
   generateOnePagerNotes,
+  type UPSCAnswerStyle,
 } from '../services/ai';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -37,6 +39,7 @@ export function useGeneration({
 }: UseGenerationProps) {
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
   const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
+  const [upscAnswerStyle, setUpscAnswerStyle] = useState<UPSCAnswerStyle>('topper');
   const [tableInstruction, setTableInstruction] = useState('');
   const [wordLimit, setWordLimit] = useState(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
@@ -418,7 +421,7 @@ export function useGeneration({
     try {
       let result = '';
       if (mode === 'topic') {
-        if (outputStyle === 'upsc') result = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit);
+        if (outputStyle === 'upsc') result = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit, upscAnswerStyle);
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
         else result = await generateTopicContent(topicInput, language, aiModel);
       } else if (mode === 'text') {
@@ -432,6 +435,33 @@ export function useGeneration({
       if (!isResettingRef.current) {
         console.error(error);
         toast.error(`Generation failed: ${error.message || 'Please check your API key and try again.'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+    }
+  };
+
+  const handleNextUPSCQuestion = async () => {
+    const currentQuestion = topicInput.trim();
+    if (!currentQuestion) {
+      toast.warning('पहले कोई UPSC प्रश्न दर्ज करें।');
+      return;
+    }
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    try {
+      const nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3-flash-preview');
+      if (!nextQuestion) {
+        toast.error('अगला प्रश्न generate नहीं हुआ। पुनः प्रयास करें।');
+        return;
+      }
+      setTopicInput(nextQuestion);
+      const result = await generateUPSCAnswer(nextQuestion, language, aiModel, wordLimit, upscAnswerStyle);
+      finishGeneration(result);
+      toast.success('अगला UPSC प्रश्न तैयार है!');
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        toast.error(`Failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
       if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
@@ -476,6 +506,7 @@ export function useGeneration({
   return {
     mode, setMode,
     outputStyle, setOutputStyle,
+    upscAnswerStyle, setUpscAnswerStyle,
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     status,
@@ -488,6 +519,7 @@ export function useGeneration({
     removeFile,
     handleGenerate,
     handleGenerateTable,
+    handleNextUPSCQuestion,
     handleClearCanvas,
     translatePdfFile,
     setTranslatePdfFile,

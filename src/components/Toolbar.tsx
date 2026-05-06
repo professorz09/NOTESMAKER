@@ -63,9 +63,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
   return (
     <div
-      className="absolute top-0 left-0 right-0 md:top-4 md:left-6 md:right-6 lg:top-6 lg:left-8 lg:right-8 bg-white/97 dark:bg-slate-900/97 backdrop-blur-xl border-b md:border border-slate-200/60 dark:border-slate-700/60 md:rounded-2xl flex items-center justify-between px-2 sm:px-3 md:px-5 shadow-sm md:shadow-[0_8px_30px_rgb(0,0,0,0.06)] z-30 transition-all"
+      className="absolute top-0 left-0 right-0 sm:top-3 sm:left-4 sm:right-4 md:top-4 md:left-6 md:right-6 lg:top-5 lg:left-8 lg:right-8 bg-white/97 dark:bg-slate-900/97 backdrop-blur-xl border-b sm:border border-slate-200/60 dark:border-slate-700/60 sm:rounded-xl md:rounded-2xl flex items-center justify-between px-2 sm:px-3 md:px-4 lg:px-5 shadow-sm sm:shadow-[0_4px_20px_rgb(0,0,0,0.05)] md:shadow-[0_8px_30px_rgb(0,0,0,0.06)] z-30 transition-all"
       style={{
-        height: '3.5rem',
+        height: '3.25rem',
         paddingTop: 'env(safe-area-inset-top, 0px)',
       }}
     >

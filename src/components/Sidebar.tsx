@@ -8,6 +8,10 @@ import {
   Eraser,
   Undo,
   GraduationCap,
+  Bot,
+  Trophy,
+  List,
+  Brain,
   X,
   Globe,
   Cpu,
@@ -24,6 +28,7 @@ import {
 import { GenerationStatus } from '../types';
 import { ProjectsPanel } from './ProjectsPanel';
 import type { ProjectMeta } from '../hooks/useProjects';
+import type { UPSCAnswerStyle } from '../services/ai';
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -32,6 +37,8 @@ interface SidebarProps {
   setMode: (mode: 'topic' | 'text' | 'file') => void;
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';
   setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'table') => void;
+  upscAnswerStyle: UPSCAnswerStyle;
+  setUpscAnswerStyle: (s: UPSCAnswerStyle) => void;
   tableInstruction: string;
   setTableInstruction: (v: string) => void;
   wordLimit: number;
@@ -104,6 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarOpen, setSidebarOpen,
   mode, setMode,
   outputStyle, setOutputStyle,
+  upscAnswerStyle, setUpscAnswerStyle,
   tableInstruction, setTableInstruction,
   wordLimit, setWordLimit,
   topicInput, setTopicInput,
@@ -374,7 +382,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     key={w}
                     type="button"
                     onClick={() => setWordLimit(w)}
-                    className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                    className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
                       wordLimit === w
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
                         : 'bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8 hover:text-white'
@@ -384,6 +392,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ANSWER STYLE — UPSC only */}
+          {outputStyle === 'upsc' && (
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
+                <GraduationCap className="w-3 h-3" /> Answer Style
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { id: 'auto',       icon: Bot,    label: 'AI Auto',    desc: 'AI decides all' },
+                  { id: 'topper',     icon: Trophy, label: "Topper's",   desc: 'Adaptive smart' },
+                  { id: 'bullets',    icon: List,   label: 'Bullet',     desc: 'Scannable pts' },
+                  { id: 'analytical', icon: Brain,  label: 'Analytical', desc: 'Deep critical' },
+                ] as { id: UPSCAnswerStyle; icon: React.ComponentType<{className?:string}>; label: string; desc: string }[]).map(({ id, icon: Icon, label, desc }) => {
+                  const active = upscAnswerStyle === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setUpscAnswerStyle(id)}
+                      className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-200 text-center ${
+                        active
+                          ? 'bg-violet-900/40 border-violet-500/60 shadow-lg shadow-violet-900/20'
+                          : 'bg-white/3 border-white/6 hover:bg-white/6 hover:border-white/12'
+                      }`}
+                    >
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${active ? 'bg-violet-500/30' : 'bg-white/5'}`}>
+                        <Icon className={`w-3.5 h-3.5 ${active ? 'text-violet-300' : 'text-slate-500'}`} />
+                      </div>
+                      <div>
+                        <p className={`text-[10px] font-bold leading-none mb-0.5 ${active ? 'text-white' : 'text-slate-400'}`}>{label}</p>
+                        <p className={`text-[9px] leading-tight ${active ? 'text-slate-400' : 'text-slate-600'}`}>{desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Style hint */}
+              <p className="text-[9px] text-slate-600 px-1 leading-relaxed">
+                {upscAnswerStyle === 'auto' && '🤖 Simple prompt — AI freely chooses structure, evidence & style'}
+                {upscAnswerStyle === 'topper' && '🏆 Adaptive prompt — structure & evidence match the subject/topic'}
+                {upscAnswerStyle === 'bullets' && '📋 Bullet-heavy — dense, scannable, ideal for quick exam writing'}
+                {upscAnswerStyle === 'analytical' && '🔍 Deep analysis — weighs multiple angles, takes a clear stand'}
+              </p>
             </div>
           )}
 
