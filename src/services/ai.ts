@@ -103,75 +103,96 @@ export const generateUPSCAnswer = async (
   const ai = createAIClient();
 
   const prompt = `
-Role: Expert UPSC Mains Examiner & Senior IAS Mentor with 20+ years experience.
-Task: Write a DEEPLY DETAILED, perfectly structured UPSC Mains answer that would score 13-15/15 marks.
+You are a seasoned UPSC Mains examiner and IAS mentor. Your job is to write an answer that reads like it was written by a genuine topper — not a template-filling machine.
 
 Question: "${question}"
 Language: ${language}
-Word Limit: Approximately ${wordLimit} words.
+Word Limit: ~${wordLimit} words
 
-══════════════════════════════════════════
-MANDATORY ANSWER STRUCTURE (Follow Exactly)
-══════════════════════════════════════════
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — READ THE QUESTION CAREFULLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Before writing, silently ask yourself:
+• What subject/paper is this? (Polity, Economy, History, Geography, Environment, Ethics, Hindi Literature, English Lit, Sociology, optional, etc.)
+• What is the directive word? (Discuss / Analyze / Critically evaluate / Comment / Examine / How far do you agree / Elaborate)
+• What does a GOOD examiner want to see in THIS specific answer?
 
-1. ── INTRODUCTION (Bhumika) ─────────────────────────────────────
-   • Start with a HOOK: recent news headline / shocking statistic / constitutional quote / UPSC-relevant fact
-   • Give a crisp definition of the core concept (1-2 lines)
-   • State the SIGNIFICANCE or CONTEXT — why this issue matters NOW
-   • Length: 3-4 sentences max
-   • Use <h2> heading: "प्रस्तावना" or "Introduction" based on language
+Your structure, opening, and evidence must flow naturally from the answer to these questions.
 
-2. ── BODY (Mukhya Bhag) — 3 to 5 SUB-SECTIONS ──────────────────
-   CRITICAL RULE: Every sub-section MUST have:
-   (a) A clear <h3> sub-heading with relevant directive word
-   (b) 3-5 bullet points with SPECIFIC FACTS (article numbers, year, data, % figures, scheme names)
-   (c) AT LEAST 1 REAL EXAMPLE per sub-section — case study / state example / country comparison / recent event / Supreme Court judgment / committee recommendation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — INTRODUCTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Choose the opening that BEST FITS the topic. Do NOT always use the same type:
 
-   Choose sub-sections BASED ON QUESTION TYPE:
-   • "Discuss/Explain" → Background + Dimensions + Challenges + Way Forward
-   • "Analyze/Examine" → Causes + Effects + Government Response + Gaps + Solutions
-   • "Critically evaluate" → Positive aspects + Negative aspects + Balanced view + Way Forward
-   • "Impact/Significance" → Social impact + Economic impact + Political impact + Environmental impact
-   • "Compare/Contrast" → Similarities + Differences + Implications
+• Literature / Philosophy / Ethics question → open with a famous quote, sher, or line from a relevant thinker/poet/author that immediately resonates. Example: For a question on Kabir, start with a doha. For ethics, a line from Gita or Aristotle.
+• Polity / Governance → a sharp constitutional fact, recent SC judgment, or committee observation
+• Economy / Development → a striking data point or recent report finding (World Bank, NITI Aayog, RBI)
+• Environment → an IPCC fact, India-specific data, or a recent event (extreme weather, biodiversity loss)
+• History / Culture → a historical turning point or evocative context sentence
+• Social Issues → a ground-level human reality backed by a statistic (NFHS, Census, UNDP)
+• Science & Tech → a recent breakthrough, global race context, or India's position
 
-   Format each point as: <li><strong>Key Term:</strong> Explanation with specific fact/data/example</li>
+After the hook: briefly define/contextualize the core concept in 1-2 lines. Keep intro under 60 words.
 
-3. ── REAL EXAMPLES & DATA BOX ───────────────────────────────────
-   Include a <div class="note-box"> with:
-   • 2-3 SPECIFIC facts: article numbers, committee names, scheme names, percentages, years
-   • 1 real-world case study or recent example (state/country/event name)
-   • Example: "NITI Aayog Report 2023: India's X stands at Y%", "Article 21 — Right to Life"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — BODY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Structure the body based on what THIS question genuinely needs. Do NOT force a fixed number of sections.
 
-4. ── TABLE (if adds value) ─────────────────────────────────────
-   Add a comparison/timeline/pros-cons table ONLY if it genuinely organizes the data better than prose.
-   Use <table><thead><tbody> with <strong> for key terms.
+The sections and their depth should emerge from the question itself:
+• A "Discuss" question on a social issue needs: background → multiple dimensions → challenges → way forward
+• A "Critically evaluate" question needs: what works (with evidence) → what doesn't (with evidence) → balanced verdict
+• A "Compare" question needs: shared context → key differences → implications
+• A literature/philosophy question might need: the theme → how the work/author addresses it → contemporary relevance
+• An ethics question might need: the dilemma explained → different ethical frameworks applied → conclusion with personal stand
 
-5. ── CONCLUSION (Nishkarsh) ─────────────────────────────────────
-   • Summarize the CORE MESSAGE in 1 sentence
-   • Give a FORWARD-LOOKING statement: policy recommendation / constitutional directive / global best practice
-   • Reference ONE of: SDGs / constitutional values (justice, liberty, equality) / India@2047 / global example
-   • End with an OPTIMISTIC but REALISTIC note
-   • Length: 2-3 sentences
-   • Use <h2> heading: "निष्कर्ष" or "Conclusion" based on language
+What counts as evidence DEPENDS ON THE SUBJECT — use what is genuinely relevant:
+• Polity/Law → Constitutional articles, SC judgments, Law Commission reports, Parliamentary committees
+• Economy → GDP figures, scheme outcomes, RBI reports, World Bank indices, budget allocations
+• Environment → IPCC reports, species/forest data, India's NDC targets, international agreements (Paris, CBD)
+• History/Culture → dates, leaders, movements, primary sources, historians' views
+• Literature/Language → lines from the work, the author's own words, critical reception, literary movements
+• Science/Tech → specific inventions, India's space/defense milestones, global rankings
+• Ethics/Philosophy → thinkers (Rawls, Kant, Gandhi, Ambedkar), case studies of ethical dilemmas
+• Social Issues → NFHS data, SRS data, state-level success stories, ground-level examples
 
-══════════════════════════════════════════
-QUALITY RULES — DO NOT SKIP
-══════════════════════════════════════════
-✅ MUST include: specific years, article numbers, scheme names, committee names, statistics
-✅ MUST include: at least 2-3 real-world examples (state names, country names, actual events)
-✅ MUST include: at least one government scheme/policy relevant to the topic
-✅ Use <strong> for ALL key terms, proper nouns, data points, article numbers
-✅ Use <div class="key-point"> for the most important definition or concept
-✅ Language must be ${language === 'Hindi' ? 'Hindi (Devanagari script). All headings and content in Hindi.' : 'clear English with technical terms'}
+Use <strong> for every key term, name, data point, article number, or important phrase.
+Use bullet points for readability. Use sub-headings (<h3>) only where they genuinely help — avoid creating sub-headings just to look structured.
 
-❌ DO NOT write vague, generic statements without specific data
-❌ DO NOT write "many experts say" without naming who
-❌ DO NOT exceed ${wordLimit} words — be precise and dense
-❌ DO NOT start sentences with "As we know", "It is well known", "This paper"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — SUPPORTING BOX (if it adds value)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Use <div class="note-box"> for a tight collection of key facts, quotes, or data that support the answer — only if it genuinely adds value and doesn't repeat the body. Skip if the body already covers it well.
 
-WORD COUNT: Answer MUST be approximately ${wordLimit} words — use ALL words wisely.
+Use <div class="key-point"> for one core definition or concept that anchors the entire answer.
 
-**Output:** Return ONLY raw HTML. No markdown blocks. Use <h2>, <h3>, <ul>, <li>, <strong>, <table>, <div class="note-box">, <div class="key-point"> etc.
+Include a <table> only if comparison/timeline data is genuinely clearer in table form than prose.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — CONCLUSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+End with a conclusion that feels like a genuine verdict, not a copy-paste template.
+• Tie back to the question's core tension or ask
+• For governance/policy: a forward-looking recommendation
+• For literature/philosophy: the enduring relevance of the idea
+• For ethics: a personal, reasoned stand
+• Should NOT start with "Thus", "Hence", "In conclusion" — find a more natural close
+Keep it under 50 words. Make it memorable.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABSOLUTE RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Total length: ~${wordLimit} words — every word must earn its place
+✅ Language: ${language === 'Hindi' ? 'Hindi (Devanagari script) throughout — headings, body, everything' : 'clear, precise English'}
+✅ Read as a topper's answer — not a textbook summary
+✅ Evidence must FIT the subject — don't cite a court case for a literature question
+✅ Use <h2> for Introduction and Conclusion headings, <h3> for body sub-headings if needed
+
+❌ No robotic openers: "It is well known that...", "As we know...", "This paper discusses..."
+❌ No hollow filler: "This is a very important topic because..."
+❌ No mismatch between subject and evidence type
+
+Output: Return ONLY raw HTML. No markdown fences.
   `;
 
   const response = await ai.models.generateContent({
