@@ -9,7 +9,9 @@ import {
   generateDiagram,
   extendTableRows,
 } from '../services/ai';
-import { getSectionNodes, extractImagesFromHtml, getScrollParent } from '../utils/editorUtils';
+import { getSectionNodes, extractImagesFromHtml, getScrollParent, STORAGE_KEY } from '../utils/editorUtils';
+import { sanitizeHtml } from '../utils/sanitize';
+import { toast } from '../components/Toast';
 
 type EditTab = 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram' | 'table';
 
@@ -56,10 +58,14 @@ export function useAIEdit({
   useEffect(() => {
     if (!editorRef.current) return;
     if (isEditing) {
+      // First pass: clean stale triggers to avoid duplicates on content update
+      editorRef.current.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
+      editorRef.current.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
+      editorRef.current.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
+      editorRef.current.querySelectorAll('[data-table-id]').forEach(el => (el as HTMLElement).removeAttribute('data-table-id'));
+
       const elements = editorRef.current.querySelectorAll('h1, h2, h3, h4, li, table, .flowchart-container');
       elements.forEach((el) => {
-        if (el.querySelector('.ai-edit-trigger')) return;
-
         const btn = document.createElement('span');
         btn.contentEditable = 'false';
         btn.className = 'ai-edit-trigger no-print';
@@ -67,9 +73,8 @@ export function useAIEdit({
         btn.title = 'Rewrite/Expand';
 
         if (el.tagName === 'TABLE') {
-          // ── Top bar: ✨ button inserted BEFORE the table (not inside caption) ──
           const parentEl = el.parentElement;
-          if (parentEl && !parentEl.querySelector(`.table-sparkle-bar[data-for="${(el as HTMLElement).dataset.tableId}"]`)) {
+          if (parentEl) {
             const tableId = `tbl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
             (el as HTMLElement).dataset.tableId = tableId;
             const topBar = document.createElement('div');
@@ -84,7 +89,6 @@ export function useAIEdit({
             parentEl.insertBefore(topBar, el);
           }
 
-          // ── Bottom bar: Extend Table button inserted AFTER the table (not inside tfoot) ──
           if (!el.nextElementSibling?.classList.contains('table-extend-bar')) {
             const bottomBar = document.createElement('div');
             bottomBar.className = 'table-extend-bar no-print';
@@ -113,13 +117,11 @@ export function useAIEdit({
       editorRef.current.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
       editorRef.current.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
       editorRef.current.querySelectorAll('[data-table-id]').forEach(el => (el as HTMLElement).removeAttribute('data-table-id'));
-      // legacy cleanup
       editorRef.current.querySelectorAll('caption.empty-caption').forEach(cap => cap.remove());
       editorRef.current.querySelectorAll('tfoot.table-extend-tfoot').forEach(tfoot => tfoot.remove());
     }
   }, [isEditing, generatedHtml, editorRef]);
 
-  // Stable section edit handler
   const handleSectionEdit = useCallback((
     startNode: Element,
     defaultTab?: EditTab,
@@ -152,18 +154,15 @@ export function useAIEdit({
     setRewriteModalOpen(true);
   }, [getCurrentHtml, pushToHistory, setGeneratedHtml, editorRef]);
 
-  // Extend Table: append new rows to existing table without replacing it
   const handleTableExtend = useCallback((tableEl: Element) => {
     if (!editorRef.current) return;
     const currentRaw = getCurrentHtml();
     pushToHistory(currentRaw);
     setGeneratedHtml(currentRaw);
 
-    // Extract headers HTML (thead inner)
     const thead = tableEl.querySelector('thead');
     const headersHtml = thead ? thead.innerHTML : '';
 
-    // Extract last 2 data rows from tbody
     const tbody = tableEl.querySelector('tbody');
     const allRows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
     const lastRows = allRows.slice(Math.max(0, allRows.length - 2));
@@ -173,12 +172,10 @@ export function useAIEdit({
       return clone.outerHTML;
     }).join('');
 
-    // Store reference so we can append rows on submit
     isTableExtendMode.current = true;
     extendTableRef.current = tableEl;
     extendContextRef.current = { headersHtml, lastRowsHtml };
 
-    // Build a plain-text preview of the column headers for the modal UI
     const tempDiv2 = document.createElement('div');
     tempDiv2.innerHTML = headersHtml;
     const headerTexts = Array.from(tempDiv2.querySelectorAll('th'))
@@ -186,7 +183,6 @@ export function useAIEdit({
       .filter(Boolean);
     setExtendHeadersPreview(headerTexts.join(' | ') || 'Table context captured');
 
-    // Keep activeSectionHtml in sync too (for any fallback reads)
     setActiveSectionHtml(JSON.stringify({ headersHtml, lastRowsHtml }));
     setRewriteType('section');
     setEditTab('table');
@@ -203,16 +199,13 @@ export function useAIEdit({
       e.preventDefault();
       e.stopPropagation();
 
-      // ── Extend table button (now in .table-extend-bar after the table) ──
       if (trigger.classList.contains('table-extend-btn')) {
         const bar = trigger.closest('.table-extend-bar') as HTMLElement;
-        // The table is the previous sibling of the bar
         const table = bar?.previousElementSibling as Element;
         if (table?.tagName === 'TABLE') handleTableExtend(table);
         return;
       }
 
-      // ── Sparkle button (now in .table-sparkle-bar before the table) ──
       const sparkleBar = trigger.closest('.table-sparkle-bar') as HTMLElement;
       if (sparkleBar) {
         const tableId = sparkleBar.dataset.for;
@@ -223,9 +216,7 @@ export function useAIEdit({
         return;
       }
 
-      // ── All other elements (headings, li, flowchart-container) ──
       let parent = trigger.parentElement;
-      // Legacy caption/tfoot fallback
       if (parent?.tagName === 'CAPTION') parent = parent.parentElement;
       if (parent?.tagName === 'TD' && parent.parentElement?.parentElement?.tagName === 'TFOOT') {
         parent = parent.parentElement!.parentElement!.parentElement;
@@ -241,7 +232,7 @@ export function useAIEdit({
   const openSelectionRewriteModal = () => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.toString().trim().length === 0) {
-      alert('Please select text to rewrite.');
+      toast.info('Please select some text to rewrite.');
       return;
     }
     selectionRangeRef.current = selection.getRangeAt(0);
@@ -259,7 +250,7 @@ export function useAIEdit({
       pushToHistory(rawBefore);
       let resultHtml = '';
 
-      // ── Special path: Extend Table (append rows, do NOT replace the table) ──
+      // ── Special path: Extend Table ──
       if (isTableExtendMode.current && extendTableRef.current && extendContextRef.current) {
         const tableEl = extendTableRef.current;
         const ctx = extendContextRef.current;
@@ -268,32 +259,26 @@ export function useAIEdit({
         if (isResettingRef.current) return;
         if (!newRows) throw new Error('No rows generated');
 
-        // Append new <tr> rows to tbody, inserting before the tfoot so extend button stays at bottom
         let tbody = tableEl.querySelector('tbody');
         if (!tbody) {
           tbody = document.createElement('tbody');
           const tfoot = tableEl.querySelector('tfoot');
           tableEl.insertBefore(tbody, tfoot || null);
         }
-        const tfoot = tableEl.querySelector('tfoot.table-extend-tfoot');
         const tempDiv = document.createElement('tbody');
-        tempDiv.innerHTML = newRows;
+        tempDiv.innerHTML = sanitizeHtml(newRows);
         const newTrNodes = Array.from(tempDiv.querySelectorAll('tr'));
-        if (tfoot) {
-          newTrNodes.forEach(tr => tbody!.insertBefore(tr, null));
-        } else {
-          newTrNodes.forEach(tr => tbody!.appendChild(tr));
-        }
+        newTrNodes.forEach(tr => tbody!.appendChild(tr));
 
-        // Persist & finish — no replace needed
         const updatedHtml = editorRef.current!.innerHTML;
         setGeneratedHtml(updatedHtml);
-        localStorage.setItem('ai_book_writer_draft', updatedHtml);
+        localStorage.setItem(STORAGE_KEY, updatedHtml);
         setRewriteModalOpen(false);
         setModalImages([]);
         isTableExtendMode.current = false;
         extendTableRef.current = null;
         extendContextRef.current = null;
+        toast.success('Table extended successfully!');
         return;
       }
 
@@ -326,16 +311,17 @@ export function useAIEdit({
       }
 
       if (isResettingRef.current) return;
-      if (!resultHtml) throw new Error('No content generated');
+      if (!resultHtml) throw new Error('No content generated. Please try again.');
 
-      // ── Safety net: ensure original heading is present in rewrite / expand / next_topic ──
-      // Check anywhere in the result (not just the start) to avoid creating duplicates.
+      // Sanitize AI-generated HTML before insertion
+      resultHtml = sanitizeHtml(resultHtml);
+
+      // Safety net: ensure original heading present in rewrite / expand / next_topic
       if (rewriteType === 'section' && (editTab === 'rewrite' || editTab === 'expand' || editTab === 'next_topic')) {
         const headingMatch = activeSectionHtml.match(/^(\s*<(h[1-4])[^>]*>[\s\S]*?<\/\2>)/i);
         if (headingMatch) {
           const originalHeading = headingMatch[1];
-          const headingTag = headingMatch[2]; // e.g. 'h2'
-          // If the result contains NO heading of this level at all, prepend the original
+          const headingTag = headingMatch[2];
           const resultHasHeading = new RegExp(`<${headingTag}[\\s>]`, 'i').test(resultHtml);
           if (!resultHasHeading) {
             resultHtml = originalHeading + '\n' + resultHtml;
@@ -343,10 +329,7 @@ export function useAIEdit({
         }
       }
 
-      // ── Duplicate-strip for continue / next_topic ──
-      // The AI sometimes echoes back the original section heading at the top of its
-      // "continue" response.  Since we APPEND (not replace) for these tabs, that
-      // produces a duplicated heading in the document.  Strip it when it matches.
+      // Duplicate-strip for continue / next_topic
       if (rewriteType === 'section' && (editTab === 'continue' || editTab === 'next_topic')) {
         const origHeadingMatch = activeSectionHtml.match(/<(h[1-4])[^>]*>([\s\S]*?)<\/\1>/i);
         if (origHeadingMatch) {
@@ -354,7 +337,6 @@ export function useAIEdit({
           const leadMatch = resultHtml.match(/^(\s*<(h[1-4])[^>]*>([\s\S]*?)<\/\2>)/i);
           if (leadMatch) {
             const leadText = leadMatch[3].replace(/<[^>]+>/g, '').trim().toLowerCase();
-            // Strip if texts are identical or one contains the other (fuzzy match)
             if (leadText === origText || origText.includes(leadText) || leadText.includes(origText)) {
               resultHtml = resultHtml.slice(leadMatch[0].length).trimStart();
             }
@@ -362,16 +344,15 @@ export function useAIEdit({
         }
       }
 
-      // Save scroll position before any DOM mutation so the viewport doesn't jump
+      // Save scroll position before DOM mutation
       const scrollEl = editorRef.current ? getScrollParent(editorRef.current) : null;
       const savedScroll = scrollEl ? scrollEl.scrollTop : 0;
 
-      // Replace content in DOM
       if (rewriteType === 'section') {
         const editId = activeEditIdRef.current;
-        if (!editorRef.current || !editId) throw new Error('Editor context lost.');
+        if (!editorRef.current || !editId) throw new Error('Editor context lost. Please try again.');
         const startNode = editorRef.current.querySelector(`[data-edit-id="${editId}"]`);
-        if (!startNode) throw new Error('Lost position.');
+        if (!startNode) throw new Error('Selection position lost. Please try again.');
         const nodesToReplace = getSectionNodes(startNode);
         const parent = nodesToReplace[0].parentNode;
         if (!parent) throw new Error('Parent node lost.');
@@ -384,7 +365,6 @@ export function useAIEdit({
           else parent.appendChild(fragment);
           startNode.removeAttribute('data-edit-id');
         } else {
-          // Remove any table editor bars adjacent to nodes being replaced
           nodesToReplace.forEach(n => {
             const prev = n.previousElementSibling;
             const next = n.nextElementSibling;
@@ -404,7 +384,6 @@ export function useAIEdit({
         }
       }
 
-      // Restore scroll so the page doesn't jump to the insertion point
       if (scrollEl) scrollEl.scrollTop = savedScroll;
 
       setRewriteModalOpen(false);
@@ -415,10 +394,11 @@ export function useAIEdit({
         pushToHistory(raw);
         saveToStorage();
       }
+      toast.success('Changes applied!');
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error('Rewrite failed:', error);
-        alert(`Rewrite failed: ${error.message || 'Unknown error'}`);
+        toast.error(`AI edit failed: ${error.message || 'Unknown error. Please try again.'}`);
       }
     } finally {
       if (!isResettingRef.current) setIsRewriting(false);
@@ -429,7 +409,6 @@ export function useAIEdit({
     }
   };
 
-  // Remove the currently selected section from the editor
   const handleSectionRemove = useCallback(() => {
     if (!editorRef.current) return;
     const editId = activeEditIdRef.current;
@@ -439,13 +418,13 @@ export function useAIEdit({
     const nodesToRemove = getSectionNodes(startNode);
     pushToHistory(getCurrentHtml());
     nodesToRemove.forEach(n => n.remove());
-    // Also remove adjacent table bars if present
     editorRef.current.querySelectorAll('.table-sparkle-bar, .table-extend-bar').forEach(bar => bar.remove());
     const raw = editorRef.current.innerHTML;
     setGeneratedHtml(raw);
     saveToStorage();
     setRewriteModalOpen(false);
     activeEditIdRef.current = null;
+    toast.success('Section removed.');
   }, [editorRef, activeEditIdRef, getCurrentHtml, pushToHistory, setGeneratedHtml, saveToStorage]);
 
   const closeRewriteModal = useCallback(() => {

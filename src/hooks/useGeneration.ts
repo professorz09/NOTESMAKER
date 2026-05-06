@@ -12,7 +12,9 @@ import {
 } from '../services/ai';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
+import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
+import { toast } from '../components/Toast';
 
 interface UseGenerationProps {
   pushToHistory: (content: string) => void;
@@ -119,15 +121,16 @@ export function useGeneration({
         releaseCanvas(page.canvas);
         pageImages.push({ base64, mimeType: 'image/jpeg' });
       }
-      const html = await analyzeAnswerPdf(pageImages, aiModel);
+      const html = sanitizeHtml(await analyzeAnswerPdf(pageImages, aiModel));
       setGeneratedHtml(html);
       pushToHistory(html);
       localStorage.setItem(STORAGE_KEY, html);
       if (window.innerWidth < 1024) setSidebarOpen(false);
+      toast.success('Answer analysis complete!');
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
-        alert(`Analysis error: ${error.message || 'Unknown error'}`);
+        toast.error(`Analysis failed: ${error.message || 'Unknown error. Please try again.'}`);
       }
     } finally {
       if (!isResettingRef.current) {
@@ -179,7 +182,7 @@ export function useGeneration({
         try {
           const page = await renderSinglePage(pdf, pageNum, 2.5);
           const pageImgBase64 = canvasPageToJpegBase64(page.canvas, 0.90);
-          pageHtml = await translatePdfPageToHindi(pageImgBase64, pageNum, total, PDF_TRANSLATE_MODEL, 'image/jpeg');
+          pageHtml = sanitizeHtml(await translatePdfPageToHindi(pageImgBase64, pageNum, total, PDF_TRANSLATE_MODEL, 'image/jpeg'));
           pageHtml = injectRealImages(pageHtml, page.canvas);
           pageHtml = cleanupHtml(pageHtml);
           releaseCanvas(page.canvas);
@@ -196,6 +199,7 @@ export function useGeneration({
                 pageHtmlParts,
               });
               pushLive(pageNum);
+              toast.warning(`पृष्ठ ${pageNum} translate नहीं हुआ — "जारी रखें" बटन दबाएं`);
             }
             return;
           }
@@ -213,6 +217,7 @@ export function useGeneration({
 
     setTranslateResumeState(null);
     if (window.innerWidth < 1024) setSidebarOpen(false);
+    toast.success(`PDF अनुवाद पूर्ण! सभी ${total} पृष्ठ translate हुए।`);
   };
 
   const handleTranslatePdf = async () => {
@@ -226,7 +231,7 @@ export function useGeneration({
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
-        alert(`PDF load error: ${error.message || 'Unknown error'}`);
+        toast.error(`PDF load error: ${error.message || 'File could not be opened. Please try again.'}`);
       }
     } finally {
       if (!isResettingRef.current) {
@@ -255,7 +260,7 @@ export function useGeneration({
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
-        alert(`Resume error: ${error.message || 'Unknown error'}`);
+        toast.error(`Resume failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
       if (!isResettingRef.current) {
@@ -266,7 +271,6 @@ export function useGeneration({
   };
 
   const injectRealImages = (html: string, canvas: HTMLCanvasElement): string => {
-    // Step 1: Replace <pdf-img> tags with proper <figure> blocks
     let result = html.replace(
       /<pdf-img([^/]*)\/?>/gi,
       (_match, attrs) => {
@@ -283,7 +287,7 @@ export function useGeneration({
         let w = getAttr('w');
         let h = getAttr('h');
         const altMatch = attrs.match(/data-alt="([^"]*)"/i);
-        const alt = altMatch ? altMatch[1] : 'चित्र';
+        const alt = altMatch ? altMatch[1].replace(/"/g, '&quot;') : 'चित्र';
 
         if (x === null || y === null || w === null || h === null) return '';
 
@@ -294,7 +298,6 @@ export function useGeneration({
         if (x + w > 100) w = 100 - x;
         if (y + h > 100) h = 100 - y;
 
-        // Determine alignment: if image starts past 40% from left, right-align; otherwise center
         const align = x > 55 ? 'right' : x < 10 ? 'left' : 'center';
         const marginStyle = align === 'center'
           ? `margin: 16px auto`
@@ -314,19 +317,16 @@ export function useGeneration({
     return result;
   };
 
-  // DOM-based post-processor: moves block figures out of inline containers, removes empty nodes
   const cleanupHtml = (html: string): string => {
     try {
       const doc = new DOMParser().parseFromString(`<div id="__root">${html}</div>`, 'text/html');
       const root = doc.getElementById('__root')!;
 
-      // Move any <figure class="pdf-figure"> that is a child of <p> or <li> to outside it
       root.querySelectorAll('p figure.pdf-figure, li figure.pdf-figure').forEach(figure => {
         const parent = figure.parentElement!;
         const grandParent = parent.parentElement;
         if (!grandParent) return;
 
-        // Split parent: before and after the figure
         const childNodes = Array.from(parent.childNodes);
         const figIdx = childNodes.indexOf(figure as ChildNode);
 
@@ -336,25 +336,20 @@ export function useGeneration({
         const tag = parent.tagName.toLowerCase();
         const insertPoint = parent.nextSibling;
 
-        // Create before-sibling if it has content
         if (beforeNodes.some(n => n.textContent?.trim())) {
           const beforeEl = doc.createElement(tag);
           beforeNodes.forEach(n => beforeEl.appendChild(n.cloneNode(true)));
           grandParent.insertBefore(beforeEl, parent);
         }
-        // Insert the figure itself
         grandParent.insertBefore(figure, parent);
-        // Create after-sibling if it has content
         if (afterNodes.some(n => n.textContent?.trim())) {
           const afterEl = doc.createElement(tag);
           afterNodes.forEach(n => afterEl.appendChild(n.cloneNode(true)));
           grandParent.insertBefore(afterEl, insertPoint);
         }
-        // Remove now-empty parent
         parent.remove();
       });
 
-      // Remove <p> and <div> elements that are completely empty or whitespace-only
       root.querySelectorAll('p, div').forEach(el => {
         if (!el.querySelector('img, figure, table, svg') && !el.textContent?.trim()) {
           el.remove();
@@ -372,7 +367,8 @@ export function useGeneration({
     if (!topic) return;
     setOnePagerLoading(true);
     try {
-      const newHtml = await generateOnePagerNotes(topic, language, aiModel);
+      const rawHtml = await generateOnePagerNotes(topic, language, aiModel);
+      const newHtml = sanitizeHtml(rawHtml);
       const existing = getCurrentHtml();
       const combined = existing
         ? existing + '\n<div class="one-pager-divider"></div>\n' + newHtml
@@ -383,10 +379,11 @@ export function useGeneration({
       setOnePagerTopics(prev => [...prev, topic]);
       setOnePagerTopicInput('');
       if (window.innerWidth < 1024) setSidebarOpen(false);
+      toast.success(`"${topic}" one-pager added!`);
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
-        alert(`One Pager error: ${error.message || 'Unknown error'}`);
+        toast.error(`One Pager generation failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
       setOnePagerLoading(false);
@@ -395,17 +392,27 @@ export function useGeneration({
 
   const finishGeneration = (result: string) => {
     if (isResettingRef.current) return;
-    setGeneratedHtml(result);
-    pushToHistory(result);
-    localStorage.setItem(STORAGE_KEY, result);
+    const safe = sanitizeHtml(result);
+    setGeneratedHtml(safe);
+    pushToHistory(safe);
+    localStorage.setItem(STORAGE_KEY, safe);
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === 'topic' && !topicInput.trim()) return;
-    if (mode === 'text' && !textInput.trim()) return;
-    if (mode === 'file' && files.length === 0) return;
+    if (mode === 'topic' && !topicInput.trim()) {
+      toast.warning('Please enter a topic first.');
+      return;
+    }
+    if (mode === 'text' && !textInput.trim()) {
+      toast.warning('Please paste some text first.');
+      return;
+    }
+    if (mode === 'file' && files.length === 0) {
+      toast.warning('Please upload at least one file first.');
+      return;
+    }
 
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
@@ -420,10 +427,11 @@ export function useGeneration({
         result = await generateFileNotes(files, language, aiModel, outputStyle, wordLimit);
       }
       finishGeneration(result);
+      toast.success('Content generated successfully!');
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
-        alert(`Error generating content: ${error.message || 'Unknown error'}`);
+        toast.error(`Generation failed: ${error.message || 'Please check your API key and try again.'}`);
       }
     } finally {
       if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
@@ -432,13 +440,20 @@ export function useGeneration({
 
   const handleGenerateTable = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!topicInput.trim()) { alert('Please enter a topic first.'); return; }
+    if (!topicInput.trim()) {
+      toast.warning('Please enter a topic first.');
+      return;
+    }
     setStatus(GenerationStatus.GENERATING_TABLE);
     try {
       const result = await generateSmartTable(topicInput, tableInstruction, language, aiModel);
       finishGeneration(result);
-    } catch (error) {
-      if (!isResettingRef.current) { console.error(error); alert('Error generating table. Please try again.'); }
+      toast.success('Table generated successfully!');
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        toast.error(`Table generation failed: ${error.message || 'Please try again.'}`);
+      }
     } finally {
       if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
     }
@@ -448,7 +463,6 @@ export function useGeneration({
     activeEditIdRef: MutableRefObject<string | null>,
     selectionRangeRef: MutableRefObject<Range | null>,
   ) => {
-    if (!confirm('Are you sure you want to clear the editor?')) return;
     isResettingRef.current = true;
     setGeneratedHtml(null);
     resetHistory();

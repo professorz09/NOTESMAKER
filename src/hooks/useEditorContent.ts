@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { STORAGE_KEY, getScrollParent } from '../utils/editorUtils';
+import { sanitizeHtml } from '../utils/sanitize';
 
 interface UseEditorContentProps {
   pushToHistory: (content: string) => void;
@@ -143,37 +144,58 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
 
   const handleEditorPaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
     const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith('image/')) {
-        e.preventDefault();
-        const file = items[i].getAsFile();
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const dataUrl = evt.target?.result as string;
-          if (!dataUrl || !editorRef.current) return;
-          const img = document.createElement('img');
-          img.src = dataUrl;
-          img.style.maxWidth = '100%';
-          img.style.borderRadius = '8px';
-          img.style.margin = '8px 0';
-          const sel = window.getSelection();
-          if (sel && sel.rangeCount > 0) {
-            const range = sel.getRangeAt(0);
-            range.deleteContents();
-            range.insertNode(img);
-            range.setStartAfter(img);
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          } else {
-            editorRef.current.appendChild(img);
-          }
-          handleEditorInput();
-        };
-        reader.readAsDataURL(file);
-        return;
+
+    // Handle image paste
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          e.preventDefault();
+          const file = items[i].getAsFile();
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            const dataUrl = evt.target?.result as string;
+            if (!dataUrl || !editorRef.current) return;
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.style.maxWidth = '100%';
+            img.style.borderRadius = '8px';
+            img.style.margin = '8px 0';
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+              const range = sel.getRangeAt(0);
+              range.deleteContents();
+              range.insertNode(img);
+              range.setStartAfter(img);
+              range.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            } else {
+              editorRef.current.appendChild(img);
+            }
+            handleEditorInput();
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+      }
+    }
+
+    // Sanitize HTML paste — strip scripts/event-handlers while keeping structure
+    const htmlData = e.clipboardData?.getData('text/html');
+    if (htmlData) {
+      e.preventDefault();
+      const safe = sanitizeHtml(htmlData);
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && editorRef.current) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const fragment = range.createContextualFragment(safe);
+        range.insertNode(fragment);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        handleEditorInput();
       }
     }
   }, [handleEditorInput]);

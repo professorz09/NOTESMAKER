@@ -10,7 +10,8 @@ import { useGeneration } from './hooks/useGeneration';
 import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
-import { BookOpen, RefreshCw, Sparkles, Download, Settings } from 'lucide-react';
+import { toast } from './components/Toast';
+import { BookOpen, RefreshCw, Sparkles, Download, Settings, Loader2 } from 'lucide-react';
 
 function extractProjectName(html: string): string {
   const div = document.createElement('div');
@@ -21,6 +22,12 @@ function extractProjectName(html: string): string {
   if (h2?.textContent?.trim()) return h2.textContent.trim().slice(0, 70);
   return `Topic — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}`;
 }
+
+const GENERATION_LABELS: Record<string, string> = {
+  [GenerationStatus.GENERATING_CHAPTER]: 'Writing content…',
+  [GenerationStatus.GENERATING_TABLE]:   'Building table…',
+  [GenerationStatus.GENERATING_IMAGE]:   'Creating image…',
+};
 
 const App: React.FC = () => {
   // --- API KEY ---
@@ -65,6 +72,8 @@ const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(() =>
     typeof window !== 'undefined' && localStorage.getItem('ai_book_writer_dark') === 'true'
   );
+  // Confirm-clear modal state
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
@@ -157,7 +166,6 @@ const App: React.FC = () => {
 
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
-  // Always track latest generatedHtml in a ref — avoids stale closure in async effects
   const generatedHtmlRef = React.useRef<string | null>(generatedHtml);
   useEffect(() => { generatedHtmlRef.current = generatedHtml; }, [generatedHtml]);
 
@@ -166,7 +174,11 @@ const App: React.FC = () => {
     if (!content) return;
     const name = extractProjectName(content);
     const proj = await createProject(name, content);
-    if (proj) { setActiveProjectId(proj.id); setLastSavedAt(new Date()); }
+    if (proj) {
+      setActiveProjectId(proj.id);
+      setLastSavedAt(new Date());
+      toast.success(`Project "${name.slice(0, 30)}" saved!`);
+    }
   };
 
   const saveToProject = useCallback(async (id: string, html: string) => {
@@ -174,11 +186,13 @@ const App: React.FC = () => {
     if (ok) setLastSavedAt(new Date());
   }, [saveProject]);
 
-  // Manual "Save now" — saves current editor content to active project
   const handleSaveNow = useCallback(async () => {
     if (!activeProjectId) return;
     const html = isEditing && editorRef.current ? getCleanHtml() : (generatedHtmlRef.current || '');
-    if (html) await saveToProject(activeProjectId, html);
+    if (html) {
+      await saveToProject(activeProjectId, html);
+      toast.success('Saved!');
+    }
   }, [activeProjectId, isEditing, editorRef, getCleanHtml, saveToProject]);
 
   // --- UNDO / REDO ---
@@ -189,7 +203,6 @@ const App: React.FC = () => {
     setGeneratedHtml(content);
     setHistoryIndex(newIndex);
     localStorage.setItem(STORAGE_KEY, content);
-    // Force sync DOM immediately for editing mode
     if (editorRef.current) editorRef.current.innerHTML = content;
     setTimeout(() => { isResettingRef.current = false; }, 150);
   }, [cancelPendingHistoryPush, setGeneratedHtml, setHistoryIndex, editorRef, isResettingRef]);
@@ -202,7 +215,7 @@ const App: React.FC = () => {
     if (historyIndex < history.length - 1) applyHistoryIndex(historyIndex + 1, history);
   }, [historyIndex, history, applyHistoryIndex]);
 
-  // Global keyboard shortcuts for undo/redo + edit toggle
+  // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey;
@@ -215,19 +228,20 @@ const App: React.FC = () => {
         e.preventDefault();
         if (isEditing) { setIsEditing(false); saveToStorage(); } else { setIsEditing(true); }
       }
+      // Escape closes confirm modal
+      if (e.key === 'Escape') setShowClearConfirm(false);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [handleUndo, handleRedo, isEditing, generatedHtml, setIsEditing, saveToStorage]);
 
-  // Every generation → always create a BRAND NEW project entry in history
+  // Every generation → create new project entry
   const prevStatusRef = React.useRef(status);
   useEffect(() => {
     const wasGenerating = prevStatusRef.current !== GenerationStatus.IDLE;
     const isNowIdle = status === GenerationStatus.IDLE;
     prevStatusRef.current = status;
     if (!wasGenerating || !isNowIdle) return;
-    // Use ref so we always read the latest value, never stale
     const html = generatedHtmlRef.current;
     if (!html) return;
     const name = extractProjectName(html);
@@ -237,7 +251,7 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // Debounced auto-save to active project while editing (every 3s)
+  // Debounced auto-save every 3s
   const projectSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!activeProjectId || !generatedHtml || isResettingRef.current) return;
@@ -251,10 +265,15 @@ const App: React.FC = () => {
 
   // --- CLEAR CANVAS ---
   const onClearCanvas = () => {
-    handleClearCanvas(activeEditIdRef, selectionRangeRef);
+    setShowClearConfirm(true);
   };
 
-  // Auto-save active project before generating new content so no work is lost
+  const confirmClear = () => {
+    handleClearCanvas(activeEditIdRef, selectionRangeRef);
+    setShowClearConfirm(false);
+  };
+
+  // Auto-save before generating
   const handleGenerateWithAutoSave = useCallback(async (e: React.FormEvent) => {
     if (activeProjectId && generatedHtml) {
       const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
@@ -273,14 +292,20 @@ const App: React.FC = () => {
 
   // --- PDF EXPORT ---
   const handleExportPDF = () => {
-    if (!generatedHtml) return;
+    if (!generatedHtml) {
+      toast.info('Nothing to export yet. Generate some content first.');
+      return;
+    }
     let content = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
     const temp = document.createElement('div');
     temp.innerHTML = content;
     temp.querySelectorAll('.ai-edit-trigger').forEach(t => t.remove());
     content = temp.innerHTML;
     const win = window.open('', '_blank');
-    if (!win) { alert('Enable pop-ups.'); return; }
+    if (!win) {
+      toast.error('Pop-ups are blocked. Please allow pop-ups for this site to export PDF.');
+      return;
+    }
     win.document.open();
     win.document.write(buildPrintHtml(content, fontSize, lineHeight));
     win.document.close();
@@ -298,10 +323,14 @@ const App: React.FC = () => {
       setGeneratedHtml(html);
       pushToHistory(html);
       saveToStorage();
+      toast.info('Table of contents removed.');
       return;
     }
     const headings = temp.querySelectorAll('h1, h2, h3, h4');
-    if (!headings.length) { alert('No headings found to generate a Table of Contents.'); return; }
+    if (!headings.length) {
+      toast.warning('No headings found. Generate content with headings first.');
+      return;
+    }
     const items: { text: string; id: string; level: number }[] = [];
     headings.forEach((h, i) => {
       if (!h.id) h.id = `heading-${i}`;
@@ -309,13 +338,14 @@ const App: React.FC = () => {
     });
     const tocHtml = `<div class="table-of-contents"><h2>Index</h2><nav><ul>
       ${items.map(item => `<li style="padding-left:${(item.level - 1) * 16}px;">
-        <a href="#${item.id}"><span class="toc-title">${item.text}</span><span class="toc-dots"></span><span class="toc-link-icon">→</span></a>
+        <a href="#${item.id}"><span class="toc-title">${item.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span><span class="toc-dots"></span><span class="toc-link-icon">→</span></a>
       </li>`).join('')}
     </ul></nav></div>`;
     const html = tocHtml + temp.innerHTML;
     setGeneratedHtml(html);
     pushToHistory(html);
     saveToStorage();
+    toast.success('Table of contents added!');
   };
 
   // --- RENDER ---
@@ -324,7 +354,7 @@ const App: React.FC = () => {
       <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
         <div className="flex flex-col items-center gap-4">
           <RefreshCw className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
-          <p className="text-slate-600 dark:text-slate-400 font-medium">Loading application...</p>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">Loading application…</p>
         </div>
       </div>
     );
@@ -351,6 +381,8 @@ const App: React.FC = () => {
       </div>
     );
   }
+
+  const generatingLabel = GENERATION_LABELS[status] ?? 'Generating…';
 
   return (
     <div className={`flex h-screen w-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden dot-pattern ${isDarkMode ? 'dark' : ''}`}>
@@ -429,20 +461,22 @@ const App: React.FC = () => {
           toggleDarkMode={() => setIsDarkMode(d => !d)}
         />
 
-        <div className="flex-1 overflow-auto pt-14 md:pt-[4.5rem] lg:pt-[5.5rem] pb-12 px-2 sm:px-4 md:px-8 relative scrollbar-thin scrollbar-track-transparent">
+        <div className="flex-1 overflow-auto pt-14 pb-12 px-2 sm:px-4 md:px-8 relative scrollbar-thin scrollbar-track-transparent">
           {status !== GenerationStatus.IDLE && (
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/60 dark:bg-slate-900/60 backdrop-blur-sm">
-              <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-100 dark:border-slate-700">
-                <div className="w-16 h-16 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin mb-6" />
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Creating Content</h3>
-                <p className="text-slate-500 dark:text-slate-400 animate-pulse">Analyzing topic • Structuring • Writing...</p>
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/70 dark:bg-slate-900/70 backdrop-blur-sm">
+              <div className="bg-white dark:bg-slate-800 px-8 py-8 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-100 dark:border-slate-700 max-w-xs w-full mx-4">
+                <div className="w-14 h-14 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin mb-5" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">{generatingLabel}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center animate-pulse">Analyzing • Structuring • Writing…</p>
               </div>
             </div>
           )}
 
           <div className="w-full mx-auto">
-            <div className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
-              style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}>
+            <div
+              className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
+              style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}
+            >
               {!generatedHtml && status === GenerationStatus.IDLE ? (
                 <div className="flex flex-col items-center justify-center text-center p-6 sm:p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50/50 dark:bg-slate-800/50" style={{ minHeight: '250mm' }}>
                   <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white dark:bg-slate-800 rounded-2xl shadow-xl ring-1 ring-slate-100 dark:ring-slate-700 flex items-center justify-center mb-6 sm:mb-8 hover:scale-105 transition-transform duration-500 rotate-3">
@@ -450,7 +484,7 @@ const App: React.FC = () => {
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 mb-3 sm:mb-4 tracking-tight">Your Empty Canvas</h2>
                   <p className="text-base sm:text-lg text-slate-500 dark:text-slate-400 max-w-md mb-6 sm:mb-8 leading-relaxed px-4">
-                    Use the sidebar to generate a comprehensive study guide, or paste your rough notes to format them instantly.
+                    Use the sidebar to generate comprehensive study notes, or paste your rough notes to format them instantly.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-md opacity-80 px-4">
                     <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col items-center hover:-translate-y-1 transition-transform">
@@ -495,10 +529,47 @@ const App: React.FC = () => {
         isRewriting={isRewriting}
         handleRewriteSubmit={handleRewriteSubmit}
         handleSectionRemove={rewriteType === 'section' ? handleSectionRemove : undefined}
-        selectionText={rewriteType === 'section' ? 'Selected Section Context...' : ((selectionRangeRef.current?.toString().substring(0, 150) ?? '') + '...')}
+        selectionText={rewriteType === 'section' ? 'Selected Section Context…' : ((selectionRangeRef.current?.toString().substring(0, 150) ?? '') + '…')}
         modalImages={modalImages}
         setModalImages={setModalImages}
       />
+
+      {/* ── Clear Confirmation Modal ── */}
+      {showClearConfirm && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={() => setShowClearConfirm(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                <Loader2 className="w-5 h-5 text-red-500 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">Clear editor?</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">This will erase all current content.</p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-2">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmClear}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
