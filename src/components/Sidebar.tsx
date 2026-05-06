@@ -374,7 +374,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     key={w}
                     type="button"
                     onClick={() => setWordLimit(w)}
-                    className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                    className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
                       wordLimit === w
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
                         : 'bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8 hover:text-white'

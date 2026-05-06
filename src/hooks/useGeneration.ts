@@ -5,6 +5,7 @@ import {
   generateFormattedNotes,
   generateFileNotes,
   generateUPSCAnswer,
+  generateNextUPSCQuestion,
   generateResearchPaper,
   translatePdfPageToHindi,
   analyzeAnswerPdf,
@@ -438,6 +439,33 @@ export function useGeneration({
     }
   };
 
+  const handleNextUPSCQuestion = async () => {
+    const currentQuestion = topicInput.trim();
+    if (!currentQuestion) {
+      toast.warning('पहले कोई UPSC प्रश्न दर्ज करें।');
+      return;
+    }
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    try {
+      const nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3-flash-preview');
+      if (!nextQuestion) {
+        toast.error('अगला प्रश्न generate नहीं हुआ। पुनः प्रयास करें।');
+        return;
+      }
+      setTopicInput(nextQuestion);
+      const result = await generateUPSCAnswer(nextQuestion, language, aiModel, wordLimit);
+      finishGeneration(result);
+      toast.success('अगला UPSC प्रश्न तैयार है!');
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        toast.error(`Failed: ${error.message || 'Please try again.'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+    }
+  };
+
   const handleGenerateTable = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!topicInput.trim()) {
@@ -488,6 +516,7 @@ export function useGeneration({
     removeFile,
     handleGenerate,
     handleGenerateTable,
+    handleNextUPSCQuestion,
     handleClearCanvas,
     translatePdfFile,
     setTranslatePdfFile,

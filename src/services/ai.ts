@@ -103,30 +103,75 @@ export const generateUPSCAnswer = async (
   const ai = createAIClient();
 
   const prompt = `
-    Role: UPSC Topper & Expert Evaluator.
-    Task: Write a high-scoring, perfectly structured UPSC Mains answer for the given question.
-    
-    Question: "${question}"
-    Language: ${language}
-    Word Limit: Approximately ${wordLimit} words.
+Role: Expert UPSC Mains Examiner & Senior IAS Mentor with 20+ years experience.
+Task: Write a DEEPLY DETAILED, perfectly structured UPSC Mains answer that would score 13-15/15 marks.
 
-    **STRICT STRUCTURE & FORMATTING RULES (Like a Topper's Copy):**
-    1. **Introduction (Bhumika):** Crisp, fact-based, or definition-based start. Connect with current affairs if relevant.
-    2. **Body (Mukhya Bhag):**
-       - Break down into clear sub-headings based on the question's demands. Adapt the structure to the specific requirements of the topic.
-       - Use bullet points for readability.
-       - Include **Pros/Cons (Sahi/Galat)**, **Challenges (Chunati)**, and **Solutions/Way Forward (Samadhan)** ONLY where applicable.
-       - Highlight key terms using <strong>.
-    3. **Data/Facts/Committees (Optional):** Sprinkle relevant data, articles of the constitution, or committee recommendations if they exist for this topic. Use <div class="note-box">...</div> for highlighting facts.
-    4. **Visual Elements (Optional):**
-       - Include a **Table** for comparison or data presentation if it adds value.
-       - Include an **SVG Diagram/Mindmap/Flowchart** inside a <div class="flowchart-container"> ONLY if it visually represents a process, hierarchy, or relationship that is complex. Ensure the SVG is clean, readable, and responsive (use viewBox). **DO NOT** include a border on the SVG itself.
-    5. **Conclusion (Nishkarsh):** Forward-looking, optimistic, and balanced conclusion (e.g., mentioning SDGs or constitutional ethos).
+Question: "${question}"
+Language: ${language}
+Word Limit: Approximately ${wordLimit} words.
 
-    **WORD COUNT CONSTRAINT:**
-    The total answer length MUST be strictly around ${wordLimit} words. Adjust the depth of each section to meet this limit while maintaining high quality.
+══════════════════════════════════════════
+MANDATORY ANSWER STRUCTURE (Follow Exactly)
+══════════════════════════════════════════
 
-    **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks. Use standard HTML tags (<h1>, <h2>, <ul>, <li>, <table>, <svg>, etc.).
+1. ── INTRODUCTION (Bhumika) ─────────────────────────────────────
+   • Start with a HOOK: recent news headline / shocking statistic / constitutional quote / UPSC-relevant fact
+   • Give a crisp definition of the core concept (1-2 lines)
+   • State the SIGNIFICANCE or CONTEXT — why this issue matters NOW
+   • Length: 3-4 sentences max
+   • Use <h2> heading: "प्रस्तावना" or "Introduction" based on language
+
+2. ── BODY (Mukhya Bhag) — 3 to 5 SUB-SECTIONS ──────────────────
+   CRITICAL RULE: Every sub-section MUST have:
+   (a) A clear <h3> sub-heading with relevant directive word
+   (b) 3-5 bullet points with SPECIFIC FACTS (article numbers, year, data, % figures, scheme names)
+   (c) AT LEAST 1 REAL EXAMPLE per sub-section — case study / state example / country comparison / recent event / Supreme Court judgment / committee recommendation
+
+   Choose sub-sections BASED ON QUESTION TYPE:
+   • "Discuss/Explain" → Background + Dimensions + Challenges + Way Forward
+   • "Analyze/Examine" → Causes + Effects + Government Response + Gaps + Solutions
+   • "Critically evaluate" → Positive aspects + Negative aspects + Balanced view + Way Forward
+   • "Impact/Significance" → Social impact + Economic impact + Political impact + Environmental impact
+   • "Compare/Contrast" → Similarities + Differences + Implications
+
+   Format each point as: <li><strong>Key Term:</strong> Explanation with specific fact/data/example</li>
+
+3. ── REAL EXAMPLES & DATA BOX ───────────────────────────────────
+   Include a <div class="note-box"> with:
+   • 2-3 SPECIFIC facts: article numbers, committee names, scheme names, percentages, years
+   • 1 real-world case study or recent example (state/country/event name)
+   • Example: "NITI Aayog Report 2023: India's X stands at Y%", "Article 21 — Right to Life"
+
+4. ── TABLE (if adds value) ─────────────────────────────────────
+   Add a comparison/timeline/pros-cons table ONLY if it genuinely organizes the data better than prose.
+   Use <table><thead><tbody> with <strong> for key terms.
+
+5. ── CONCLUSION (Nishkarsh) ─────────────────────────────────────
+   • Summarize the CORE MESSAGE in 1 sentence
+   • Give a FORWARD-LOOKING statement: policy recommendation / constitutional directive / global best practice
+   • Reference ONE of: SDGs / constitutional values (justice, liberty, equality) / India@2047 / global example
+   • End with an OPTIMISTIC but REALISTIC note
+   • Length: 2-3 sentences
+   • Use <h2> heading: "निष्कर्ष" or "Conclusion" based on language
+
+══════════════════════════════════════════
+QUALITY RULES — DO NOT SKIP
+══════════════════════════════════════════
+✅ MUST include: specific years, article numbers, scheme names, committee names, statistics
+✅ MUST include: at least 2-3 real-world examples (state names, country names, actual events)
+✅ MUST include: at least one government scheme/policy relevant to the topic
+✅ Use <strong> for ALL key terms, proper nouns, data points, article numbers
+✅ Use <div class="key-point"> for the most important definition or concept
+✅ Language must be ${language === 'Hindi' ? 'Hindi (Devanagari script). All headings and content in Hindi.' : 'clear English with technical terms'}
+
+❌ DO NOT write vague, generic statements without specific data
+❌ DO NOT write "many experts say" without naming who
+❌ DO NOT exceed ${wordLimit} words — be precise and dense
+❌ DO NOT start sentences with "As we know", "It is well known", "This paper"
+
+WORD COUNT: Answer MUST be approximately ${wordLimit} words — use ALL words wisely.
+
+**Output:** Return ONLY raw HTML. No markdown blocks. Use <h2>, <h3>, <ul>, <li>, <strong>, <table>, <div class="note-box">, <div class="key-point"> etc.
   `;
 
   const response = await ai.models.generateContent({
@@ -1154,6 +1199,37 @@ export const translatePdfPageToHindi = async (
   });
 
   return cleanHtmlOutput(response.text || "");
+};
+
+// Generate next related UPSC question from current topic
+export const generateNextUPSCQuestion = async (
+  currentQuestion: string,
+  language: string,
+  modelName: string = "gemini-3-flash-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+You are a UPSC Mains question paper setter (GS Paper 2 / GS Paper 3 level).
+
+Based on the following answered UPSC question, generate ONE new UPSC Mains question that:
+1. Tests a DIFFERENT DIMENSION of the same topic OR a closely related adjacent topic
+2. Uses a different directive word (if previous was "Discuss", use "Analyze" / "Critically evaluate" / "Examine" / "Assess" / "Comment on")
+3. Is 1-2 sentences, precise, and exam-worthy
+4. Is relevant to current affairs (2022-2025) if possible
+5. Should be in ${language} language
+
+Previous Question: "${currentQuestion}"
+
+Return ONLY the question text — no numbering, no quotes, no explanation.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt
+  });
+
+  return (response.text || "").trim().replace(/^["']|["']$/g, '');
 };
 
 // Generate One Pager Notes — compact, single-page per topic

@@ -11,7 +11,7 @@ import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { toast } from './components/Toast';
-import { BookOpen, RefreshCw, Sparkles, Download, Settings, Loader2 } from 'lucide-react';
+import { BookOpen, RefreshCw, Sparkles, Download, Settings, Loader2, ArrowRight } from 'lucide-react';
 
 function extractProjectName(html: string): string {
   const div = document.createElement('div');
@@ -110,6 +110,7 @@ const App: React.FC = () => {
     files,
     handleFileUpload, removeFile,
     handleGenerate, handleGenerateTable,
+    handleNextUPSCQuestion,
     handleClearCanvas,
     translatePdfFile, setTranslatePdfFile,
     handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
@@ -461,7 +462,7 @@ const App: React.FC = () => {
           toggleDarkMode={() => setIsDarkMode(d => !d)}
         />
 
-        <div className="flex-1 overflow-auto pt-14 pb-12 px-2 sm:px-4 md:px-8 relative scrollbar-thin scrollbar-track-transparent">
+        <div className="flex-1 overflow-auto pt-14 sm:pt-16 md:pt-20 lg:pt-20 pb-12 px-2 sm:px-4 md:px-6 lg:px-10 xl:px-16 relative scrollbar-thin scrollbar-track-transparent">
           {status !== GenerationStatus.IDLE && (
             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/70 dark:bg-slate-900/70 backdrop-blur-sm">
               <div className="bg-white dark:bg-slate-800 px-8 py-8 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-100 dark:border-slate-700 max-w-xs w-full mx-4">
@@ -472,9 +473,9 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <div className="w-full mx-auto">
+          <div className="w-full max-w-[900px] mx-auto">
             <div
-              className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
+              className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-md shadow-[0_4px_20px_rgb(0,0,0,0.06)] md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
               style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}
             >
               {!generatedHtml && status === GenerationStatus.IDLE ? (
@@ -510,6 +511,20 @@ const App: React.FC = () => {
                 />
               )}
             </div>
+            {/* Create Next UPSC Question button — shown after UPSC answer is generated */}
+            {outputStyle === 'upsc' && generatedHtml && status === GenerationStatus.IDLE && (
+              <div className="flex flex-col items-center gap-2 mt-6 mb-2 px-4">
+                <button
+                  onClick={handleNextUPSCQuestion}
+                  className="flex items-center gap-2.5 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all duration-200 active:scale-[0.97] hover:shadow-xl hover:brightness-110"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
+                >
+                  <ArrowRight className="w-4 h-4" />
+                  अगला प्रश्न बनाएं — Create Next Question
+                </button>
+                <p className="text-xs text-slate-500 dark:text-slate-600">इस topic से related अगला UPSC प्रश्न और उत्तर generate होगा</p>
+              </div>
+            )}
             <div className="h-12 flex items-center justify-center mt-4 opacity-0 hover:opacity-100 transition-opacity">
               <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">End of Document</span>
             </div>
