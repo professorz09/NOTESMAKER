@@ -100,6 +100,7 @@ const App: React.FC = () => {
   const {
     mode, setMode,
     outputStyle, setOutputStyle,
+    upscAnswerStyle, setUpscAnswerStyle,
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     status,
@@ -394,6 +395,7 @@ const App: React.FC = () => {
         setSidebarOpen={setSidebarOpen}
         mode={mode} setMode={setMode}
         outputStyle={outputStyle} setOutputStyle={setOutputStyle}
+        upscAnswerStyle={upscAnswerStyle} setUpscAnswerStyle={setUpscAnswerStyle}
         wordLimit={wordLimit} setWordLimit={setWordLimit}
         topicInput={topicInput} setTopicInput={setTopicInput}
         textInput={textInput} setTextInput={setTextInput}

@@ -93,107 +93,171 @@ export const generateTopicContent = async (
   return cleanHtmlOutput(response.text || "");
 };
 
+export type UPSCAnswerStyle = 'auto' | 'topper' | 'bullets' | 'analytical';
+
+const buildUPSCPrompt = (
+  question: string,
+  language: string,
+  wordLimit: number,
+  style: UPSCAnswerStyle
+): string => {
+  const lang = language === 'Hindi'
+    ? 'Hindi (Devanagari script). Write everything — headings, body, conclusion — in Hindi.'
+    : 'English';
+
+  // ── STYLE 1: AUTO ────────────────────────────────────────────────────────
+  // Dead-simple prompt. AI decides structure, evidence, opening — everything.
+  if (style === 'auto') return `
+Write a high-scoring UPSC Mains answer.
+
+Question/Topic: "${question}"
+Language: ${lang}
+Word Limit: ~${wordLimit} words
+
+Make it structured, deep, and exam-worthy.
+Use proper HTML: <h2> for Introduction & Conclusion, <h3> for body sections,
+<ul><li> for points, <strong> for key terms.
+Use <div class="note-box"> for important facts/data if relevant.
+
+Return ONLY raw HTML. No markdown.
+`;
+
+  // ── STYLE 2: TOPPER'S COPY ───────────────────────────────────────────────
+  // Intelligent adaptive prompt — structure & evidence emerge from topic type
+  if (style === 'topper') return `
+You are a seasoned UPSC Mains examiner and IAS mentor. Write an answer that reads like a genuine topper's copy — not a template.
+
+Question: "${question}"
+Language: ${lang}
+Word Limit: ~${wordLimit} words
+
+━━━ STEP 1 — READ THE QUESTION
+Before writing, silently identify:
+• Subject/paper (Polity, Economy, History, Geography, Environment, Ethics, Literature, Science…)
+• Directive word (Discuss / Analyze / Critically evaluate / Comment / Examine / Elaborate)
+• What a good examiner wants to see for THIS specific question
+
+━━━ STEP 2 — INTRODUCTION
+Pick the opening that BEST FITS the topic — not the same type every time:
+• Literature / Philosophy / Ethics → famous quote, sher, doha, or line from a relevant thinker/poet/work
+• Polity / Governance → sharp constitutional fact, recent SC judgment, or committee observation
+• Economy / Development → striking data point from World Bank, NITI Aayog, RBI
+• Environment → IPCC fact, India-specific data, or a recent climate/biodiversity event
+• History / Culture → historical turning point or evocative context sentence
+• Social Issues → ground-level human reality backed by NFHS/Census/UNDP data
+• Science & Tech → recent breakthrough, global race context, India's milestone
+After the hook: 1-2 lines of definition/context. Keep intro under 60 words.
+
+━━━ STEP 3 — BODY
+Structure based on what THIS question genuinely needs — not a fixed template:
+• "Discuss" → background → multiple dimensions → challenges → way forward
+• "Critically evaluate" → what works (with evidence) → what doesn't → balanced verdict
+• "Compare" → shared context → key differences → implications
+• Ethics → dilemma framed → frameworks applied → personal stand
+• Literature → theme → how work/author addresses it → contemporary relevance
+
+Evidence MUST FIT the subject:
+• Polity/Law → Articles, SC judgments, Law Commission, Parliamentary committees
+• Economy → figures, scheme outcomes, RBI/World Bank/budget data
+• Environment → IPCC, species/forest data, NDC targets, Paris/CBD agreements
+• Literature/Language → lines from the work, the author's words, literary movements, critical reception
+• History → dates, leaders, movements, primary sources, historians' views
+• Ethics/Philosophy → thinkers (Rawls, Kant, Gandhi, Ambedkar) + dilemma case studies
+• Social Issues → NFHS, SRS, state success stories, ground-level examples
+• Science/Tech → specific achievements, rankings, India's milestones
+
+Use <strong> for every key term, name, data point, article number.
+Use <h3> sub-headings only where they genuinely help, not to look structured.
+
+━━━ STEP 4 — SUPPORTING ELEMENTS (only if they add value)
+• <div class="note-box"> for a tight set of key facts/quotes that support but don't repeat the body
+• <div class="key-point"> for the ONE core definition that anchors the answer
+• <table> only if comparative/timeline data is genuinely clearer than prose
+
+━━━ STEP 5 — CONCLUSION
+A genuine verdict, not a template:
+• Tie back to the question's core tension
+• Governance/policy → forward-looking recommendation
+• Literature/philosophy → enduring relevance of the idea
+• Ethics → personal, reasoned stand
+• DO NOT start with "Thus", "Hence", "In conclusion"
+Under 50 words. Make it memorable.
+
+RULES: ~${wordLimit} words total. No "It is well known that…", no hollow filler.
+Return ONLY raw HTML. No markdown fences.
+`;
+
+  // ── STYLE 3: BULLET HEAVY ───────────────────────────────────────────────
+  // Scannable, point-based format — good for time-pressured exam writing
+  if (style === 'bullets') return `
+Write a UPSC Mains answer in a clean, scannable bullet-point format — the kind toppers write when they want maximum information density and readability in minimum time.
+
+Question: "${question}"
+Language: ${lang}
+Word Limit: ~${wordLimit} words
+
+FORMAT RULES:
+• Introduction: 2-3 crisp lines. One striking fact or quote to open, then context. No <h2> heading needed — just a strong opening paragraph.
+• Body: Use <h3> sub-headings (4-6 words max). Under each, use tight <ul><li> bullet points:
+  - Each bullet = 1 clear point + 1 supporting fact/example (same line, comma separated)
+  - Bullet length: 10-20 words max. No long sentences.
+  - <strong> on every key term, number, name, article, scheme
+  - 4-6 bullets per section, 3-4 sections max
+• Use <div class="note-box"> for a "Quick Facts" box with 3-5 data points (years, stats, names)
+• Conclusion: 2 lines — one core message + one forward-looking line. No heading.
+
+STYLE: Think newspaper column meets textbook summary. Dense. No fluff. Every bullet earns its place.
+Vary evidence by topic — literature gets quotes and authors, polity gets articles and judgments, economy gets data, not court cases everywhere.
+
+Return ONLY raw HTML. No markdown.
+`;
+
+  // ── STYLE 4: ANALYTICAL / CRITICAL ──────────────────────────────────────
+  // Deep examination of multiple angles — suits "critically evaluate", "examine", "how far" questions
+  return `
+Write a deeply analytical UPSC Mains answer that examines the question from multiple angles — the way a thoughtful civil servant would approach a complex policy or philosophical problem.
+
+Question: "${question}"
+Language: ${lang}
+Word Limit: ~${wordLimit} words
+
+APPROACH:
+This is NOT a recall answer. It is an ANALYSIS answer. The examiner wants to see:
+1. That you understand the complexity and tensions in the issue
+2. That you can weigh evidence on different sides
+3. That you can arrive at a nuanced, reasoned conclusion
+
+STRUCTURE (adapt as needed):
+• Opening: Frame the central tension or debate in the question — not just define the topic. What is the crux of what is being asked?
+• Section 1 — The case FOR / The strengths / The argument: Present the strongest evidence supporting one side. Use specific facts, examples, data.
+• Section 2 — The case AGAINST / The limitations / The counter-argument: Present genuine challenges, failures, or critiques with evidence. Don't strawman.
+• Section 3 — Nuances / Missing dimensions / What the debate misses: What complicates the picture? Regional variation? Historical context? Stakeholder differences?
+• Section 4 (optional) — Way forward / Resolution: Only if the question asks for it or if it naturally follows.
+• Conclusion: A clear, reasoned personal verdict. Don't sit on the fence — take a position and defend it briefly.
+
+EVIDENCE: Match to subject.
+• Philosophy/Ethics → thinkers, moral frameworks, real dilemmas
+• Policy/Governance → data, scheme outcomes, committee findings, international comparisons
+• Literature → textual evidence, critical perspectives, historical context of the work
+• Economy → figures, indices, policy impact assessments
+Use <strong> for key terms, names, data. Use <div class="key-point"> for the central analytical claim.
+
+TONE: Precise. Confident. Intellectual. Avoid both blind support and blind criticism.
+
+Return ONLY raw HTML. No markdown.
+`;
+};
+
 // Generate UPSC Mains Answer
 export const generateUPSCAnswer = async (
   question: string,
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
-  wordLimit: number = 250
+  wordLimit: number = 250,
+  answerStyle: UPSCAnswerStyle = 'topper'
 ): Promise<string> => {
   const ai = createAIClient();
-
-  const prompt = `
-You are a seasoned UPSC Mains examiner and IAS mentor. Your job is to write an answer that reads like it was written by a genuine topper — not a template-filling machine.
-
-Question: "${question}"
-Language: ${language}
-Word Limit: ~${wordLimit} words
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 1 — READ THE QUESTION CAREFULLY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Before writing, silently ask yourself:
-• What subject/paper is this? (Polity, Economy, History, Geography, Environment, Ethics, Hindi Literature, English Lit, Sociology, optional, etc.)
-• What is the directive word? (Discuss / Analyze / Critically evaluate / Comment / Examine / How far do you agree / Elaborate)
-• What does a GOOD examiner want to see in THIS specific answer?
-
-Your structure, opening, and evidence must flow naturally from the answer to these questions.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 2 — INTRODUCTION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Choose the opening that BEST FITS the topic. Do NOT always use the same type:
-
-• Literature / Philosophy / Ethics question → open with a famous quote, sher, or line from a relevant thinker/poet/author that immediately resonates. Example: For a question on Kabir, start with a doha. For ethics, a line from Gita or Aristotle.
-• Polity / Governance → a sharp constitutional fact, recent SC judgment, or committee observation
-• Economy / Development → a striking data point or recent report finding (World Bank, NITI Aayog, RBI)
-• Environment → an IPCC fact, India-specific data, or a recent event (extreme weather, biodiversity loss)
-• History / Culture → a historical turning point or evocative context sentence
-• Social Issues → a ground-level human reality backed by a statistic (NFHS, Census, UNDP)
-• Science & Tech → a recent breakthrough, global race context, or India's position
-
-After the hook: briefly define/contextualize the core concept in 1-2 lines. Keep intro under 60 words.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 3 — BODY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Structure the body based on what THIS question genuinely needs. Do NOT force a fixed number of sections.
-
-The sections and their depth should emerge from the question itself:
-• A "Discuss" question on a social issue needs: background → multiple dimensions → challenges → way forward
-• A "Critically evaluate" question needs: what works (with evidence) → what doesn't (with evidence) → balanced verdict
-• A "Compare" question needs: shared context → key differences → implications
-• A literature/philosophy question might need: the theme → how the work/author addresses it → contemporary relevance
-• An ethics question might need: the dilemma explained → different ethical frameworks applied → conclusion with personal stand
-
-What counts as evidence DEPENDS ON THE SUBJECT — use what is genuinely relevant:
-• Polity/Law → Constitutional articles, SC judgments, Law Commission reports, Parliamentary committees
-• Economy → GDP figures, scheme outcomes, RBI reports, World Bank indices, budget allocations
-• Environment → IPCC reports, species/forest data, India's NDC targets, international agreements (Paris, CBD)
-• History/Culture → dates, leaders, movements, primary sources, historians' views
-• Literature/Language → lines from the work, the author's own words, critical reception, literary movements
-• Science/Tech → specific inventions, India's space/defense milestones, global rankings
-• Ethics/Philosophy → thinkers (Rawls, Kant, Gandhi, Ambedkar), case studies of ethical dilemmas
-• Social Issues → NFHS data, SRS data, state-level success stories, ground-level examples
-
-Use <strong> for every key term, name, data point, article number, or important phrase.
-Use bullet points for readability. Use sub-headings (<h3>) only where they genuinely help — avoid creating sub-headings just to look structured.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 4 — SUPPORTING BOX (if it adds value)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Use <div class="note-box"> for a tight collection of key facts, quotes, or data that support the answer — only if it genuinely adds value and doesn't repeat the body. Skip if the body already covers it well.
-
-Use <div class="key-point"> for one core definition or concept that anchors the entire answer.
-
-Include a <table> only if comparison/timeline data is genuinely clearer in table form than prose.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 5 — CONCLUSION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-End with a conclusion that feels like a genuine verdict, not a copy-paste template.
-• Tie back to the question's core tension or ask
-• For governance/policy: a forward-looking recommendation
-• For literature/philosophy: the enduring relevance of the idea
-• For ethics: a personal, reasoned stand
-• Should NOT start with "Thus", "Hence", "In conclusion" — find a more natural close
-Keep it under 50 words. Make it memorable.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ABSOLUTE RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Total length: ~${wordLimit} words — every word must earn its place
-✅ Language: ${language === 'Hindi' ? 'Hindi (Devanagari script) throughout — headings, body, everything' : 'clear, precise English'}
-✅ Read as a topper's answer — not a textbook summary
-✅ Evidence must FIT the subject — don't cite a court case for a literature question
-✅ Use <h2> for Introduction and Conclusion headings, <h3> for body sub-headings if needed
-
-❌ No robotic openers: "It is well known that...", "As we know...", "This paper discusses..."
-❌ No hollow filler: "This is a very important topic because..."
-❌ No mismatch between subject and evidence type
-
-Output: Return ONLY raw HTML. No markdown fences.
-  `;
+  const prompt = buildUPSCPrompt(question, language, wordLimit, answerStyle);
 
   const response = await ai.models.generateContent({
     model: modelName, 

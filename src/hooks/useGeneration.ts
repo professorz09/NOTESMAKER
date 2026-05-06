@@ -10,6 +10,7 @@ import {
   translatePdfPageToHindi,
   analyzeAnswerPdf,
   generateOnePagerNotes,
+  type UPSCAnswerStyle,
 } from '../services/ai';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -38,6 +39,7 @@ export function useGeneration({
 }: UseGenerationProps) {
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
   const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
+  const [upscAnswerStyle, setUpscAnswerStyle] = useState<UPSCAnswerStyle>('topper');
   const [tableInstruction, setTableInstruction] = useState('');
   const [wordLimit, setWordLimit] = useState(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
@@ -419,7 +421,7 @@ export function useGeneration({
     try {
       let result = '';
       if (mode === 'topic') {
-        if (outputStyle === 'upsc') result = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit);
+        if (outputStyle === 'upsc') result = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit, upscAnswerStyle);
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
         else result = await generateTopicContent(topicInput, language, aiModel);
       } else if (mode === 'text') {
@@ -453,7 +455,7 @@ export function useGeneration({
         return;
       }
       setTopicInput(nextQuestion);
-      const result = await generateUPSCAnswer(nextQuestion, language, aiModel, wordLimit);
+      const result = await generateUPSCAnswer(nextQuestion, language, aiModel, wordLimit, upscAnswerStyle);
       finishGeneration(result);
       toast.success('अगला UPSC प्रश्न तैयार है!');
     } catch (error: any) {
@@ -504,6 +506,7 @@ export function useGeneration({
   return {
     mode, setMode,
     outputStyle, setOutputStyle,
+    upscAnswerStyle, setUpscAnswerStyle,
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     status,
