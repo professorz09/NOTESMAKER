@@ -136,7 +136,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleMainClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (outputStyle === 'table') { handleGenerateTable(e); return; }
-    handleGenerate(e as any);
+    e.preventDefault();
+    handleGenerate(e as unknown as React.FormEvent);
   };
 
   return (
@@ -162,6 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         style={{
           background: '#0b1120',
           height: '100dvh',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
         }}
       >
         {/* ── HEADER / LOGO ── */}
@@ -572,7 +574,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <p className="text-[9.5px] text-slate-500 px-1 leading-relaxed">
-              Topic ka naam likhein — compact 1-page notes generate hogi aur neeche append hogi
+              Enter topic name — compact 1-page notes will be generated &amp; appended below
             </p>
 
             <div className="flex gap-2">
@@ -681,7 +683,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          <p className="text-center text-[9px] text-slate-700 font-medium tracking-wider uppercase">AI Powered • V2.1 Pro</p>
+          <p className="text-center text-[9px] text-slate-700 font-medium tracking-wider uppercase" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>AI Powered • V2.1 Pro</p>
         </div>
       </aside>
     </>

@@ -21,18 +21,29 @@
     <style>
       /* --- GLOBAL SCROLLBAR --- */
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: transparent; 
+        background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #cbd5e1; 
+        background: #cbd5e1;
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8; 
+        background: #94a3b8;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #334155;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+      }
+
+      /* Safe area support for notched phones */
+      #root {
+        height: 100dvh;
       }
 
       /* --- BACKGROUND PATTERN --- */
@@ -69,15 +80,31 @@
       .size-letter { max-width: 215.9mm; min-height: 279.4mm; padding: 20mm; }
       .size-legal { max-width: 215.9mm; min-height: 355.6mm; padding: 20mm; }
       
+      /* Mobile: reduce page padding, prevent horizontal overflow */
       @media (max-width: 640px) {
           .page-container {
-              padding: 15px 10px; /* Smaller padding on mobile */
-              min-height: auto; /* Allow it to shrink if needed */
+              padding: 12px 10px;
+              min-height: auto;
+              border-radius: 0 !important;
           }
-          
+          .size-a4 {
+              max-width: 100%;
+              min-height: auto;
+          }
           .editor-content {
               overflow-x: auto;
               -webkit-overflow-scrolling: touch;
+              font-size: 11pt !important;
+          }
+          .editor-content h1 { font-size: 1.6em; }
+          .editor-content h2 { font-size: 1.35em; }
+          .editor-content h3 { font-size: 1.15em; }
+          /* Tables scroll horizontally on small screens */
+          .editor-content table {
+              display: block;
+              overflow-x: auto;
+              -webkit-overflow-scrolling: touch;
+              max-width: 100%;
           }
       }
       
