@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { RewriteModal } from './components/RewriteModal';
+import { NextQuestionPanel } from './components/NextQuestionPanel';
 import { Button } from './components/Button';
 import { GenerationStatus } from './types';
 import { useHistory } from './hooks/useHistory';
@@ -11,7 +12,7 @@ import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { toast } from './components/Toast';
-import { BookOpen, RefreshCw, Sparkles, Download, Settings, Loader2, ArrowRight } from 'lucide-react';
+import { BookOpen, RefreshCw, Sparkles, Download, Settings, Loader2 } from 'lucide-react';
 
 function extractProjectName(html: string): string {
   const div = document.createElement('div');
@@ -513,19 +514,13 @@ const App: React.FC = () => {
                 />
               )}
             </div>
-            {/* Create Next UPSC Question button — shown after UPSC answer is generated */}
+            {/* Create Next UPSC Question panel — shown after UPSC answer is generated */}
             {outputStyle === 'upsc' && generatedHtml && status === GenerationStatus.IDLE && (
-              <div className="flex flex-col items-center gap-2 mt-6 mb-2 px-4">
-                <button
-                  onClick={handleNextUPSCQuestion}
-                  className="flex items-center gap-2.5 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all duration-200 active:scale-[0.97] hover:shadow-xl hover:brightness-110"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
-                >
-                  <ArrowRight className="w-4 h-4" />
-                  अगला प्रश्न बनाएं — Create Next Question
-                </button>
-                <p className="text-xs text-slate-500 dark:text-slate-600">इस topic से related अगला UPSC प्रश्न और उत्तर generate होगा</p>
-              </div>
+              <NextQuestionPanel
+                defaultStyle={upscAnswerStyle}
+                defaultWordLimit={wordLimit}
+                onGenerate={(style, wl) => handleNextUPSCQuestion(style, wl)}
+              />
             )}
             <div className="h-12 flex items-center justify-center mt-4 opacity-0 hover:opacity-100 transition-opacity">
               <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">End of Document</span>
