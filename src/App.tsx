@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { RewriteModal } from './components/RewriteModal';
-import { NextQuestionPanel } from './components/NextQuestionPanel';
 import { Button } from './components/Button';
+import { LoadingOverlay } from './components/LoadingOverlay';
+import { ClearConfirmModal } from './components/ClearConfirmModal';
+import { EditorCanvas } from './components/EditorCanvas';
 import { GenerationStatus } from './types';
 import { useHistory } from './hooks/useHistory';
 import { useEditorContent } from './hooks/useEditorContent';
@@ -12,7 +14,7 @@ import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { toast } from './components/Toast';
-import { BookOpen, RefreshCw, Sparkles, Download, Settings, Loader2 } from 'lucide-react';
+import { RefreshCw, Settings } from 'lucide-react';
 
 function extractProjectName(html: string): string {
   const div = document.createElement('div');
@@ -23,12 +25,6 @@ function extractProjectName(html: string): string {
   if (h2?.textContent?.trim()) return h2.textContent.trim().slice(0, 70);
   return `Topic — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}`;
 }
-
-const GENERATION_LABELS: Record<string, string> = {
-  [GenerationStatus.GENERATING_CHAPTER]: 'Writing content…',
-  [GenerationStatus.GENERATING_TABLE]:   'Building table…',
-  [GenerationStatus.GENERATING_IMAGE]:   'Creating image…',
-};
 
 const App: React.FC = () => {
   // --- API KEY ---
@@ -385,8 +381,6 @@ const App: React.FC = () => {
     );
   }
 
-  const generatingLabel = GENERATION_LABELS[status] ?? 'Generating…';
-
   return (
     <div className={`flex h-screen w-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden dot-pattern ${isDarkMode ? 'dark' : ''}`}>
       <style>{`@media print { @page { size: A4 portrait; margin: 5mm; } }`}</style>
@@ -466,66 +460,23 @@ const App: React.FC = () => {
         />
 
         <div className="flex-1 overflow-auto pt-14 sm:pt-16 md:pt-20 lg:pt-20 pb-12 px-2 sm:px-4 md:px-6 lg:px-10 xl:px-16 relative scrollbar-thin scrollbar-track-transparent">
-          {status !== GenerationStatus.IDLE && (
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/70 dark:bg-slate-900/70 backdrop-blur-sm">
-              <div className="bg-white dark:bg-slate-800 px-8 py-8 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-100 dark:border-slate-700 max-w-xs w-full mx-4">
-                <div className="w-14 h-14 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin mb-5" />
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">{generatingLabel}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 text-center animate-pulse">Analyzing • Structuring • Writing…</p>
-              </div>
-            </div>
-          )}
-
-          <div className="w-full max-w-[900px] mx-auto">
-            <div
-              className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-md shadow-[0_4px_20px_rgb(0,0,0,0.06)] md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
-              style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}
-            >
-              {!generatedHtml && status === GenerationStatus.IDLE ? (
-                <div className="flex flex-col items-center justify-center text-center p-6 sm:p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50/50 dark:bg-slate-800/50" style={{ minHeight: '250mm' }}>
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white dark:bg-slate-800 rounded-2xl shadow-xl ring-1 ring-slate-100 dark:ring-slate-700 flex items-center justify-center mb-6 sm:mb-8 hover:scale-105 transition-transform duration-500 rotate-3">
-                    <BookOpen className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600 dark:text-blue-400 -rotate-3" />
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 mb-3 sm:mb-4 tracking-tight">Your Empty Canvas</h2>
-                  <p className="text-base sm:text-lg text-slate-500 dark:text-slate-400 max-w-md mb-6 sm:mb-8 leading-relaxed px-4">
-                    Use the sidebar to generate comprehensive study notes, or paste your rough notes to format them instantly.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-md opacity-80 px-4">
-                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col items-center hover:-translate-y-1 transition-transform">
-                      <Sparkles className="w-6 h-6 text-amber-400 mb-2" />
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">AI Powered</span>
-                    </div>
-                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col items-center hover:-translate-y-1 transition-transform">
-                      <Download className="w-6 h-6 text-emerald-500 dark:text-emerald-400 mb-2" />
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">PDF Ready</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={`min-h-[267mm] outline-none ${isEditing ? 'cursor-text' : ''}`}
-                  contentEditable={isEditing}
-                  suppressContentEditableWarning
-                  ref={editorRef}
-                  onInput={handleEditorInput}
-                  onBlur={handleEditorBlur}
-                  onKeyDown={handleEditorKeyDown}
-                  onPaste={handleEditorPaste}
-                />
-              )}
-            </div>
-            {/* Create Next UPSC Question panel — shown after UPSC answer is generated */}
-            {outputStyle === 'upsc' && generatedHtml && status === GenerationStatus.IDLE && (
-              <NextQuestionPanel
-                defaultStyle={upscAnswerStyle}
-                defaultWordLimit={wordLimit}
-                onGenerate={(style, wl, q) => handleNextUPSCQuestion(style, wl, q)}
-              />
-            )}
-            <div className="h-12 flex items-center justify-center mt-4 opacity-0 hover:opacity-100 transition-opacity">
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">End of Document</span>
-            </div>
-          </div>
+          <LoadingOverlay status={status} />
+          <EditorCanvas
+            generatedHtml={generatedHtml}
+            status={status}
+            isEditing={isEditing}
+            fontSize={fontSize}
+            lineHeight={lineHeight}
+            editorRef={editorRef}
+            handleEditorInput={handleEditorInput}
+            handleEditorBlur={handleEditorBlur}
+            handleEditorKeyDown={handleEditorKeyDown}
+            handleEditorPaste={handleEditorPaste}
+            outputStyle={outputStyle}
+            upscAnswerStyle={upscAnswerStyle}
+            wordLimit={wordLimit}
+            handleNextUPSCQuestion={handleNextUPSCQuestion}
+          />
         </div>
       </main>
 
@@ -546,42 +497,11 @@ const App: React.FC = () => {
         setModalImages={setModalImages}
       />
 
-      {/* ── Clear Confirmation Modal ── */}
-      {showClearConfirm && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
-          onClick={() => setShowClearConfirm(false)}
-        >
-          <div
-            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 duration-200"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
-                <Loader2 className="w-5 h-5 text-red-500 dark:text-red-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">Clear editor?</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">This will erase all current content.</p>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-2">
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmClear}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ClearConfirmModal
+        isOpen={showClearConfirm}
+        onConfirm={confirmClear}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </div>
   );
 };
