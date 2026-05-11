@@ -136,10 +136,8 @@ export function useGeneration({
         toast.error(`Analysis failed: ${error.message || 'Unknown error. Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) {
-        setStatus(GenerationStatus.IDLE);
-        setAnswerAnalyzing(false);
-      }
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setAnswerAnalyzing(false);
     }
   };
 
@@ -194,9 +192,9 @@ export function useGeneration({
         } catch (err) {
           console.error(`Page ${pageNum} attempt ${attempt} failed:`, err);
           if (attempt === MAX_RETRIES) {
-            if (!isResettingRef.current) {
+            if (!isResettingRef.current && translatePdfFile) {
               setTranslateResumeState({
-                pdfName: translatePdfFile!.name,
+                pdfName: translatePdfFile.name,
                 startPage: pageNum,
                 total,
                 pageHtmlParts,
@@ -237,10 +235,8 @@ export function useGeneration({
         toast.error(`PDF load error: ${error.message || 'File could not be opened. Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) {
-        setStatus(GenerationStatus.IDLE);
-        setTranslateProgress(null);
-      }
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setTranslateProgress(null);
     }
   };
 
@@ -266,10 +262,8 @@ export function useGeneration({
         toast.error(`Resume failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) {
-        setStatus(GenerationStatus.IDLE);
-        setTranslateProgress(null);
-      }
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setTranslateProgress(null);
     }
   };
 
@@ -290,7 +284,8 @@ export function useGeneration({
         let w = getAttr('w');
         let h = getAttr('h');
         const altMatch = attrs.match(/data-alt="([^"]*)"/i);
-        const alt = altMatch ? altMatch[1].replace(/"/g, '&quot;') : 'चित्र';
+        const rawAlt = altMatch ? altMatch[1] : 'चित्र';
+        const alt = rawAlt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
         if (x === null || y === null || w === null || h === null) return '';
 
@@ -396,6 +391,7 @@ export function useGeneration({
   const finishGeneration = (result: string) => {
     if (isResettingRef.current) return;
     const safe = sanitizeHtml(result);
+    if (!safe) { toast.error('Generated content was empty. Please try again.'); return; }
     setGeneratedHtml(safe);
     pushToHistory(safe);
     localStorage.setItem(STORAGE_KEY, safe);
@@ -463,6 +459,9 @@ export function useGeneration({
     }
     const useStyle = styleOverride ?? upscAnswerStyle;
     const useWordLimit = wordLimitOverride ?? wordLimit;
+    // Capture existing HTML BEFORE we flip status — once status changes, the
+    // editor div may re-render and editorRef.current can become stale.
+    const existing = getCurrentHtml();
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       let nextQuestion = typed;
@@ -478,7 +477,6 @@ export function useGeneration({
       if (wordLimitOverride) setWordLimit(wordLimitOverride);
       const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useWordLimit, useStyle);
       const newBlock = wrapUPSCBlock(nextQuestion, answer);
-      const existing = getCurrentHtml();
       const combined = existing
         ? existing + '\n<hr class="upsc-qa-divider" />\n' + newBlock
         : newBlock;
@@ -526,6 +524,9 @@ export function useGeneration({
     activeEditIdRef.current = null;
     selectionRangeRef.current = null;
     localStorage.removeItem(STORAGE_KEY);
+    setTranslateProgress(null);
+    setTranslateResumeState(null);
+    setOnePagerTopics([]);
     setTimeout(() => { isResettingRef.current = false; }, 100);
   };
 
