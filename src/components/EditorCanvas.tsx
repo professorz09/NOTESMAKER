@@ -38,7 +38,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   wordLimit,
   handleNextUPSCQuestion,
 }) => {
-  const showContent = generatedHtml && status === GenerationStatus.IDLE;
+  const showContent = !!generatedHtml;
 
   return (
     <div className="w-full max-w-[900px] mx-auto">

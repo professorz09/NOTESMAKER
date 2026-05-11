@@ -463,6 +463,9 @@ export function useGeneration({
     }
     const useStyle = styleOverride ?? upscAnswerStyle;
     const useWordLimit = wordLimitOverride ?? wordLimit;
+    // Capture existing HTML BEFORE we flip status — once status changes, the
+    // editor div may re-render and editorRef.current can become stale.
+    const existing = getCurrentHtml();
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       let nextQuestion = typed;
@@ -478,7 +481,6 @@ export function useGeneration({
       if (wordLimitOverride) setWordLimit(wordLimitOverride);
       const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useWordLimit, useStyle);
       const newBlock = wrapUPSCBlock(nextQuestion, answer);
-      const existing = getCurrentHtml();
       const combined = existing
         ? existing + '\n<hr class="upsc-qa-divider" />\n' + newBlock
         : newBlock;
