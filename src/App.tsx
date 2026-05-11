@@ -519,7 +519,7 @@ const App: React.FC = () => {
               <NextQuestionPanel
                 defaultStyle={upscAnswerStyle}
                 defaultWordLimit={wordLimit}
-                onGenerate={(style, wl) => handleNextUPSCQuestion(style, wl)}
+                onGenerate={(style, wl, q) => handleNextUPSCQuestion(style, wl, q)}
               />
             )}
             <div className="h-12 flex items-center justify-center mt-4 opacity-0 hover:opacity-100 transition-opacity">

@@ -453,20 +453,25 @@ export function useGeneration({
   const handleNextUPSCQuestion = async (
     styleOverride?: UPSCAnswerStyle,
     wordLimitOverride?: number,
+    customQuestion?: string,
   ) => {
     const currentQuestion = topicInput.trim();
-    if (!currentQuestion) {
-      toast.warning('पहले कोई UPSC प्रश्न दर्ज करें।');
+    const typed = customQuestion?.trim() || '';
+    if (!typed && !currentQuestion) {
+      toast.warning('कृपया प्रश्न दर्ज करें।');
       return;
     }
     const useStyle = styleOverride ?? upscAnswerStyle;
     const useWordLimit = wordLimitOverride ?? wordLimit;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
-      const nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3-flash-preview');
+      let nextQuestion = typed;
       if (!nextQuestion) {
-        toast.error('अगला प्रश्न generate नहीं हुआ। पुनः प्रयास करें।');
-        return;
+        nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3-flash-preview');
+        if (!nextQuestion) {
+          toast.error('अगला प्रश्न generate नहीं हुआ। पुनः प्रयास करें।');
+          return;
+        }
       }
       setTopicInput(nextQuestion);
       if (styleOverride) setUpscAnswerStyle(styleOverride);
