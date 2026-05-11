@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { ArrowRight, Plus, Bot, Trophy, List, Brain, Type, ChevronDown, ChevronUp } from 'lucide-react';
-import type { UPSCAnswerStyle } from '../services/ai';
+import type { UPSCAnswerStyle } from '../services/ai/index';
 
 interface NextQuestionPanelProps {
   defaultStyle: UPSCAnswerStyle;
   defaultWordLimit: number;
-  onGenerate: (style: UPSCAnswerStyle, wordLimit: number) => void;
+  onGenerate: (style: UPSCAnswerStyle, wordLimit: number, customQuestion: string) => void;
 }
 
 const STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
@@ -25,6 +25,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
   const [open, setOpen] = useState(false);
   const [style, setStyle] = useState<UPSCAnswerStyle>(defaultStyle);
   const [wordLimit, setWordLimit] = useState<number>(defaultWordLimit);
+  const [question, setQuestion] = useState('');
 
   if (!open) {
     return (
@@ -58,6 +59,19 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           >
             <ChevronUp className="w-3.5 h-3.5" /> Hide
           </button>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
+            Next Question <span className="text-slate-400 dark:text-slate-500 normal-case font-medium">(blank = AI auto-suggest)</span>
+          </label>
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            rows={2}
+            placeholder="यहाँ अगला प्रश्न लिखें… (या खाली छोड़ें — AI खुद बना देगा)"
+            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none resize-none"
+          />
         </div>
 
         <div className="space-y-2">
@@ -110,7 +124,8 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
 
         <button
           onClick={() => {
-            onGenerate(style, wordLimit);
+            onGenerate(style, wordLimit, question.trim());
+            setQuestion('');
             setOpen(false);
           }}
           className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110"

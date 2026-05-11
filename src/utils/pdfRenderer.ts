@@ -58,10 +58,6 @@ export function canvasPageToJpegBase64(
   return canvas.toDataURL('image/jpeg', quality).split(',')[1];
 }
 
-export function canvasPageToPngBase64(canvas: HTMLCanvasElement): string {
-  return canvas.toDataURL('image/png').split(',')[1];
-}
-
 export function cropImageFromCanvas(
   canvas: HTMLCanvasElement,
   xPct: number,
