@@ -2,7 +2,7 @@ import React from 'react';
 import { GenerationStatus } from '../types';
 import { EmptyState } from './EmptyState';
 import { NextQuestionPanel } from './NextQuestionPanel';
-import type { UPSCAnswerStyle } from '../services/ai';
+import type { UPSCAnswerStyle } from '../services/ai/index';
 
 interface EditorCanvasProps {
   generatedHtml: string | null;

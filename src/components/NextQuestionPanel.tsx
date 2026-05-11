@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Plus, Bot, Trophy, List, Brain, Type, ChevronDown, ChevronUp } from 'lucide-react';
-import type { UPSCAnswerStyle } from '../services/ai';
+import type { UPSCAnswerStyle } from '../services/ai/index';
 
 interface NextQuestionPanelProps {
   defaultStyle: UPSCAnswerStyle;

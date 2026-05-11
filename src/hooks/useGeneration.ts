@@ -11,7 +11,7 @@ import {
   analyzeAnswerPdf,
   generateOnePagerNotes,
   type UPSCAnswerStyle,
-} from '../services/ai';
+} from '../services/ai/index';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
 import { sanitizeHtml } from '../utils/sanitize';

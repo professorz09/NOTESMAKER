@@ -8,7 +8,7 @@ import {
   generateSectionImage,
   generateDiagram,
   extendTableRows,
-} from '../services/ai';
+} from '../services/ai/index';
 import { getSectionNodes, extractImagesFromHtml, getScrollParent, STORAGE_KEY } from '../utils/editorUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import { toast } from '../components/Toast';
