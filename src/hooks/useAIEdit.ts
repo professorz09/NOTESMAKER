@@ -196,6 +196,7 @@ export function useAIEdit({
     const handleEditorClick = (e: MouseEvent) => {
       const trigger = (e.target as HTMLElement).closest('.ai-edit-trigger') as HTMLElement;
       if (!trigger) return;
+      if (isRewriting) return; // block new edits while one is in progress
       e.preventDefault();
       e.stopPropagation();
 
@@ -227,7 +228,7 @@ export function useAIEdit({
     const editor = editorRef.current;
     if (editor) editor.addEventListener('click', handleEditorClick);
     return () => { if (editor) editor.removeEventListener('click', handleEditorClick); };
-  }, [isEditing, handleSectionEdit, handleTableExtend, editorRef]);
+  }, [isEditing, isRewriting, handleSectionEdit, handleTableExtend, editorRef]);
 
   const openSelectionRewriteModal = () => {
     const selection = window.getSelection();
