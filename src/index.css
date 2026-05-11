@@ -60,6 +60,11 @@ html, body {
 .editor-content .table-of-contents a { color: #2563eb; text-decoration: none; display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 0.9em; }
 .editor-content .toc-dots { flex: 1; border-bottom: 2px dotted #cbd5e1; margin: 0 8px; }
 .editor-content .toc-link-icon { color: #93c5fd; }
+.editor-content .upsc-qa-block { margin-bottom: 32px; }
+.editor-content .upsc-question { background: linear-gradient(135deg, #ede9fe 0%, #dbeafe 100%); border-left: 5px solid #7c3aed; color: #1e293b; padding: 14px 18px; margin: 8px 0 18px 0; border-radius: 0 12px 12px 0; font-size: 1.05em; font-weight: 700; line-height: 1.45; border-bottom: none; }
+.editor-content .upsc-qa-divider { border: none; border-top: 2px dashed #cbd5e1; margin: 36px 0 28px 0; }
+.dark .editor-content .upsc-question { background: linear-gradient(135deg, #312e81 0%, #1e3a5f 100%); color: #e2e8f0; border-left-color: #a78bfa; }
+.dark .editor-content .upsc-qa-divider { border-top-color: #334155; }
 .editor-content .flowchart-container svg { max-width: 100%; height: auto; }
 .editor-content .generated-image-container img { max-width: 100%; height: auto; border-radius: 12px; }
 

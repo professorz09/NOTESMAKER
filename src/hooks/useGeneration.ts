@@ -402,6 +402,12 @@ export function useGeneration({
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  const wrapUPSCBlock = (question: string, answerHtml: string) =>
+    `<section class="upsc-qa-block"><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2>${answerHtml}</section>`;
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'topic' && !topicInput.trim()) {
@@ -421,7 +427,10 @@ export function useGeneration({
     try {
       let result = '';
       if (mode === 'topic') {
-        if (outputStyle === 'upsc') result = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit, upscAnswerStyle);
+        if (outputStyle === 'upsc') {
+          const answer = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit, upscAnswerStyle);
+          result = wrapUPSCBlock(topicInput.trim(), answer);
+        }
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
         else result = await generateTopicContent(topicInput, language, aiModel);
       } else if (mode === 'text') {
@@ -441,12 +450,17 @@ export function useGeneration({
     }
   };
 
-  const handleNextUPSCQuestion = async () => {
+  const handleNextUPSCQuestion = async (
+    styleOverride?: UPSCAnswerStyle,
+    wordLimitOverride?: number,
+  ) => {
     const currentQuestion = topicInput.trim();
     if (!currentQuestion) {
       toast.warning('पहले कोई UPSC प्रश्न दर्ज करें।');
       return;
     }
+    const useStyle = styleOverride ?? upscAnswerStyle;
+    const useWordLimit = wordLimitOverride ?? wordLimit;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       const nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3-flash-preview');
@@ -455,8 +469,15 @@ export function useGeneration({
         return;
       }
       setTopicInput(nextQuestion);
-      const result = await generateUPSCAnswer(nextQuestion, language, aiModel, wordLimit, upscAnswerStyle);
-      finishGeneration(result);
+      if (styleOverride) setUpscAnswerStyle(styleOverride);
+      if (wordLimitOverride) setWordLimit(wordLimitOverride);
+      const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useWordLimit, useStyle);
+      const newBlock = wrapUPSCBlock(nextQuestion, answer);
+      const existing = getCurrentHtml();
+      const combined = existing
+        ? existing + '\n<hr class="upsc-qa-divider" />\n' + newBlock
+        : newBlock;
+      finishGeneration(combined);
       toast.success('अगला UPSC प्रश्न तैयार है!');
     } catch (error: any) {
       if (!isResettingRef.current) {
