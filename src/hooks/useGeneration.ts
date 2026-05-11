@@ -136,10 +136,8 @@ export function useGeneration({
         toast.error(`Analysis failed: ${error.message || 'Unknown error. Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) {
-        setStatus(GenerationStatus.IDLE);
-        setAnswerAnalyzing(false);
-      }
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setAnswerAnalyzing(false);
     }
   };
 
@@ -396,6 +394,7 @@ export function useGeneration({
   const finishGeneration = (result: string) => {
     if (isResettingRef.current) return;
     const safe = sanitizeHtml(result);
+    if (!safe) { toast.error('Generated content was empty. Please try again.'); return; }
     setGeneratedHtml(safe);
     pushToHistory(safe);
     localStorage.setItem(STORAGE_KEY, safe);
