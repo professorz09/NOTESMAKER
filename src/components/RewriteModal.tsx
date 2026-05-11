@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Sparkles, Wand2, TableProperties, ImagePlus, X, Trash2, ChevronLeft, AlertTriangle } from 'lucide-react';
+import { Sparkles, Wand2, TableProperties, ImagePlus, X, Trash2, AlertTriangle, Minimize2, Maximize2 } from 'lucide-react';
 import { Button } from './Button';
 
 interface RewriteModalProps {
@@ -43,6 +43,17 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
 }) => {
   const imgInputRef = useRef<HTMLInputElement>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [minimized, setMinimized] = useState(false);
+
+  // Auto-restore when rewriting completes
+  useEffect(() => {
+    if (!isRewriting) setMinimized(false);
+  }, [isRewriting]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) { setConfirmRemove(false); setMinimized(false); }
+  }, [isOpen]);
 
   // Escape key closes modal (unless rewriting)
   useEffect(() => {
@@ -56,11 +67,6 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, isRewriting, onClose, confirmRemove]);
-
-  // Reset confirm state when modal closes
-  useEffect(() => {
-    if (!isOpen) setConfirmRemove(false);
-  }, [isOpen]);
 
   const handleImageAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -86,6 +92,24 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  // ── Minimized floating chip ──
+  if (minimized && isRewriting) {
+    const chipLabel = isExtendTable ? 'Extending table…' : 'Rewriting…';
+    return (
+      <div className="fixed bottom-5 right-5 z-[70] flex items-center gap-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl px-4 py-3 animate-in slide-in-from-bottom-2 duration-200">
+        <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">{chipLabel}</span>
+        <button
+          onClick={() => setMinimized(false)}
+          className="ml-1 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+          title="Restore"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
 
   // ── Extend Table Mode ──
   if (isExtendTable) {
@@ -117,6 +141,15 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                 <option value="gemini-3-flash-preview">Flash (Fast)</option>
                 <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
               </select>
+              {isRewriting && (
+                <button
+                  onClick={() => setMinimized(true)}
+                  className="p-1.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                  title="Minimize — scroll document while waiting"
+                >
+                  <Minimize2 className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={onClose}
                 disabled={isRewriting}
@@ -199,6 +232,15 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
               <option value="gemini-3-flash-preview">Flash (Fast)</option>
               <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
             </select>
+            {isRewriting && (
+              <button
+                onClick={() => setMinimized(true)}
+                className="p-1.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                title="Minimize — scroll document while waiting"
+              >
+                <Minimize2 className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={onClose}
               disabled={isRewriting}

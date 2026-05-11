@@ -441,6 +441,7 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">
+        <LoadingOverlay status={status} />
         <Toolbar
           sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}
           handleUndo={handleUndo} handleRedo={handleRedo}
@@ -460,7 +461,6 @@ const App: React.FC = () => {
         />
 
         <div className="flex-1 overflow-auto pt-14 sm:pt-16 md:pt-20 lg:pt-20 pb-12 px-2 sm:px-4 md:px-6 lg:px-10 xl:px-16 relative scrollbar-thin scrollbar-track-transparent">
-          <LoadingOverlay status={status} />
           <EditorCanvas
             generatedHtml={generatedHtml}
             status={status}
