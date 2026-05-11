@@ -267,92 +267,6 @@ export const generateUPSCAnswer = async (
   return cleanHtmlOutput(response.text || "");
 };
 
-// Generate Comparison Table directly from a Topic
-export const generateTopicComparisonTable = async (
-  topic: string,
-  language: string,
-  modelName: string = "gemini-3.1-pro-preview"
-): Promise<string> => {
-  const ai = createAIClient();
-
-  const prompt = `
-    Role: Data Analyst & Academic Expert.
-    Task: Create a highly detailed, comprehensive table for the topic. First analyze the topic, then choose the table format that best suits it — do NOT always default to a comparison matrix.
-    
-    Topic: "${topic}"
-    Language: ${language}
-
-    **TABLE FORMAT SELECTION — pick the type that genuinely fits this topic:**
-    • **Comparison Matrix** — use when 2–4 distinct entities share common parameters (e.g., two policies, two rivers, pre vs post reform)
-    • **Timeline Table** — use for topics with historical evolution: (Year | Event | Significance)
-    • **Pros & Cons** — use for evaluative topics: (Aspect | Advantages | Disadvantages) or add a Weight column
-    • **Factor Analysis** — use for cause-effect or challenge topics: (Factor/Cause | Details | Examples/Data)
-    • **Feature Matrix** — use for single-subject cataloguing: (Attribute | Description | Current Status/Value)
-    • **Data / Statistics** — use when numerical data, rankings, or percentages are central
-    • **Process Steps** — use for procedural or sequential topics: (Phase | Action | Outcome/Indicator)
-    • **Concept Map Table** — use for conceptual topics: (Concept | Sub-Concepts | Real-World Applications)
-
-    **CONTENT RULES:**
-    1. Use <table> with <thead><tr><th> and <tbody><tr><td>. Add <caption> with a descriptive title.
-    2. Inside <td> cells, use <ul><li>...</li></ul> when there are multiple points.
-    3. Use <strong> for key terms, figures, and proper nouns inside cells.
-    4. Be exhaustive — cover all important aspects of the topic, not just surface-level facts.
-    5. Ensure every row adds distinct value; no repetitive or filler rows.
-
-    Output: Return ONLY the valid HTML <table> code (with <caption>). No markdown, no explanation.
-  `;
-
-  const response = await ai.models.generateContent({
-    model: modelName, 
-    contents: prompt
-  });
-
-  return cleanHtmlOutput(response.text || "");
-};
-
-// Generate Detailed Data Table directly from a Topic
-export const generateTopicDetailedTable = async (
-  topic: string,
-  language: string,
-  modelName: string = "gemini-3.1-pro-preview"
-): Promise<string> => {
-  const ai = createAIClient();
-
-  const prompt = `
-    Role: Senior Data Analyst & Subject Matter Expert.
-    Task: Create a highly detailed, comprehensive table for the topic. First think about what the topic is — then choose the table format that best reveals its structure.
-    
-    Topic: "${topic}"
-    Language: ${language}
-
-    **TABLE FORMAT SELECTION — analyze the topic and pick the most appropriate type:**
-    • **Comparison Matrix** — two or more entities compared on shared parameters
-    • **Timeline Table** — historical or sequential data: (Year/Period | Event | Impact)
-    • **Pros & Cons** — evaluative: (Aspect | Advantages | Disadvantages) ± Severity column
-    • **Factor Analysis** — causal/challenge topics: (Factor | Explanation | Real-World Examples)
-    • **Feature Matrix** — single-entity deep-dive: (Attribute | Description | Value/Status)
-    • **Data / Statistics** — quantitative: figures, rankings, percentages, growth rates
-    • **Process Steps** — procedural: (Step/Phase | What Happens | Output/Indicator)
-    • **Concept Map Table** — conceptual: (Core Concept | Sub-Concepts | Applications/Examples)
-
-    **CONTENT RULES:**
-    1. Use <table> with <thead><tr><th> headers and <tbody><tr><td> rows. Add a <caption> title.
-    2. Use <ul><li> inside <td> for multiple points per cell.
-    3. Use <strong> for key terms, dates, figures, and names.
-    4. Cover the topic from multiple dimensions — be exhaustive and insightful, not surface-level.
-    5. Every row must add distinct, non-repetitive value.
-
-    Output: Return ONLY valid HTML <table> code (including <caption>). No markdown, no explanation.
-  `;
-
-  const response = await ai.models.generateContent({
-    model: modelName, 
-    contents: prompt
-  });
-
-  return cleanHtmlOutput(response.text || "");
-};
-
 // Generate Smart Table — AI decides the format based on instruction
 export const generateSmartTable = async (
   topic: string,
@@ -762,41 +676,6 @@ export const generateDetailedNextTopic = async (
   return cleanHtmlOutput(response.text || "");
 };
 
-// Mode 6: GENERATE COMPLEX TABLE (Matrix)
-export const generateComplexTable = async (
-  contextText: string,
-  instruction: string,
-  modelName: string = "gemini-3.1-pro-preview"
-): Promise<string> => {
-  const ai = createAIClient();
-  
-  const prompt = `
-    Role: Data Analyst & Academic Editor.
-    Task: Convert the provided text/concept into a **Complex Comparison Matrix (Table)**, OR if the input is ALREADY a table, EXTEND/MODIFY it based on the instruction.
-    
-    Input Text/Context: "${contextText}"
-    Specific Instruction: "${instruction}"
-    
-    **TABLE REQUIREMENTS:**
-    1. **Structure:** Create or update a multi-column HTML table (<table>).
-    2. **Headers:** Use <thead> with <th> for clear category titles.
-    3. **Content:** 
-       - Inside <td> cells, use bullet points (<ul><li>...</li></ul>) if there are multiple points per cell. 
-       - If extending an existing table, keep the existing data and add the new rows/columns as requested.
-    4. **Formatting:**
-       - Use <strong> for key terms inside cells.
-       - Ensure the table covers all aspects of the topic exhaustively.
-
-    Output: Return ONLY the valid HTML <table> code.
-  `;
-
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: prompt
-  });
-  return cleanHtmlOutput(response.text || "");
-};
-
 // Mode 6b: EXTEND TABLE — appends new rows to an existing table (does NOT replace it)
 export const extendTableRows = async (
   headersHtml: string,
@@ -998,63 +877,6 @@ export const generateResearchPaper = async (
   });
 
   return cleanHtmlOutput(response.text || "");
-};
-// ─── IMAGE GENERATION (Imagen 4) ────────────────────────────────────────────
-
-type ImageStyle = 'diagram' | 'handwritten' | 'mindmap' | 'flowchart';
-
-const IMAGE_STYLE_PROMPTS: Record<ImageStyle, string> = {
-  diagram: 'Create a clean educational diagram on a pure white background. Use labeled boxes, arrows, and clearly organized sections. Academic textbook illustration style, minimal and professional. Black text, thin colored lines, clear labels on every element. No photographic elements. Vector/illustration style only.',
-  handwritten: "Educational notes handwritten on white paper, like a student's school copy or notebook. Black ballpoint pen or blue ink. Slightly casual but neat handwriting. Headings underlined, key words circled or boxed, arrows connecting concepts. Small hand-drawn diagrams, stars or bullets for important points. White paper background with faint ruled lines.",
-  mindmap: 'A colorful mind map diagram on a white background. Central concept in a circle, branches radiating outward with subtopics. Each branch has a different color. Labels are clear and concise. Educational style, clean fonts, no clutter. Arrows show relationships.',
-  flowchart: 'A clean educational flowchart on a white background. Rectangular process boxes, diamond decision shapes, oval start/end. Black borders, light color fills, clear arrow directions and labels. Step-by-step logical flow. Professional textbook quality.',
-};
-
-function getImageApiKey(): string {
-  let apiKey = '';
-  if (typeof window !== 'undefined' && (window as any).process?.env) {
-    apiKey = (window as any).process.env.API_KEY || (window as any).process.env.GEMINI_API_KEY || '';
-  }
-  if (!apiKey) apiKey = process.env.GEMINI_API_KEY || '';
-  if (!apiKey) throw new Error('API Key not found');
-  return apiKey;
-}
-
-export const generateImage = async (
-  topic: string,
-  style: ImageStyle,
-  aspectRatio: string,
-  imageModel: string,
-): Promise<string> => {
-  const apiKey = getImageApiKey();
-  const styleGuide = IMAGE_STYLE_PROMPTS[style];
-  const fullPrompt = `Topic: ${topic}. ${styleGuide}`;
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:predict?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        instances: [{ prompt: fullPrompt }],
-        parameters: { sampleCount: 1, aspectRatio },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error((err as any)?.error?.message || `Image generation failed (${response.status})`);
-  }
-
-  const data = await response.json();
-  const prediction = data?.predictions?.[0];
-  if (!prediction?.bytesBase64Encoded) {
-    throw new Error('No image data in response. Try a different model or topic.');
-  }
-
-  const mimeType = prediction.mimeType || 'image/png';
-  return `data:${mimeType};base64,${prediction.bytesBase64Encoded}`;
 };
 
 // Translate PDF to Hindi — preserves layout, tables, headings & image positions
