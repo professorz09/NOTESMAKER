@@ -7,13 +7,23 @@
   --font-family-serif: Merriweather, serif;
   --color-sidebar: #0f172a;
   --color-paper: #ffffff;
+  --breakpoint-xs: 400px;
 }
 
 /* ─── Safe area for iOS notch / home bar ─── */
 html, body {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* ─── Shimmer animation ─── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
 
 /* ─── A4 Page — responsive ─── */
 .size-a4 {
@@ -95,14 +105,26 @@ html, body {
   background-image: radial-gradient(circle, #1e293b 1px, transparent 1px);
 }
 
-/* ─── Scrollbar ─── */
-.scrollbar-thin::-webkit-scrollbar { width: 4px; }
-.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
-.dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; }
-
 /* ─── Mobile: prevent horizontal overflow ─── */
 @media (max-width: 767px) {
   .editor-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .editor-content .flowchart-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
+
+/* ─── Scrollbar — make slightly more visible on hover ─── */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.4); border-radius: 9999px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.8); }
+.dark .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(51,65,85,0.5); }
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(71,85,105,0.9); }
+
+/* ─── Focus ring for accessibility ─── */
+button:focus-visible, a:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ─── Smooth scroll in main content area ─── */
+.overflow-auto { scroll-behavior: smooth; }
