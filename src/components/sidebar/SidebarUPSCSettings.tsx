@@ -1,12 +1,14 @@
 import React from 'react';
-import { GraduationCap, Bot, Trophy, List, Brain, Type } from 'lucide-react';
-import type { UPSCAnswerStyle } from '../../services/ai/index';
+import { GraduationCap, Bot, Trophy, List, Brain, Type, BookOpen, BookText } from 'lucide-react';
+import type { UPSCAnswerStyle, UPSCSubject } from '../../services/ai/index';
 
 interface SidebarUPSCSettingsProps {
   wordLimit: number;
   setWordLimit: (limit: number) => void;
   upscAnswerStyle: UPSCAnswerStyle;
   setUpscAnswerStyle: (s: UPSCAnswerStyle) => void;
+  upscSubject: UPSCSubject;
+  setUpscSubject: (s: UPSCSubject) => void;
 }
 
 const WORD_LIMITS = [150, 250, 500, 1000];
@@ -28,8 +30,57 @@ const STYLE_HINTS: Record<UPSCAnswerStyle, string> = {
 export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
   wordLimit, setWordLimit,
   upscAnswerStyle, setUpscAnswerStyle,
+  upscSubject, setUpscSubject,
 }) => (
   <>
+    {/* Subject Type */}
+    <div className="space-y-2">
+      <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
+        <BookOpen className="w-3 h-3" /> विषय / Subject
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setUpscSubject('gs')}
+          className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-200 text-center ${
+            upscSubject === 'gs'
+              ? 'bg-blue-900/40 border-blue-500/60 shadow-lg shadow-blue-900/20'
+              : 'bg-white/3 border-white/6 hover:bg-white/6 hover:border-white/12'
+          }`}
+        >
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${upscSubject === 'gs' ? 'bg-blue-500/30' : 'bg-white/5'}`}>
+            <GraduationCap className={`w-3.5 h-3.5 ${upscSubject === 'gs' ? 'text-blue-300' : 'text-slate-500'}`} />
+          </div>
+          <div>
+            <p className={`text-[10px] font-bold leading-none mb-0.5 ${upscSubject === 'gs' ? 'text-white' : 'text-slate-400'}`}>सामान्य अध्ययन</p>
+            <p className={`text-[9px] leading-tight ${upscSubject === 'gs' ? 'text-slate-400' : 'text-slate-600'}`}>GS Paper</p>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setUpscSubject('hindi_literature')}
+          className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-200 text-center ${
+            upscSubject === 'hindi_literature'
+              ? 'bg-orange-900/40 border-orange-500/60 shadow-lg shadow-orange-900/20'
+              : 'bg-white/3 border-white/6 hover:bg-white/6 hover:border-white/12'
+          }`}
+        >
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${upscSubject === 'hindi_literature' ? 'bg-orange-500/30' : 'bg-white/5'}`}>
+            <BookText className={`w-3.5 h-3.5 ${upscSubject === 'hindi_literature' ? 'text-orange-300' : 'text-slate-500'}`} />
+          </div>
+          <div>
+            <p className={`text-[10px] font-bold leading-none mb-0.5 ${upscSubject === 'hindi_literature' ? 'text-white' : 'text-slate-400'}`}>हिंदी साहित्य</p>
+            <p className={`text-[9px] leading-tight ${upscSubject === 'hindi_literature' ? 'text-slate-400' : 'text-slate-600'}`}>Optional Paper</p>
+          </div>
+        </button>
+      </div>
+      {upscSubject === 'hindi_literature' && (
+        <p className="text-[9px] text-orange-400/70 px-1 leading-relaxed">
+          📚 UPSC पाठ्यक्रम अनुसार — कबीर, तुलसी, प्रेमचंद, निराला, महादेवी आदि
+        </p>
+      )}
+    </div>
+
     {/* Word Limit */}
     <div className="space-y-2">
       <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">

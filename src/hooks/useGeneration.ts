@@ -6,11 +6,13 @@ import {
   generateFileNotes,
   generateUPSCAnswer,
   generateNextUPSCQuestion,
+  correctQuestionHindi,
   generateResearchPaper,
   translatePdfPageToHindi,
   analyzeAnswerPdf,
   generateOnePagerNotes,
   type UPSCAnswerStyle,
+  type UPSCSubject,
 } from '../services/ai/index';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -40,6 +42,7 @@ export function useGeneration({
   const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
   const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
   const [upscAnswerStyle, setUpscAnswerStyle] = useState<UPSCAnswerStyle>('topper');
+  const [upscSubject, setUpscSubject] = useState<UPSCSubject>('gs');
   const [tableInstruction, setTableInstruction] = useState('');
   const [wordLimit, setWordLimit] = useState(250);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
@@ -401,8 +404,11 @@ export function useGeneration({
   const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  const wrapUPSCBlock = (question: string, answerHtml: string) =>
-    `<section class="upsc-qa-block"><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2>${answerHtml}</section>`;
+  const wrapUPSCBlock = (question: string, answerHtml: string, subject: UPSCSubject) => {
+    const tagClass = subject === 'hindi_literature' ? 'upsc-subject-tag upsc-subject-hl' : 'upsc-subject-tag upsc-subject-gs';
+    const tagLabel = subject === 'hindi_literature' ? 'हिंदी साहित्य' : 'सामान्य अध्ययन';
+    return `<section class="upsc-qa-block"><div class="upsc-question-header"><span class="${tagClass}">${tagLabel}</span><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -424,8 +430,19 @@ export function useGeneration({
       let result = '';
       if (mode === 'topic') {
         if (outputStyle === 'upsc') {
-          const answer = await generateUPSCAnswer(topicInput, language, aiModel, wordLimit, upscAnswerStyle);
-          result = wrapUPSCBlock(topicInput.trim(), answer);
+          let question = topicInput.trim();
+          // Correct question to proper Hindi if language is Hindi
+          if (language === 'Hindi' || upscSubject === 'hindi_literature') {
+            try {
+              const corrected = await correctQuestionHindi(question);
+              if (corrected) {
+                question = corrected;
+                setTopicInput(corrected);
+              }
+            } catch { /* keep original if correction fails */ }
+          }
+          const answer = await generateUPSCAnswer(question, language, aiModel, wordLimit, upscAnswerStyle, upscSubject);
+          result = wrapUPSCBlock(question, answer, upscSubject);
         }
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
         else result = await generateTopicContent(topicInput, language, aiModel);
@@ -450,6 +467,7 @@ export function useGeneration({
     styleOverride?: UPSCAnswerStyle,
     wordLimitOverride?: number,
     customQuestion?: string,
+    subjectOverride?: UPSCSubject,
   ) => {
     const currentQuestion = topicInput.trim();
     const typed = customQuestion?.trim() || '';
@@ -459,24 +477,30 @@ export function useGeneration({
     }
     const useStyle = styleOverride ?? upscAnswerStyle;
     const useWordLimit = wordLimitOverride ?? wordLimit;
-    // Capture existing HTML BEFORE we flip status — once status changes, the
-    // editor div may re-render and editorRef.current can become stale.
+    const useSubject = subjectOverride ?? upscSubject;
+    // Capture existing HTML BEFORE we flip status
     const existing = getCurrentHtml();
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       let nextQuestion = typed;
       if (!nextQuestion) {
-        nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3-flash-preview');
+        nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3-flash-preview', useSubject);
         if (!nextQuestion) {
           toast.error('अगला प्रश्न generate नहीं हुआ। पुनः प्रयास करें।');
           return;
         }
+      } else if (language === 'Hindi' || useSubject === 'hindi_literature') {
+        // Correct custom typed question to proper Hindi
+        try {
+          const corrected = await correctQuestionHindi(nextQuestion);
+          if (corrected) nextQuestion = corrected;
+        } catch { /* keep original */ }
       }
       setTopicInput(nextQuestion);
       if (styleOverride) setUpscAnswerStyle(styleOverride);
       if (wordLimitOverride) setWordLimit(wordLimitOverride);
-      const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useWordLimit, useStyle);
-      const newBlock = wrapUPSCBlock(nextQuestion, answer);
+      const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useWordLimit, useStyle, useSubject);
+      const newBlock = wrapUPSCBlock(nextQuestion, answer, useSubject);
       const combined = existing
         ? existing + '\n<hr class="upsc-qa-divider" />\n' + newBlock
         : newBlock;
@@ -534,6 +558,7 @@ export function useGeneration({
     mode, setMode,
     outputStyle, setOutputStyle,
     upscAnswerStyle, setUpscAnswerStyle,
+    upscSubject, setUpscSubject,
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     status,

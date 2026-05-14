@@ -2,7 +2,7 @@ import React from 'react';
 import { GenerationStatus } from '../types';
 import { EmptyState } from './EmptyState';
 import { NextQuestionPanel } from './NextQuestionPanel';
-import type { UPSCAnswerStyle } from '../services/ai/index';
+import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 
 interface EditorCanvasProps {
   generatedHtml: string | null;
@@ -18,8 +18,9 @@ interface EditorCanvasProps {
   // UPSC next question flow
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';
   upscAnswerStyle: UPSCAnswerStyle;
+  upscSubject: UPSCSubject;
   wordLimit: number;
-  handleNextUPSCQuestion: (style?: UPSCAnswerStyle, wordLimit?: number, customQuestion?: string) => void;
+  handleNextUPSCQuestion: (style?: UPSCAnswerStyle, wordLimit?: number, customQuestion?: string, subject?: UPSCSubject) => void;
 }
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
@@ -35,6 +36,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   handleEditorPaste,
   outputStyle,
   upscAnswerStyle,
+  upscSubject,
   wordLimit,
   handleNextUPSCQuestion,
 }) => {
@@ -67,7 +69,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         <NextQuestionPanel
           defaultStyle={upscAnswerStyle}
           defaultWordLimit={wordLimit}
-          onGenerate={(style, wl, q) => handleNextUPSCQuestion(style, wl, q)}
+          defaultSubject={upscSubject}
+          onGenerate={(style, wl, q, subj) => handleNextUPSCQuestion(style, wl, q, subj)}
         />
       )}
 
