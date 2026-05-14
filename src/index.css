@@ -82,6 +82,9 @@ html, body {
 .dark .editor-content .upsc-qa-divider { border-top-color: #334155; }
 .dark .editor-content .upsc-subject-gs { background: rgba(37,99,235,0.2); color: #93c5fd; border-color: #1d4ed8; }
 .dark .editor-content .upsc-subject-hl { background: rgba(234,88,12,0.2); color: #fb923c; border-color: #c2410c; }
+/* Literary quote styling — <em> inside Hindi Sahitya answers */
+.editor-content .upsc-qa-block em { display: block; font-style: italic; font-family: 'Noto Serif Devanagari', Georgia, serif; color: #7c3aed; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-left: 3px solid #a78bfa; padding: 8px 14px; margin: 8px 0; border-radius: 0 8px 8px 0; font-size: 0.97em; line-height: 1.7; }
+.dark .editor-content .upsc-qa-block em { color: #c4b5fd; background: linear-gradient(135deg, rgba(124,58,237,0.12) 0%, rgba(109,40,217,0.08) 100%); border-left-color: #7c3aed; }
 .editor-content .one-pager-divider { border: none; border-top: 2px solid #e2e8f0; margin: 40px 0 32px 0; }
 .dark .editor-content .one-pager-divider { border-top-color: #334155; }
 .editor-content .flowchart-container svg { max-width: 100%; height: auto; }
