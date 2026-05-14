@@ -2,7 +2,7 @@ import React from 'react';
 import { GenerationStatus } from '../types';
 import { ProjectsPanel } from './ProjectsPanel';
 import type { ProjectMeta } from '../hooks/useProjects';
-import type { UPSCAnswerStyle } from '../services/ai/index';
+import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 import {
   SidebarHeader,
   SidebarModeTabs,
@@ -24,6 +24,8 @@ interface SidebarProps {
   setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'table') => void;
   upscAnswerStyle: UPSCAnswerStyle;
   setUpscAnswerStyle: (s: UPSCAnswerStyle) => void;
+  upscSubject: UPSCSubject;
+  setUpscSubject: (s: UPSCSubject) => void;
   tableInstruction: string;
   setTableInstruction: (v: string) => void;
   wordLimit: number;
@@ -84,6 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mode, setMode,
   outputStyle, setOutputStyle,
   upscAnswerStyle, setUpscAnswerStyle,
+  upscSubject, setUpscSubject,
   tableInstruction, setTableInstruction,
   wordLimit, setWordLimit,
   topicInput, setTopicInput,
@@ -161,6 +164,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               setWordLimit={setWordLimit}
               upscAnswerStyle={upscAnswerStyle}
               setUpscAnswerStyle={setUpscAnswerStyle}
+              upscSubject={upscSubject}
+              setUpscSubject={setUpscSubject}
             />
           )}
 

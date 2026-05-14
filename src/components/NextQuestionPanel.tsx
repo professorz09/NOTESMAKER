@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ArrowRight, Plus, Bot, Trophy, List, Brain, Type, ChevronDown, ChevronUp } from 'lucide-react';
-import type { UPSCAnswerStyle } from '../services/ai/index';
+import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronDown, ChevronUp, GraduationCap, BookText } from 'lucide-react';
+import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 
 interface NextQuestionPanelProps {
   defaultStyle: UPSCAnswerStyle;
   defaultWordLimit: number;
-  onGenerate: (style: UPSCAnswerStyle, wordLimit: number, customQuestion: string) => void;
+  defaultSubject: UPSCSubject;
+  onGenerate: (style: UPSCAnswerStyle, wordLimit: number, customQuestion: string, subject: UPSCSubject) => void;
 }
 
 const STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
@@ -20,11 +21,13 @@ const WORD_LIMITS = [150, 250, 500, 1000];
 export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
   defaultStyle,
   defaultWordLimit,
+  defaultSubject,
   onGenerate,
 }) => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [style, setStyle] = useState<UPSCAnswerStyle>(defaultStyle);
   const [wordLimit, setWordLimit] = useState<number>(defaultWordLimit);
+  const [subject, setSubject] = useState<UPSCSubject>(defaultSubject);
   const [question, setQuestion] = useState('');
 
   if (!open) {
@@ -35,12 +38,9 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           className="flex items-center gap-2.5 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all duration-200 active:scale-[0.97] hover:shadow-xl hover:brightness-110"
           style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
         >
-          <Plus className="w-4 h-4" />
-          अगला प्रश्न बनाएं — Create Next Question
+          <ArrowRight className="w-4 h-4" />
+          अगला प्रश्न बनाएं — Next Question
         </button>
-        <p className="text-xs text-slate-500 dark:text-slate-600">
-          Style aur word-limit choose karke neeche hi agla Q&amp;A add hoga
-        </p>
       </div>
     );
   }
@@ -50,8 +50,8 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
       <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-            Next Question Settings
+            <ArrowRight className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+            अगला प्रश्न — Next Question Settings
           </h4>
           <button
             onClick={() => setOpen(false)}
@@ -61,19 +61,54 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           </button>
         </div>
 
+        {/* Subject Selector */}
         <div className="space-y-2">
           <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
-            Next Question <span className="text-slate-400 dark:text-slate-500 normal-case font-medium">(blank = AI auto-suggest)</span>
+            विषय / Subject
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSubject('gs')}
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                subject === 'gs'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/30'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>सामान्य अध्ययन (GS)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubject('hindi_literature')}
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                subject === 'hindi_literature'
+                  ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/30'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <BookText className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>हिंदी साहित्य</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Custom Question */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
+            प्रश्न <span className="text-slate-400 dark:text-slate-500 normal-case font-medium">(खाली छोड़ें = AI खुद बना देगा)</span>
           </label>
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             rows={2}
-            placeholder="यहाँ अगला प्रश्न लिखें… (या खाली छोड़ें — AI खुद बना देगा)"
+            placeholder="यहाँ अगला प्रश्न लिखें… (AI शुद्ध हिंदी में सुधार करेगा)"
             className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none resize-none"
           />
         </div>
 
+        {/* Word Limit */}
         <div className="space-y-2">
           <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5">
             <Type className="w-3 h-3" /> Word Limit
@@ -96,6 +131,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           </div>
         </div>
 
+        {/* Answer Style */}
         <div className="space-y-2">
           <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
             Answer Style
@@ -124,15 +160,14 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
 
         <button
           onClick={() => {
-            onGenerate(style, wordLimit, question.trim());
+            onGenerate(style, wordLimit, question.trim(), subject);
             setQuestion('');
-            setOpen(false);
           }}
           className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110"
           style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
         >
           <ArrowRight className="w-4 h-4" />
-          Generate Next Question
+          अगला प्रश्न Generate करें
         </button>
       </div>
     </div>

@@ -98,6 +98,7 @@ const App: React.FC = () => {
     mode, setMode,
     outputStyle, setOutputStyle,
     upscAnswerStyle, setUpscAnswerStyle,
+    upscSubject, setUpscSubject,
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     status,
@@ -391,6 +392,7 @@ const App: React.FC = () => {
         mode={mode} setMode={setMode}
         outputStyle={outputStyle} setOutputStyle={setOutputStyle}
         upscAnswerStyle={upscAnswerStyle} setUpscAnswerStyle={setUpscAnswerStyle}
+        upscSubject={upscSubject} setUpscSubject={setUpscSubject}
         wordLimit={wordLimit} setWordLimit={setWordLimit}
         topicInput={topicInput} setTopicInput={setTopicInput}
         textInput={textInput} setTextInput={setTextInput}
@@ -474,6 +476,7 @@ const App: React.FC = () => {
             handleEditorPaste={handleEditorPaste}
             outputStyle={outputStyle}
             upscAnswerStyle={upscAnswerStyle}
+            upscSubject={upscSubject}
             wordLimit={wordLimit}
             handleNextUPSCQuestion={handleNextUPSCQuestion}
           />

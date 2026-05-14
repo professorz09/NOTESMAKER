@@ -71,10 +71,17 @@ html, body {
 .editor-content .toc-dots { flex: 1; border-bottom: 2px dotted #cbd5e1; margin: 0 8px; }
 .editor-content .toc-link-icon { color: #93c5fd; }
 .editor-content .upsc-qa-block { margin-bottom: 32px; }
-.editor-content .upsc-question { background: linear-gradient(135deg, #ede9fe 0%, #dbeafe 100%); border-left: 5px solid #7c3aed; color: #1e293b; padding: 14px 18px; margin: 8px 0 18px 0; border-radius: 0 12px 12px 0; font-size: 1.05em; font-weight: 700; line-height: 1.45; border-bottom: none; }
+.editor-content .upsc-question-header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 0; }
+.editor-content .upsc-question { background: linear-gradient(135deg, #ede9fe 0%, #dbeafe 100%); border-left: 5px solid #7c3aed; color: #1e293b; padding: 14px 18px; margin: 0 0 18px 0; border-radius: 0 12px 12px 0; font-size: 1.05em; font-weight: 700; line-height: 1.45; border-bottom: none; }
 .editor-content .upsc-qa-divider { border: none; border-top: 2px dashed #cbd5e1; margin: 36px 0 28px 0; }
+/* Subject tags */
+.editor-content .upsc-subject-tag { display: inline-flex; align-items: center; font-size: 0.72em; font-weight: 700; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 20px; margin-bottom: 4px; width: fit-content; }
+.editor-content .upsc-subject-gs { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+.editor-content .upsc-subject-hl { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
 .dark .editor-content .upsc-question { background: linear-gradient(135deg, #312e81 0%, #1e3a5f 100%); color: #e2e8f0; border-left-color: #a78bfa; }
 .dark .editor-content .upsc-qa-divider { border-top-color: #334155; }
+.dark .editor-content .upsc-subject-gs { background: rgba(37,99,235,0.2); color: #93c5fd; border-color: #1d4ed8; }
+.dark .editor-content .upsc-subject-hl { background: rgba(234,88,12,0.2); color: #fb923c; border-color: #c2410c; }
 .editor-content .one-pager-divider { border: none; border-top: 2px solid #e2e8f0; margin: 40px 0 32px 0; }
 .dark .editor-content .one-pager-divider { border-top-color: #334155; }
 .editor-content .flowchart-container svg { max-width: 100%; height: auto; }

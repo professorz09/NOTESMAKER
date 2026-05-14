@@ -1,7 +1,7 @@
 export { createAIClient } from './client';
-export type { UPSCAnswerStyle } from './upscAnswerGeneration';
+export type { UPSCAnswerStyle, UPSCSubject } from './upscAnswerGeneration';
 export { generateTopicContent } from './topicGeneration';
-export { generateUPSCAnswer, generateNextUPSCQuestion } from './upscAnswerGeneration';
+export { generateUPSCAnswer, generateNextUPSCQuestion, correctQuestionHindi } from './upscAnswerGeneration';
 export { generateSmartTable, extendTableRows } from './tableGeneration';
 export { generateFormattedNotes, generateFileNotes, generateOnePagerNotes } from './notesGeneration';
 export { rewriteContent, rewriteSection, expandSection, generateNextContent, generateDetailedNextTopic } from './contentRewrite';

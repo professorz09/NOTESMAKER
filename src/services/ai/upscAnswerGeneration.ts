@@ -1,13 +1,85 @@
 import { createAIClient, cleanHtmlOutput } from './client';
 
 export type UPSCAnswerStyle = 'auto' | 'topper' | 'bullets' | 'analytical';
+export type UPSCSubject = 'gs' | 'hindi_literature';
+
+// Correct user's question to proper formal Hindi
+export const correctQuestionHindi = async (
+  question: string,
+  modelName: string = "gemini-3-flash-preview"
+): Promise<string> => {
+  const ai = createAIClient();
+  const prompt = `आप एक हिंदी भाषा विशेषज्ञ हैं। उपयोगकर्ता ने एक UPSC प्रश्न लिखा है जो Hinglish, टूटी-फूटी हिंदी या मिश्रित भाषा में हो सकता है।
+
+आपका काम: इस प्रश्न को सही, औपचारिक, परीक्षा-स्तरीय शुद्ध हिंदी (देवनागरी लिपि) में लिखें।
+- वर्तनी, व्याकरण और शब्द-चयन सुधारें
+- UPSC Mains के प्रश्न जैसा बनाएं
+- अर्थ बिल्कुल वही रखें
+- कोई व्याख्या या अनुवाद न जोड़ें
+- केवल सुधरा हुआ प्रश्न लौटाएं — और कुछ नहीं
+
+प्रश्न: "${question}"`;
+  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  return (response.text || question).trim().replace(/^["']|["']$/g, '');
+};
+
+const buildHindiLiteraturePrompt = (
+  question: string,
+  wordLimit: number,
+  style: UPSCAnswerStyle
+): string => `
+आप UPSC हिंदी साहित्य (वैकल्पिक विषय) के विशेषज्ञ परीक्षक और टॉपर मेंटर हैं।
+
+प्रश्न: "${question}"
+भाषा: हिंदी (देवनागरी लिपि) — सब कुछ हिंदी में लिखें
+शब्द सीमा: लगभग ${wordLimit} शब्द
+उत्तर शैली: ${style === 'bullets' ? 'बिंदुवार (Bullet Points)' : style === 'analytical' ? 'विश्लेषणात्मक' : 'टॉपर की प्रतिलिपि'}
+
+━━━ UPSC हिंदी साहित्य पाठ्यक्रम के अनुसार ━━━
+यह उत्तर UPSC IAS हिंदी साहित्य वैकल्पिक पेपर के पाठ्यक्रम पर आधारित होना चाहिए:
+
+**प्रश्नपत्र-I (भाषा एवं साहित्य का इतिहास):**
+• हिंदी भाषा का उद्भव एवं विकास — अपभ्रंश, अवहट्ट, आरंभिक हिंदी
+• हिंदी की बोलियाँ — ब्रज, अवधी, खड़ीबोली, राजस्थानी, मैथिली
+• आदिकाल: सिद्ध साहित्य, नाथ साहित्य, चारण साहित्य (रासो ग्रंथ)
+• भक्तिकाल: कबीर, तुलसीदास, सूरदास, जायसी, मीराबाई (सगुण-निर्गुण धाराएँ)
+• रीतिकाल: केशवदास, बिहारी, देव, घनानंद
+• आधुनिक काल: भारतेंदु युग, छायावाद (प्रसाद, निराला, महादेवी, पंत), प्रगतिवाद, प्रयोगवाद, नई कविता
+• गद्य: भारतेंदु हरिश्चंद्र, प्रेमचंद, जयशंकर प्रसाद, हजारीप्रसाद द्विवेदी, रामचंद्र शुक्ल
+• नाटक, उपन्यास, कहानी, निबंध की विधाओं का विकास
+
+**प्रश्नपत्र-II (प्रमुख रचनाएँ):**
+• कबीर (बीजक), तुलसीदास (रामचरितमानस, कवितावली), सूरदास (भ्रमरगीत सार)
+• जायसी (पद्मावत), बिहारी (सतसई), मीराबाई (पद)
+• भारतेंदु हरिश्चंद्र (भारत-दुर्दशा), प्रेमचंद (गोदान, मानसरोवर)
+• प्रसाद (कामायनी, ध्रुवस्वामिनी), निराला (राम की शक्तिपूजा, तुलसीदास)
+• महादेवी वर्मा (यामा), अज्ञेय (शेखर: एक जीवनी), मुक्तिबोध (अंधेरे में)
+
+━━━ उत्तर लिखने के नियम ━━━
+1. **भूमिका**: संबंधित रचना/कवि की प्रसिद्ध पंक्ति या दोहे से शुरू करें। 50 शब्दों से कम।
+2. **मुख्य भाग**: प्रश्न के अनुसार बहुआयामी विश्लेषण करें:
+   - साहित्यिक उद्धरण (काव्य-पंक्तियाँ, दोहे) अनिवार्य रूप से दें
+   - रस, अलंकार, छंद, काव्य-गुण का उल्लेख करें जहाँ प्रासंगिक हो
+   - साहित्यिक आंदोलन/युग से जोड़ें
+   - आलोचकों के मत: रामचंद्र शुक्ल, हजारीप्रसाद द्विवेदी, नामवर सिंह, रामविलास शर्मा
+3. **साक्ष्य बॉक्स**: <div class="note-box"> में प्रमुख काव्य-पंक्तियाँ या आलोचनात्मक उद्धरण
+4. **निष्कर्ष**: समकालीन प्रासंगिकता से जोड़ते हुए 40 शब्दों में।
+
+HTML में लिखें: <h3> उपशीर्षक के लिए, <ul><li> बिंदुओं के लिए, <strong> मुख्य शब्दों के लिए।
+केवल HTML लौटाएं। कोई markdown नहीं।
+`;
 
 const buildUPSCPrompt = (
   question: string,
   language: string,
   wordLimit: number,
-  style: UPSCAnswerStyle
+  style: UPSCAnswerStyle,
+  subject: UPSCSubject = 'gs'
 ): string => {
+  if (subject === 'hindi_literature') {
+    return buildHindiLiteraturePrompt(question, wordLimit, style);
+  }
+
   const lang = language === 'Hindi'
     ? 'Hindi (Devanagari script). Write everything — headings, body, conclusion — in Hindi.'
     : 'English';
@@ -152,10 +224,11 @@ export const generateUPSCAnswer = async (
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
   wordLimit: number = 250,
-  answerStyle: UPSCAnswerStyle = 'topper'
+  answerStyle: UPSCAnswerStyle = 'topper',
+  subject: UPSCSubject = 'gs'
 ): Promise<string> => {
   const ai = createAIClient();
-  const prompt = buildUPSCPrompt(question, language, wordLimit, answerStyle);
+  const prompt = buildUPSCPrompt(question, language, wordLimit, answerStyle, subject);
   const response = await ai.models.generateContent({ model: modelName, contents: prompt });
   return cleanHtmlOutput(response.text || "");
 };
@@ -163,11 +236,25 @@ export const generateUPSCAnswer = async (
 export const generateNextUPSCQuestion = async (
   currentQuestion: string,
   language: string,
-  modelName: string = "gemini-3-flash-preview"
+  modelName: string = "gemini-3-flash-preview",
+  subject: UPSCSubject = 'gs'
 ): Promise<string> => {
   const ai = createAIClient();
 
-  const prompt = `
+  const isHindiLit = subject === 'hindi_literature';
+  const prompt = isHindiLit ? `
+आप UPSC हिंदी साहित्य वैकल्पिक पेपर के प्रश्न-पत्र निर्माता हैं।
+
+निम्नलिखित उत्तरित प्रश्न के आधार पर एक नया UPSC हिंदी साहित्य का प्रश्न बनाएं जो:
+1. उसी रचना/कवि के किसी अलग पहलू को परखे — या निकट संबंधित रचनाकार/युग पर हो
+2. अलग निर्देशात्मक शब्द प्रयोग करे (यदि पहले "विवेचना" था तो "समीक्षा" / "विश्लेषण" / "मूल्यांकन" / "तुलना" प्रयोग करें)
+3. 1-2 वाक्य में हो, सटीक और परीक्षा-योग्य
+4. शुद्ध हिंदी (देवनागरी) में हो
+
+पिछला प्रश्न: "${currentQuestion}"
+
+केवल प्रश्न का पाठ लौटाएं — कोई क्रमांक, उद्धरण या स्पष्टीकरण नहीं।
+` : `
 You are a UPSC Mains question paper setter (GS Paper 2 / GS Paper 3 level).
 
 Based on the following answered UPSC question, generate ONE new UPSC Mains question that:
@@ -180,7 +267,7 @@ Based on the following answered UPSC question, generate ONE new UPSC Mains quest
 Previous Question: "${currentQuestion}"
 
 Return ONLY the question text — no numbering, no quotes, no explanation.
-  `;
+`;
 
   const response = await ai.models.generateContent({ model: modelName, contents: prompt });
   return (response.text || "").trim().replace(/^["']|["']$/g, '');
