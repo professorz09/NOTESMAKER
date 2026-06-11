@@ -312,7 +312,16 @@ Deno.serve(async (req)=>{
     // the closest Vertex-supported model so an outdated client model
     // string doesn't 404 the whole feature.
     const vertexModel = normaliseVertexModel(model);
-    const url = `https://${gcpRegion}-aiplatform.googleapis.com/v1/projects/${gcpProjectId}` + `/locations/${gcpRegion}/publishers/google/models/${vertexModel}:generateContent`;
+    // Gemini 3 preview models are only served on Vertex's *global*
+    // endpoint (no region prefix). Regional endpoints (us-central1,
+    // europe-west4) return 404 for gemini-3.x. The "global" pseudo-region
+    // is the location segment AND swaps the hostname to the un-prefixed
+    // one — without that swap the URL becomes global-aiplatform...
+    // which doesn't resolve.
+    const hostname = gcpRegion === "global"
+      ? "aiplatform.googleapis.com"
+      : `${gcpRegion}-aiplatform.googleapis.com`;
+    const url = `https://${hostname}/v1/projects/${gcpProjectId}/locations/${gcpRegion}/publishers/google/models/${vertexModel}:generateContent`;
     const vertexBody = translateForVertex(body);
     // Vertex on a fresh GCP project enforces strict per-minute quotas
     // (often 30-60 RPM). Retry with short exponential backoff so most
