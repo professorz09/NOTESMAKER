@@ -192,10 +192,29 @@ const App: React.FC = () => {
     }
   };
 
+  // Keep a live read of the projects array inside saveToProject without
+  // recreating the callback on every project list mutation — recreating
+  // would invalidate the debounced auto-save timer set up below and
+  // every keystroke would re-arm a fresh 3s window.
+  const projectsRef = React.useRef(projects);
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
+
   const saveToProject = useCallback(async (id: string, html: string) => {
     const ok = await saveProject(id, html);
-    if (ok) setLastSavedAt(new Date());
-  }, [saveProject]);
+    if (!ok) return;
+    setLastSavedAt(new Date());
+    // Auto-rename: when the user edits the H1/H2 heading inside the
+    // editor, the project tile in the sidebar should reflect the new
+    // title without forcing a manual rename. Re-extract from the saved
+    // content and rename only when the name actually changed — avoids
+    // a stream of no-op writes on every keystroke.
+    const proj = projectsRef.current.find(p => p.id === id);
+    if (!proj) return;
+    const nextName = extractProjectName(html);
+    if (nextName && nextName !== proj.name) {
+      await renameProject(id, nextName);
+    }
+  }, [saveProject, renameProject]);
 
   const handleSaveNow = useCallback(async () => {
     if (!activeProjectId) return;

@@ -122,19 +122,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
+        // When closed on mobile, -translate-x-[105%] pushes the panel
+        // entirely off-screen (plus a tiny gap) so the right-edge border
+        // doesn't slip back into the viewport as a 1px vertical strip.
+        // The border itself is hidden on mobile (lg:border-r only) for
+        // belt-and-suspenders.
         className={`
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-0'}
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-[105%] lg:translate-x-0 lg:w-0'}
           fixed lg:relative z-50
           w-[88vw] max-w-[340px] sm:max-w-[360px] lg:w-[360px] xl:w-[380px]
           flex flex-col
           transition-all duration-300 ease-in-out overflow-hidden
-          border-r border-white/5
+          lg:border-r lg:border-white/5
         `}
         style={{
           background: '#0b1120',
           height: '100dvh',
           paddingTop: 'env(safe-area-inset-top, 0px)',
         }}
+        aria-hidden={!sidebarOpen && typeof window !== 'undefined' && window.innerWidth < 1024}
       >
         <SidebarHeader setSidebarOpen={setSidebarOpen} />
 
