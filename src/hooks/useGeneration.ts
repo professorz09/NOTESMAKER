@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useState, type MutableRefObject } from 'react';
 import {
   generateTopicContent,
@@ -447,9 +448,13 @@ export function useGeneration({
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
         else result = await generateTopicContent(topicInput, language, aiModel);
       } else if (mode === 'text') {
-        result = await generateFormattedNotes(textInput, language, aiModel, outputStyle, wordLimit);
+        // outputStyle === 'table' is handled by handleGenerateTable, not this
+        // path — narrow the type here so the AI service signature stays clean.
+        const docStyle = (outputStyle === 'table' ? 'notes' : outputStyle) as 'notes' | 'upsc' | 'research';
+        result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit);
       } else {
-        result = await generateFileNotes(files, language, aiModel, outputStyle, wordLimit);
+        const docStyle = (outputStyle === 'table' ? 'notes' : outputStyle) as 'notes' | 'upsc' | 'research';
+        result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit);
       }
       finishGeneration(result);
       toast.success('Content generated successfully!');

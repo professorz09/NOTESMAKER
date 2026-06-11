@@ -10,7 +10,7 @@ interface EditorCanvasProps {
   isEditing: boolean;
   fontSize: number;
   lineHeight: number;
-  editorRef: React.RefObject<HTMLDivElement>;
+  editorRef: React.RefObject<HTMLDivElement | null>;
   handleEditorInput: (e: React.FormEvent<HTMLDivElement>) => void;
   handleEditorBlur: () => void;
   handleEditorKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;

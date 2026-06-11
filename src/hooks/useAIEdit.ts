@@ -21,7 +21,7 @@ interface UseAIEditProps {
   getCurrentHtml: () => string;
   pushToHistory: (content: string) => void;
   saveToStorage: () => void | string | undefined;
-  editorRef: RefObject<HTMLDivElement>;
+  editorRef: RefObject<HTMLDivElement | null>;
   isResettingRef: MutableRefObject<boolean>;
   setGeneratedHtml: (html: string | null) => void;
 }

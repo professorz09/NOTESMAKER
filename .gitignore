@@ -27,3 +27,8 @@ dist-ssr
 attached_assets/
 migrated_prompt_history/
 prompt_*.json
+node_modules
+dist
+.env
+.env.local
+*.log

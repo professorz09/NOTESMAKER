@@ -1,22 +1,66 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { getAccessToken } from "./supabase";
+
+// All AI calls go through a Supabase Edge Function (gemini-proxy) that
+// holds the GCP Service Account key server-side and forwards to Vertex
+// AI. The browser bundle never sees a Gemini/Vertex credential — only
+// the user's short-lived Supabase JWT.
+//
+// Mechanics:
+//   1. Override the SDK's base URL to the proxy.
+//   2. Patch global fetch ONCE: when the URL starts with the proxy
+//      prefix, swap the SDK's `x-goog-api-key` header for an
+//      `Authorization: Bearer <supabase-jwt>` header that the edge
+//      function's verify_jwt = true gate will accept.
+//
+// The SDK's generated request shape (path, body, retries) is preserved
+// end-to-end so the proxy translates request → Vertex format without us
+// touching call sites.
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const PROXY_BASE_URL = supabaseUrl ? `${supabaseUrl}/functions/v1/gemini-proxy` : '';
+
+function installProxyFetchInterceptor() {
+  if (typeof window === 'undefined') return;
+  if ((window as any).__notesmakerAiFetchPatched) return;
+  if (!PROXY_BASE_URL) return;
+  const origFetch = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : (input as Request).url;
+    if (url.startsWith(PROXY_BASE_URL)) {
+      const token = await getAccessToken();
+      if (!token) throw new Error('Sign-in required for AI features.');
+      const headers = new Headers(init?.headers || {});
+      // The SDK attaches x-goog-api-key — strip it so the proxy auth
+      // header (Supabase JWT) is the only credential it sees.
+      headers.delete('x-goog-api-key');
+      headers.set('Authorization', `Bearer ${token}`);
+      // Supabase Edge Functions also expect the project apikey header
+      // for some routing modes; add the anon key if available.
+      const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+      if (anon && !headers.has('apikey')) headers.set('apikey', anon);
+      return origFetch(input, { ...init, headers });
+    }
+    return origFetch(input, init);
+  };
+  (window as any).__notesmakerAiFetchPatched = true;
+}
 
 export const createAIClient = () => {
-  let apiKey = "";
-  
-  // 1. Try to get the runtime injected key (safely)
-  if (typeof window !== 'undefined' && (window as any).process && (window as any).process.env) {
-    apiKey = (window as any).process.env.API_KEY;
+  if (!PROXY_BASE_URL) {
+    throw new Error('AI proxy not configured — VITE_SUPABASE_URL missing.');
   }
-  
-  // 2. Fallback to the build-time injected key (replaced by Vite)
-  if (!apiKey) {
-    apiKey = process.env.GEMINI_API_KEY;
-  }
-
-  if (!apiKey) {
-    throw new Error("API Key not found. Please select an API key or check your configuration.");
-  }
-  return new GoogleGenAI({ apiKey });
+  installProxyFetchInterceptor();
+  // apiKey is a placeholder — the interceptor above swaps it for the
+  // user's Supabase JWT before the request leaves the browser.
+  return new GoogleGenAI({
+    apiKey: 'proxied',
+    httpOptions: { baseUrl: PROXY_BASE_URL },
+  });
 };
 
 // Helper to clean AI output

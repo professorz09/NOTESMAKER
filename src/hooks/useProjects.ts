@@ -117,14 +117,26 @@ export function useProjects() {
     try {
       if (isSupabaseConfigured) {
         const sb = getSupabaseClient();
+        // RLS on `projects` requires auth.uid() = user_id. App.tsx
+        // gates render on ensureSession(), so by the time createProject
+        // is callable the cached session is always present — pull the
+        // current user id from there.
+        const { data: { user } } = await sb.auth.getUser();
+        if (!user) throw new Error('Not signed in');
         const { data, error: sbErr } = await sb
           .from('projects')
-          .insert({ name, content })
+          .insert({ name, content, user_id: user.id })
           .select('id, name, created_at, updated_at')
           .single();
         if (sbErr) throw sbErr;
         const proj = data as ProjectMeta;
-        setProjects(prev => [proj, ...prev]);
+        // 200-cap is enforced server-side by a trigger that deletes the
+        // oldest-by-updated_at rows when count > 200. Mirror that locally
+        // so the sidebar list reflects the cap without a refetch round-trip.
+        setProjects(prev => {
+          const next = [proj, ...prev];
+          return next.length > 200 ? next.slice(0, 200) : next;
+        });
         return proj;
       } else {
         const now = new Date().toISOString();
@@ -137,9 +149,17 @@ export function useProjects() {
         };
         const local = getLocalProjects();
         local.unshift(newProject);
-        saveLocalProjects(local);
+        // Mirror the server-side 200-cap: keep the most-recent 200 in
+        // localStorage so the offline fallback can't unbounded-grow.
+        const capped = local.length > 200
+          ? local.sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 200)
+          : local;
+        saveLocalProjects(capped);
         const meta = localToMeta(newProject);
-        setProjects(prev => [meta, ...prev]);
+        setProjects(prev => {
+          const next = [meta, ...prev];
+          return next.length > 200 ? next.slice(0, 200) : next;
+        });
         return meta;
       }
     } catch (e: any) {

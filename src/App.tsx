@@ -14,7 +14,8 @@ import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { toast } from './components/Toast';
-import { RefreshCw, Settings } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { ensureSession, isSupabaseConfigured } from './services/supabase';
 
 function extractProjectName(html: string): string {
   const div = document.createElement('div');
@@ -27,40 +28,27 @@ function extractProjectName(html: string): string {
 }
 
 const App: React.FC = () => {
-  // --- API KEY ---
-  const [hasApiKey, setHasApiKey] = useState(false);
-  const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+  // --- AUTH ---
+  // Single-user app, no signup UI. ensureSession() either resumes a
+  // cached Supabase session or signs in once with baked credentials.
+  // Everything (data reads/writes, gemini-proxy calls) hangs off the
+  // resulting JWT, so the editor must NOT render until this resolves.
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
     (async () => {
       try {
-        // @ts-ignore
-        if (window.aistudio?.hasSelectedApiKey) {
-          // @ts-ignore
-          setHasApiKey(await window.aistudio.hasSelectedApiKey());
-        } else {
-          setHasApiKey(true);
-        }
-      } catch {
-        setHasApiKey(false);
-      } finally {
-        setIsCheckingApiKey(false);
+        await ensureSession();
+        if (!cancelled) setAuthReady(true);
+      } catch (e: any) {
+        if (!cancelled) setAuthError(e?.message || 'Sign-in failed');
       }
     })();
+    return () => { cancelled = true; };
   }, []);
-
-  const handleSelectApiKey = async () => {
-    try {
-      // @ts-ignore
-      if (window.aistudio?.openSelectKey) {
-        // @ts-ignore
-        await window.aistudio.openSelectKey();
-        setHasApiKey(true);
-      }
-    } catch {
-      setHasApiKey(false);
-    }
-  };
 
   // --- UI STATE ---
   const [sidebarOpen, setSidebarOpen] = useState(() =>
@@ -149,7 +137,6 @@ const App: React.FC = () => {
     saveProject,
     renameProject,
     deleteProject,
-    isSupabaseConfigured,
   } = useProjects();
 
   const handleSelectProject = async (id: string) => {
@@ -349,34 +336,24 @@ const App: React.FC = () => {
   };
 
   // --- RENDER ---
-  if (isCheckingApiKey) {
+  if (authError) {
     return (
-      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
-          <p className="text-slate-600 dark:text-slate-400 font-medium">Loading application…</p>
+      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 ${isDarkMode ? 'dark' : ''}`}>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-slate-100 dark:border-slate-700">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Sign-in Failed</h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">{authError}</p>
+          <Button onClick={() => window.location.reload()} className="w-full py-3" variant="primary">Retry</Button>
         </div>
       </div>
     );
   }
 
-  if (!hasApiKey) {
+  if (!authReady) {
     return (
-      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 ${isDarkMode ? 'dark' : ''}`}>
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-slate-100 dark:border-slate-700">
-          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Settings className="w-8 h-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">API Key Required</h2>
-          <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
-            This application uses Gemini AI which requires a Google Cloud API key.
-            <br /><br />
-            Please select your API key to continue.{' '}
-            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-blue-500 dark:text-blue-400 hover:underline">Learn about billing</a>.
-          </p>
-          <Button onClick={handleSelectApiKey} className="w-full py-3 text-lg shadow-md hover:shadow-lg transition-all" variant="primary">
-            Select API Key
-          </Button>
+      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
+          <p className="text-slate-600 dark:text-slate-400 font-medium">Signing in…</p>
         </div>
       </div>
     );
