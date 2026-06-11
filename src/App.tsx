@@ -15,7 +15,7 @@ import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { toast } from './components/Toast';
 import { RefreshCw } from 'lucide-react';
-import { ensureSession, isSupabaseConfigured } from './services/supabase';
+import { getCachedSession, signInWithCredentials, isSupabaseConfigured, DEFAULT_LOGIN_HINT } from './services/supabase';
 
 function extractProjectName(html: string): string {
   const div = document.createElement('div');
@@ -29,26 +29,50 @@ function extractProjectName(html: string): string {
 
 const App: React.FC = () => {
   // --- AUTH ---
-  // Single-user app, no signup UI. ensureSession() either resumes a
-  // cached Supabase session or signs in once with baked credentials.
-  // Everything (data reads/writes, gemini-proxy calls) hangs off the
-  // resulting JWT, so the editor must NOT render until this resolves.
+  // Single-user app gated by a Supabase JWT (the gemini-proxy edge
+  // function rejects requests without one). Boot path: check for a
+  // cached session; if present render the editor immediately. If not,
+  // show the login form so the user signs in manually. Both reads/
+  // writes (projects table) and AI calls (gemini-proxy) hang off the
+  // resulting JWT, so the editor must NOT render until authReady=true.
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [bootChecking, setBootChecking] = useState(isSupabaseConfigured);
+  const [loginEmail, setLoginEmail] = useState<string>(DEFAULT_LOGIN_HINT.email);
+  const [loginPassword, setLoginPassword] = useState<string>(DEFAULT_LOGIN_HINT.password);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginInFlight, setLoginInFlight] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let cancelled = false;
     (async () => {
       try {
-        await ensureSession();
-        if (!cancelled) setAuthReady(true);
-      } catch (e: any) {
-        if (!cancelled) setAuthError(e?.message || 'Sign-in failed');
+        const session = await getCachedSession();
+        if (cancelled) return;
+        if (session) setAuthReady(true);
+      } catch {
+        // Ignore cached-session errors — user can still sign in via form.
+      } finally {
+        if (!cancelled) setBootChecking(false);
       }
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginInFlight) return;
+    setLoginInFlight(true);
+    setLoginError(null);
+    try {
+      await signInWithCredentials(loginEmail.trim(), loginPassword);
+      setAuthReady(true);
+    } catch (err: any) {
+      setLoginError(err?.message || 'Sign-in failed.');
+    } finally {
+      setLoginInFlight(false);
+    }
+  }, [loginEmail, loginPassword, loginInFlight]);
 
   // --- UI STATE ---
   const [sidebarOpen, setSidebarOpen] = useState(() =>
@@ -336,13 +360,14 @@ const App: React.FC = () => {
   };
 
   // --- RENDER ---
-  if (authError) {
+  // Boot path: check for a cached session before showing the form so
+  // returning users skip the login screen entirely (Supabase persists
+  // the session in localStorage; getSession() resolves instantly).
+  if (bootChecking) {
     return (
-      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 ${isDarkMode ? 'dark' : ''}`}>
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-slate-100 dark:border-slate-700">
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Sign-in Failed</h2>
-          <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">{authError}</p>
-          <Button onClick={() => window.location.reload()} className="w-full py-3" variant="primary">Retry</Button>
+      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
         </div>
       </div>
     );
@@ -350,11 +375,46 @@ const App: React.FC = () => {
 
   if (!authReady) {
     return (
-      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
-          <p className="text-slate-600 dark:text-slate-400 font-medium">Signing in…</p>
-        </div>
+      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 ${isDarkMode ? 'dark' : ''}`}>
+        <form
+          onSubmit={handleLogin}
+          className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md w-full border border-slate-100 dark:border-slate-700"
+        >
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">Sign in</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Use your NotesMaker account to continue.</p>
+
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" htmlFor="login-email">Email</label>
+          <input
+            id="login-email"
+            type="email"
+            autoComplete="email"
+            required
+            value={loginEmail}
+            onChange={(e) => setLoginEmail(e.target.value)}
+            disabled={loginInFlight}
+            className="w-full mb-4 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" htmlFor="login-password">Password</label>
+          <input
+            id="login-password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={loginPassword}
+            onChange={(e) => setLoginPassword(e.target.value)}
+            disabled={loginInFlight}
+            className="w-full mb-4 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+          {loginError && (
+            <p className="text-sm text-red-600 dark:text-red-400 mb-3" role="alert">{loginError}</p>
+          )}
+
+          <Button type="submit" disabled={loginInFlight} className="w-full py-3 text-lg" variant="primary">
+            {loginInFlight ? 'Signing in…' : 'Sign In'}
+          </Button>
+        </form>
       </div>
     );
   }

@@ -22,34 +22,38 @@ export function getSupabaseClient(): SupabaseClient {
   return _client;
 }
 
-// Single-user auto-login. The app is gated by a Supabase JWT (so the
-// gemini-proxy edge function can verify it), but there's no signup UI —
-// the user identity is baked in. Sign in once on app boot; cached session
-// resumes silently on subsequent loads.
-const SINGLE_USER_EMAIL = 'rahulznotes@gmail.com';
-const SINGLE_USER_PASSWORD = '123456';
+// App ships with a hint for the default account so the login form
+// pre-fills on first open. The form itself accepts any email/password
+// — Supabase signs the user in if the credentials match an existing
+// user. There's no signup UI; user creation is admin-only.
+export const DEFAULT_LOGIN_HINT = {
+  email: 'rahulznotes@gmail.com',
+  password: '123456',
+} as const;
 
-let _sessionReadyPromise: Promise<Session | null> | null = null;
+/** Restore a cached session if one is present. Used by the boot path so
+ *  the app skips the login form when the user is already signed in. */
+export async function getCachedSession(): Promise<Session | null> {
+  if (!isSupabaseConfigured) return null;
+  const sb = getSupabaseClient();
+  const { data: { session } } = await sb.auth.getSession();
+  return session;
+}
 
-export function ensureSession(): Promise<Session | null> {
-  if (!isSupabaseConfigured) return Promise.resolve(null);
-  if (_sessionReadyPromise) return _sessionReadyPromise;
-  _sessionReadyPromise = (async () => {
-    const sb = getSupabaseClient();
-    const { data: { session } } = await sb.auth.getSession();
-    if (session) return session;
-    const { data, error } = await sb.auth.signInWithPassword({
-      email: SINGLE_USER_EMAIL,
-      password: SINGLE_USER_PASSWORD,
-    });
-    if (error) throw new Error(`Auto sign-in failed: ${error.message}`);
-    return data.session;
-  })();
-  return _sessionReadyPromise;
+/** Sign in with explicit credentials (called from the login form). */
+export async function signInWithCredentials(email: string, password: string): Promise<Session> {
+  if (!isSupabaseConfigured) throw new Error('Supabase not configured.');
+  const sb = getSupabaseClient();
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+  if (!data.session) throw new Error('No session returned.');
+  return data.session;
 }
 
 export async function getAccessToken(): Promise<string | null> {
-  const session = await ensureSession();
+  if (!isSupabaseConfigured) return null;
+  const sb = getSupabaseClient();
+  const { data: { session } } = await sb.auth.getSession();
   return session?.access_token ?? null;
 }
 
