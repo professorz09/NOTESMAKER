@@ -51,7 +51,12 @@ const IconBtn: React.FC<{
     onClick={onClick}
     disabled={disabled}
     title={title}
-    className={`min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 ${className}`}
+    aria-label={title}
+    // 40px on mobile (comfortable thumb target without crowding the
+    // toolbar), 36px on lg+ where the cursor is precise and density
+    // matters more. focus-visible ring gives keyboard users a clear
+    // affordance the pre-existing styling lacked.
+    className={`min-w-[40px] min-h-[40px] lg:min-w-[36px] lg:min-h-[36px] flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${className}`}
   >
     {children}
   </button>

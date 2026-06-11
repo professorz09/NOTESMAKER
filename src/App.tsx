@@ -394,15 +394,20 @@ const App: React.FC = () => {
 
   if (!authReady) {
     return (
-      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 ${isDarkMode ? 'dark' : ''}`}>
+      <div className={`flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 px-4 py-8 ${isDarkMode ? 'dark' : ''}`}>
         <form
           onSubmit={handleLogin}
-          className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md w-full border border-slate-100 dark:border-slate-700"
+          className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-7 sm:p-9 w-full max-w-sm border border-slate-200/70 dark:border-slate-700/70"
         >
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">Sign in</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Use your NotesMaker account to continue.</p>
+          <div className="flex flex-col items-center text-center mb-7">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30">
+              <span className="text-white text-2xl font-bold">N</span>
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">Welcome back</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Sign in to NotesMaker</p>
+          </div>
 
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" htmlFor="login-email">Email</label>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5" htmlFor="login-email">Email</label>
           <input
             id="login-email"
             type="email"
@@ -411,10 +416,10 @@ const App: React.FC = () => {
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
             disabled={loginInFlight}
-            className="w-full mb-4 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
 
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" htmlFor="login-password">Password</label>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5" htmlFor="login-password">Password</label>
           <input
             id="login-password"
             type="password"
@@ -423,11 +428,13 @@ const App: React.FC = () => {
             value={loginPassword}
             onChange={(e) => setLoginPassword(e.target.value)}
             disabled={loginInFlight}
-            className="w-full mb-4 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full mb-5 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
 
           {loginError && (
-            <p className="text-sm text-red-600 dark:text-red-400 mb-3" role="alert">{loginError}</p>
+            <div className="mb-4 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40" role="alert">
+              <p className="text-sm text-red-700 dark:text-red-300">{loginError}</p>
+            </div>
           )}
 
           <Button type="submit" disabled={loginInFlight} className="w-full py-3 text-lg" variant="primary">
