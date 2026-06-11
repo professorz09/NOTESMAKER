@@ -192,9 +192,37 @@ async function importPkcs8Pem(pem) {
   return MAP[model] ?? model;
 }
 Deno.serve(async (req)=>{
+  // Origin allow-list — first line of defence. Even though the JWT gate
+  // below blocks raw, unauthenticated callers, the app bakes a single
+  // email/password into the frontend so ANY visitor can mint a valid
+  // JWT and drain the GCP credit. Browsers can't spoof the Origin
+  // header from JS, so pinning the proxy to the deployed app's origins
+  // raises the abuse bar significantly. Configure via the
+  // ALLOWED_ORIGINS secret (comma-separated). Unset = allow all (dev).
+  const allowedOriginsRaw = Deno.env.get("ALLOWED_ORIGINS") ?? "";
+  const allowedOrigins = allowedOriginsRaw
+    .split(",")
+    .map((o)=>o.trim())
+    .filter(Boolean);
+  const reqOrigin = req.headers.get("Origin") ?? "";
+  const originAllowed = allowedOrigins.length === 0
+    || allowedOrigins.includes("*")
+    || allowedOrigins.includes(reqOrigin);
+  const responseCors = corsHeaders(originAllowed ? reqOrigin : "");
   if (req.method === "OPTIONS") {
     return new Response("ok", {
-      headers: corsHeaders()
+      headers: responseCors
+    });
+  }
+  if (!originAllowed) {
+    return new Response(JSON.stringify({
+      error: "Origin not allowed"
+    }), {
+      status: 403,
+      headers: {
+        "Content-Type": "application/json",
+        ...responseCors
+      }
     });
   }
   if (req.method !== "POST") {
@@ -417,9 +445,16 @@ Deno.serve(async (req)=>{
     }
   });
 });
-function corsHeaders() {
+function corsHeaders(echoOrigin?: string) {
+  // When ALLOWED_ORIGINS is set, echo back the specific origin instead
+  // of "*" so credentialed requests work and a single misconfigured
+  // origin can't impersonate the allow-list. Empty echoOrigin = caller
+  // is not on the list (request will get a 403 below) — still emit a
+  // safe non-empty value so the preflight error message is readable.
+  const origin = echoOrigin && echoOrigin.length > 0 ? echoOrigin : "*";
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": origin,
+    "Vary": "Origin",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type, apikey, x-goog-api-key, X-Client-Info"
   };
