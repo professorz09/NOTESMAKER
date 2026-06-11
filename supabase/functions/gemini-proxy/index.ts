@@ -456,7 +456,15 @@ function corsHeaders(echoOrigin?: string) {
     "Access-Control-Allow-Origin": origin,
     "Vary": "Origin",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, apikey, x-goog-api-key, X-Client-Info"
+    // The @google/genai SDK ships additional headers (x-goog-api-client,
+    // x-goog-user-agent, etc.) that the browser includes in preflight
+    // requests. Listing them explicitly is brittle — the SDK adds new
+    // ones across versions and any miss → preflight blocks → "Failed
+    // to fetch" with no useful client-side diagnostic. Wildcard is the
+    // safe call here because we still gate on Origin + Authorization
+    // for the actual POST.
+    "Access-Control-Allow-Headers": "*",
+    "Access-Control-Max-Age": "86400"
   };
 }
 function json(body, status = 200) {
