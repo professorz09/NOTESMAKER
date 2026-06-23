@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { STORAGE_KEY, getScrollParent } from '../utils/editorUtils';
+import { STORAGE_KEY, getScrollParent, safeSetItem } from '../utils/editorUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 
 interface UseEditorContentProps {
@@ -42,7 +42,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
   const saveToStorage = useCallback(() => {
     if (isResettingRef.current) return;
     const content = getCleanHtml();
-    if (content) localStorage.setItem(STORAGE_KEY, content);
+    if (content) safeSetItem(STORAGE_KEY, content);
     return content;
   }, [getCleanHtml]);
 
@@ -109,7 +109,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
       setGeneratedHtml(prev => {
         if (raw !== prev) {
           pushToHistory(raw);
-          if (!isResettingRef.current) localStorage.setItem(STORAGE_KEY, raw);
+          if (!isResettingRef.current) safeSetItem(STORAGE_KEY, raw);
           return raw;
         }
         return prev;

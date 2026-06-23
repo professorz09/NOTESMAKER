@@ -9,7 +9,7 @@ import {
   generateDiagram,
   extendTableRows,
 } from '../services/ai/index';
-import { getSectionNodes, extractImagesFromHtml, getScrollParent, STORAGE_KEY } from '../utils/editorUtils';
+import { getSectionNodes, extractImagesFromHtml, getScrollParent, STORAGE_KEY, safeSetItem } from '../utils/editorUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import { toast } from '../components/Toast';
 
@@ -273,7 +273,7 @@ export function useAIEdit({
 
         const updatedHtml = editorRef.current!.innerHTML;
         setGeneratedHtml(updatedHtml);
-        localStorage.setItem(STORAGE_KEY, updatedHtml);
+        safeSetItem(STORAGE_KEY, updatedHtml);
         setRewriteModalOpen(false);
         setModalImages([]);
         isTableExtendMode.current = false;

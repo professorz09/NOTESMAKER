@@ -12,7 +12,7 @@ import { useEditorContent } from './hooks/useEditorContent';
 import { useGeneration } from './hooks/useGeneration';
 import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
-import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
+import { STORAGE_KEY, buildPrintHtml, safeSetItem } from './utils/editorUtils';
 import { toast } from './components/Toast';
 import { RefreshCw } from 'lucide-react';
 import { getCachedSession, signInWithCredentials, isSupabaseConfigured } from './services/supabase';
@@ -169,7 +169,7 @@ const App: React.FC = () => {
       isResettingRef.current = true;
       setGeneratedHtml(content);
       pushToHistory(content);
-      localStorage.setItem(STORAGE_KEY, content);
+      safeSetItem(STORAGE_KEY, content);
       setTimeout(() => { isResettingRef.current = false; }, 100);
     }
     setActiveProjectId(id);
@@ -232,7 +232,7 @@ const App: React.FC = () => {
     isResettingRef.current = true;
     setGeneratedHtml(content);
     setHistoryIndex(newIndex);
-    localStorage.setItem(STORAGE_KEY, content);
+    safeSetItem(STORAGE_KEY, content);
     if (editorRef.current) editorRef.current.innerHTML = content;
     setTimeout(() => { isResettingRef.current = false; }, 150);
   }, [cancelPendingHistoryPush, setGeneratedHtml, setHistoryIndex, editorRef, isResettingRef]);

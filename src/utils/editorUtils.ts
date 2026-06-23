@@ -1,5 +1,20 @@
 export const STORAGE_KEY = 'ai_book_writer_draft';
 
+/** Write to localStorage without ever throwing. Large detailed notes can
+ *  exceed the ~5MB quota; an uncaught QuotaExceededError would otherwise
+ *  bubble up and break generation/auto-save. Returns true on success. */
+export const safeSetItem = (key: string, value: string): boolean => {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    // Quota exceeded (or storage disabled). The note still lives in app
+    // state / Supabase, so just skip the local draft cache rather than crash.
+    console.warn(`[storage] could not persist "${key}":`, err);
+    return false;
+  }
+};
+
 /** Walk up the DOM tree and return the first element that scrolls vertically. */
 export const getScrollParent = (el: Element): HTMLElement | null => {
   let node = el.parentElement;

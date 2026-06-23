@@ -16,7 +16,7 @@ import {
   type UPSCSubject,
 } from '../services/ai/index';
 import { GenerationStatus } from '../types';
-import { STORAGE_KEY } from '../utils/editorUtils';
+import { STORAGE_KEY, safeSetItem } from '../utils/editorUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
 import { toast } from '../components/Toast';
@@ -131,7 +131,7 @@ export function useGeneration({
       const html = sanitizeHtml(await analyzeAnswerPdf(pageImages, aiModel));
       setGeneratedHtml(html);
       pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
+      safeSetItem(STORAGE_KEY, html);
       if (window.innerWidth < 1024) setSidebarOpen(false);
       toast.success('Answer analysis complete!');
     } catch (error: any) {
@@ -164,7 +164,7 @@ export function useGeneration({
       const html = parts.join('\n');
       setGeneratedHtml(html);
       pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
+      safeSetItem(STORAGE_KEY, html);
     };
 
     const pageTimes: number[] = [];
@@ -377,7 +377,7 @@ export function useGeneration({
         : newHtml;
       setGeneratedHtml(combined);
       pushToHistory(combined);
-      localStorage.setItem(STORAGE_KEY, combined);
+      safeSetItem(STORAGE_KEY, combined);
       setOnePagerTopics(prev => [...prev, topic]);
       setOnePagerTopicInput('');
       if (window.innerWidth < 1024) setSidebarOpen(false);
@@ -398,7 +398,7 @@ export function useGeneration({
     if (!safe) { toast.error('Generated content was empty. Please try again.'); return; }
     setGeneratedHtml(safe);
     pushToHistory(safe);
-    localStorage.setItem(STORAGE_KEY, safe);
+    safeSetItem(STORAGE_KEY, safe);
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
