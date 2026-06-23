@@ -15,7 +15,7 @@ import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { toast } from './components/Toast';
 import { RefreshCw } from 'lucide-react';
-import { getCachedSession, signInWithCredentials, isSupabaseConfigured, DEFAULT_LOGIN_HINT } from './services/supabase';
+import { getCachedSession, signInWithCredentials, isSupabaseConfigured } from './services/supabase';
 
 function extractProjectName(html: string): string {
   const div = document.createElement('div');
@@ -37,8 +37,8 @@ const App: React.FC = () => {
   // resulting JWT, so the editor must NOT render until authReady=true.
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [bootChecking, setBootChecking] = useState(isSupabaseConfigured);
-  const [loginEmail, setLoginEmail] = useState<string>(DEFAULT_LOGIN_HINT.email);
-  const [loginPassword, setLoginPassword] = useState<string>(DEFAULT_LOGIN_HINT.password);
+  const [loginEmail, setLoginEmail] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginInFlight, setLoginInFlight] = useState(false);
 
@@ -412,6 +412,7 @@ const App: React.FC = () => {
             id="login-email"
             type="email"
             autoComplete="email"
+            placeholder="you@example.com"
             required
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
@@ -424,6 +425,7 @@ const App: React.FC = () => {
             id="login-password"
             type="password"
             autoComplete="current-password"
+            placeholder="Enter your password"
             required
             value={loginPassword}
             onChange={(e) => setLoginPassword(e.target.value)}
