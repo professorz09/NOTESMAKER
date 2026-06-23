@@ -53,13 +53,17 @@ export const generateFormattedNotes = async (
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
     Role: Senior Subject-Matter Expert & Textbook Author.
-    Task: Convert the input into the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED notes possible. Don't just reformat — enrich and explain. Cover every point present in the input, and add the depth, context and facts needed to make each point fully understandable on its own.
+    Task: Convert the input into the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED study notes possible. Don't just reformat — enrich and explain. Cover every point present in the input, and add the depth, context and facts needed to make each point fully understandable and revision-ready on its own.
 
     Input Text: ${rawText}
     Language: ${language}
 
+    **STRUCTURE — you decide what fits:**
+    Organize the notes in whatever way best suits the content — decide yourself whether to open with an intro/overview, how to order sections, and how to close. No fixed template is imposed; just keep it well-structured, logical and detailed.
+    Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
+
     **RULES:**
-    1. **Structure:** Strict hierarchical numbered tree (1. → 1.1 → 1.1.1 → 1.1.1.1) using <h1>/<h2>/<h3>/<h4>. Go deep where the content supports it.
+    1. **Structure:** Main title (h1) has NO number — just the plain title. Number everything below it: <h2>1. …</h2> → <h3>1.1 …</h3> → <h4>1.1.1 …</h4>. Go deep where the content supports it.
     2. **Depth on every point:** Every sub-heading must be followed by real, complete explanation — never an empty or one-line heading. Explain what it is, why it matters and how it works, with concrete facts (dates, numbers, names, examples).
     3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence, not 2–3 words.
     4. **Completeness:** Do NOT drop any topic from the input. If the input is brief, expand each point with accurate supporting detail and context.
@@ -134,12 +138,18 @@ export const generateFileNotes = async (
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
     Role: Senior Subject-Matter Expert & Textbook Author.
-    Task: Analyze the provided files and generate the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED notes possible from their content. Extract EVERY important point from the files and explain each one in depth — don't just summarize headings.
+    Task: Analyze the provided files and generate the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED study notes possible from their content. Extract EVERY important point from the files and explain each one in depth — don't just summarize headings.
 
     Language: ${language}
 
+    **STUDY-NOTES FORMAT:**
+    - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary of the material.</div>
+    - Then the deep numbered body — as long and detailed as the material allows.
+    - Do NOT add a "Takeaways", "Quick Revision", "Summary" or "Conclusion" section — keep it pure detailed content.
+    - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
+
     **RULES:**
-    1. **Structure:** Strict hierarchical numbered tree (1. → 1.1 → 1.1.1 → 1.1.1.1) using <h1>/<h2>/<h3>/<h4>. Go deep where the content supports it.
+    1. **Structure:** Main title (h1) has NO number — just the plain title. Number everything below it: <h2>1. …</h2> → <h3>1.1 …</h3> → <h4>1.1.1 …</h4>. Go deep where the content supports it.
     2. **Depth on every point:** Every sub-heading must be followed by real, complete explanation — never an empty or one-line heading. Cover what it is, why it matters and how it works, with concrete facts (dates, numbers, names, examples) taken from the files.
     3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence.
     4. **Completeness:** Do NOT skip any section, table, figure or important detail present in the files. Capture all of it.

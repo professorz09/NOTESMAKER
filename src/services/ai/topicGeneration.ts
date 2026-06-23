@@ -15,15 +15,21 @@ export const generateTopicContent = async (
     Topic: "${topic}"
     Language: ${language}
 
+    **STRUCTURE — you decide what fits the topic:**
+    You are free to organize the notes in whatever way best suits THIS topic — decide yourself whether to open with an introduction/overview, how to order the sections, and how (or whether) to close. No fixed template is imposed. Just make it well-structured, logical and easy to study from.
+
+    **TEACHING STYLE (study-friendly):**
+    For each concept, first state it simply in one clear line, THEN go deep with the details, mechanism, and facts. Use simple language for explanation but keep technical terms accurate. Add short concrete examples ("e.g., …") to make abstract points click. The notes should be good enough to study from directly — clear, complete and easy to revise. Maximize detail and structure for the topic.
+
     **COVERAGE — be exhaustive (adapt to what THIS topic genuinely needs):**
     Think first about ALL the angles this topic has, then cover each one as its own section. Depending on the topic this may include: definition & meaning, background/history & evolution, core concepts & principles, classification/types, key features/characteristics, working/mechanism/process, components/structure, causes & effects, advantages & limitations, important facts/data/figures, key persons/committees/articles/dates, examples & case studies, related concepts, current relevance/applications, criticism/challenges, and way forward. Do NOT skip a dimension that matters for this topic.
 
     **STRICT NUMBERING & STRUCTURE RULES:**
-    Use strict hierarchical numbering for ALL headings. The structure must be logical and go deep (at least 3 levels where the content supports it).
-    - <h1>1. [Main Title]</h1>
-    - <h2>1.1 [Major Section]</h2>
-    - <h3>1.1.1 [Sub-Section]</h3>
-    - <h4>1.1.1.1 [Detailed Point]</h4>
+    The MAIN TITLE (h1) must have NO number — just the plain topic title. Number everything BELOW it hierarchically. The structure must be logical and go deep (at least 3 levels where the content supports it).
+    - <h1>[Main Title]</h1>            ← NO number on the main title
+    - <h2>1. [Major Section]</h2>
+    - <h3>1.1 [Sub-Section]</h3>
+    - <h4>1.1.1 [Detailed Point]</h4>
 
     **CONTENT REQUIREMENTS — DEPTH ON EVERY POINT (most important):**
     1. **Explain every point fully:** Each numbered point must be a real, self-contained explanation — not a one-line heading. After every sub-heading write the actual substance: what it is, why it matters, how it works, with concrete facts. NEVER output a heading with empty or trivial content under it.
