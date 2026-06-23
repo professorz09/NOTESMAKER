@@ -15,10 +15,8 @@ export const generateTopicContent = async (
     Topic: "${topic}"
     Language: ${language}
 
-    **STUDY-NOTES FORMAT (follow this overall shape):**
-    1. Start with a short <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary of what the topic is and why it matters.</div> so the reader instantly gets the big picture.
-    2. Then the deep, numbered body — this is the main content and should be as long and detailed as the topic allows.
-    Do NOT add a "Takeaways", "Quick Revision", "Summary" or "Conclusion" section at the end — keep the notes as pure detailed content.
+    **STRUCTURE — you decide what fits the topic:**
+    You are free to organize the notes in whatever way best suits THIS topic — decide yourself whether to open with an introduction/overview, how to order the sections, and how (or whether) to close. No fixed template is imposed. Just make it well-structured, logical and easy to study from.
 
     **TEACHING STYLE (study-friendly):**
     For each concept, first state it simply in one clear line, THEN go deep with the details, mechanism, and facts. Use simple language for explanation but keep technical terms accurate. Add short concrete examples ("e.g., …") to make abstract points click. The notes should be good enough to study from directly — clear, complete and easy to revise. Maximize detail and structure for the topic.

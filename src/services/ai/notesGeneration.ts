@@ -58,11 +58,9 @@ export const generateFormattedNotes = async (
     Input Text: ${rawText}
     Language: ${language}
 
-    **STUDY-NOTES FORMAT:**
-    - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary.</div>
-    - Then the deep numbered body — as long and detailed as the material allows.
-    - Do NOT add a "Takeaways", "Quick Revision", "Summary" or "Conclusion" section — keep it pure detailed content.
-    - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
+    **STRUCTURE — you decide what fits:**
+    Organize the notes in whatever way best suits the content — decide yourself whether to open with an intro/overview, how to order sections, and how to close. No fixed template is imposed; just keep it well-structured, logical and detailed.
+    Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 
     **RULES:**
     1. **Structure:** Main title (h1) has NO number — just the plain title. Number everything below it: <h2>1. …</h2> → <h3>1.1 …</h3> → <h4>1.1.1 …</h4>. Go deep where the content supports it.
