@@ -65,7 +65,7 @@ export const generateFormattedNotes = async (
     - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 
     **RULES:**
-    1. **Structure:** Strict hierarchical numbered tree (1. → 1.1 → 1.1.1 → 1.1.1.1) using <h1>/<h2>/<h3>/<h4>. Go deep where the content supports it.
+    1. **Structure:** Main title (h1) has NO number — just the plain title. Number everything below it: <h2>1. …</h2> → <h3>1.1 …</h3> → <h4>1.1.1 …</h4>. Go deep where the content supports it.
     2. **Depth on every point:** Every sub-heading must be followed by real, complete explanation — never an empty or one-line heading. Explain what it is, why it matters and how it works, with concrete facts (dates, numbers, names, examples).
     3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence, not 2–3 words.
     4. **Completeness:** Do NOT drop any topic from the input. If the input is brief, expand each point with accurate supporting detail and context.
@@ -151,7 +151,7 @@ export const generateFileNotes = async (
     - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 
     **RULES:**
-    1. **Structure:** Strict hierarchical numbered tree (1. → 1.1 → 1.1.1 → 1.1.1.1) using <h1>/<h2>/<h3>/<h4>. Go deep where the content supports it.
+    1. **Structure:** Main title (h1) has NO number — just the plain title. Number everything below it: <h2>1. …</h2> → <h3>1.1 …</h3> → <h4>1.1.1 …</h4>. Go deep where the content supports it.
     2. **Depth on every point:** Every sub-heading must be followed by real, complete explanation — never an empty or one-line heading. Cover what it is, why it matters and how it works, with concrete facts (dates, numbers, names, examples) taken from the files.
     3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence.
     4. **Completeness:** Do NOT skip any section, table, figure or important detail present in the files. Capture all of it.
