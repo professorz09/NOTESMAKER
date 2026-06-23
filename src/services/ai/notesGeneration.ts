@@ -1,5 +1,4 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { createAIClient, cleanHtmlOutput } from './client';
+import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG, RESEARCH_GEN_CONFIG } from './client';
 
 export const generateFormattedNotes = async (
   rawText: string,
@@ -68,16 +67,14 @@ export const generateFormattedNotes = async (
     **Output:** Return ONLY raw HTML.
   `;
 
-  const config: any = {};
-  if (outputStyle === 'research') {
-    config.tools = [{ googleSearch: {} }];
-    config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
-  }
+  const config: any = outputStyle === 'research'
+    ? { ...RESEARCH_GEN_CONFIG, tools: [{ googleSearch: {} }] }
+    : { ...DETAILED_NOTES_CONFIG };
 
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
-    ...(Object.keys(config).length > 0 ? { config } : {})
+    config,
   });
 
   return cleanHtmlOutput(response.text || "");
@@ -150,16 +147,14 @@ export const generateFileNotes = async (
   const parts: any[] = files.map(f => ({ inlineData: { data: f.data, mimeType: f.mimeType } }));
   parts.push({ text: prompt });
 
-  const config: any = {};
-  if (outputStyle === 'research') {
-    config.tools = [{ googleSearch: {} }];
-    config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
-  }
+  const config: any = outputStyle === 'research'
+    ? { ...RESEARCH_GEN_CONFIG, tools: [{ googleSearch: {} }] }
+    : { ...DETAILED_NOTES_CONFIG };
 
   const response = await ai.models.generateContent({
     model: modelName,
     contents: { parts },
-    ...(Object.keys(config).length > 0 ? { config } : {})
+    config,
   });
 
   return cleanHtmlOutput(response.text || "");
@@ -213,6 +208,10 @@ export const generateOnePagerNotes = async (
     **Output:** Return ONLY raw HTML. No markdown, no explanations. Start directly with <div class="one-pager-card">.
   `;
 
-  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: NOTES_GEN_CONFIG,
+  });
   return cleanHtmlOutput(response.text || "");
 };

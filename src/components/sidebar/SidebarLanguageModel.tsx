@@ -10,7 +10,7 @@ interface SidebarLanguageModelProps {
 
 const MODELS = [
   { id: 'gemini-3.1-pro-preview', label: 'Pro 3.1', isFlash: false },
-  { id: 'gemini-3-flash-preview',  label: 'Flash 3', isFlash: true  },
+  { id: 'gemini-3.1-flash-lite',  label: 'Flash Lite', isFlash: true  },
 ];
 
 export const SidebarLanguageModel: React.FC<SidebarLanguageModelProps> = ({

@@ -42,7 +42,7 @@ export function useAIEdit({
   const [activeSectionHtml, setActiveSectionHtml] = useState('');
   const [rewriteType, setRewriteType] = useState<'selection' | 'section'>('selection');
   const [editTab, setEditTab] = useState<EditTab>('rewrite');
-  const [rewriteModel, setRewriteModel] = useState('gemini-3-flash-preview');
+  const [rewriteModel, setRewriteModel] = useState('gemini-3.1-flash-lite');
 
   const selectionRangeRef = useRef<Range | null>(null);
   const activeEditIdRef = useRef<string | null>(null);

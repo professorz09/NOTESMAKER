@@ -1,9 +1,9 @@
-import { createAIClient, cleanHtmlOutput, buildContents } from './client';
+import { createAIClient, cleanHtmlOutput, buildContents, NOTES_GEN_CONFIG } from './client';
 
 export const rewriteContent = async (
   textToRewrite: string,
   instruction: string,
-  modelName: string = "gemini-3-flash-preview",
+  modelName: string = "gemini-3.1-flash-lite",
   images?: { base64: string; mimeType: string }[]
 ): Promise<string> => {
   const ai = createAIClient();
@@ -27,6 +27,7 @@ export const rewriteContent = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: buildContents(prompt, images),
+    config: NOTES_GEN_CONFIG,
   });
 
   return cleanHtmlOutput(response.text || textToRewrite);
@@ -35,7 +36,7 @@ export const rewriteContent = async (
 export const rewriteSection = async (
   sectionContent: string,
   instruction: string,
-  modelName: string = "gemini-3-flash-preview",
+  modelName: string = "gemini-3.1-flash-lite",
   images?: { base64: string; mimeType: string }[]
 ): Promise<string> => {
   const ai = createAIClient();
@@ -59,7 +60,8 @@ export const rewriteSection = async (
 
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: buildContents(prompt, images)
+    contents: buildContents(prompt, images),
+    config: NOTES_GEN_CONFIG,
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -98,7 +100,8 @@ export const expandSection = async (
 
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: buildContents(prompt, images)
+    contents: buildContents(prompt, images),
+    config: NOTES_GEN_CONFIG,
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -137,7 +140,8 @@ export const generateNextContent = async (
 
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: buildContents(prompt, images)
+    contents: buildContents(prompt, images),
+    config: NOTES_GEN_CONFIG,
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -174,7 +178,8 @@ export const generateDetailedNextTopic = async (
 
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: buildContents(prompt, images)
+    contents: buildContents(prompt, images),
+    config: NOTES_GEN_CONFIG,
   });
   return cleanHtmlOutput(response.text || "");
 };

@@ -1,4 +1,4 @@
-import { createAIClient, cleanHtmlOutput } from './client';
+import { createAIClient, cleanHtmlOutput, DETAILED_NOTES_CONFIG } from './client';
 
 export const generateTopicContent = async (
   topic: string,
@@ -53,6 +53,10 @@ export const generateTopicContent = async (
     **Output:** Return ONLY raw HTML.
   `;
 
-  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: DETAILED_NOTES_CONFIG,
+  });
   return cleanHtmlOutput(response.text || "");
 };

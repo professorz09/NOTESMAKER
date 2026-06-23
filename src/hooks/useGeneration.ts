@@ -145,7 +145,7 @@ export function useGeneration({
     }
   };
 
-  const PDF_TRANSLATE_MODEL = 'gemini-3-flash-preview';
+  const PDF_TRANSLATE_MODEL = 'gemini-3.1-flash-lite';
   const MAX_RETRIES = 2;
 
   const runPdfTranslation = async (startPage: number, total: number, pdf: any, initialParts: string[]) => {
@@ -489,7 +489,7 @@ export function useGeneration({
     try {
       let nextQuestion = typed;
       if (!nextQuestion) {
-        nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3-flash-preview', useSubject);
+        nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3.1-flash-lite', useSubject);
         if (!nextQuestion) {
           toast.error('अगला प्रश्न generate नहीं हुआ। पुनः प्रयास करें।');
           return;
