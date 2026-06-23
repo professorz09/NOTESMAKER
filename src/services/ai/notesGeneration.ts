@@ -53,10 +53,16 @@ export const generateFormattedNotes = async (
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
     Role: Senior Subject-Matter Expert & Textbook Author.
-    Task: Convert the input into the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED notes possible. Don't just reformat — enrich and explain. Cover every point present in the input, and add the depth, context and facts needed to make each point fully understandable on its own.
+    Task: Convert the input into the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED study notes possible. Don't just reformat — enrich and explain. Cover every point present in the input, and add the depth, context and facts needed to make each point fully understandable and revision-ready on its own.
 
     Input Text: ${rawText}
     Language: ${language}
+
+    **STUDY-NOTES FORMAT:**
+    - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary.</div>
+    - Then the deep numbered body.
+    - End with <div class="note-box"><strong>Quick Revision:</strong> 6–10 crisp one-line takeaways.</div>
+    - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 
     **RULES:**
     1. **Structure:** Strict hierarchical numbered tree (1. → 1.1 → 1.1.1 → 1.1.1.1) using <h1>/<h2>/<h3>/<h4>. Go deep where the content supports it.
@@ -134,9 +140,15 @@ export const generateFileNotes = async (
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
     Role: Senior Subject-Matter Expert & Textbook Author.
-    Task: Analyze the provided files and generate the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED notes possible from their content. Extract EVERY important point from the files and explain each one in depth — don't just summarize headings.
+    Task: Analyze the provided files and generate the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED study notes possible from their content. Extract EVERY important point from the files and explain each one in depth — don't just summarize headings.
 
     Language: ${language}
+
+    **STUDY-NOTES FORMAT:**
+    - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary of the material.</div>
+    - Then the deep numbered body.
+    - End with <div class="note-box"><strong>Quick Revision:</strong> 6–10 crisp one-line takeaways.</div>
+    - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 
     **RULES:**
     1. **Structure:** Strict hierarchical numbered tree (1. → 1.1 → 1.1.1 → 1.1.1.1) using <h1>/<h2>/<h3>/<h4>. Go deep where the content supports it.
