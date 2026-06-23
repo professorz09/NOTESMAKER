@@ -17,11 +17,11 @@ export const generateTopicContent = async (
 
     **STUDY-NOTES FORMAT (follow this overall shape):**
     1. Start with a short <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary of what the topic is and why it matters.</div> so the reader instantly gets the big picture.
-    2. Then the deep, numbered body (the main content).
-    3. End with a <div class="note-box"><strong>Quick Revision:</strong> 6–10 crisp one-line bullet points capturing the most exam-important facts/takeaways.</div> for fast last-minute revision.
+    2. Then the deep, numbered body — this is the main content and should be as long and detailed as the topic allows.
+    Do NOT add a "Takeaways", "Quick Revision", "Summary" or "Conclusion" section at the end — keep the notes as pure detailed content.
 
     **TEACHING STYLE (study-friendly):**
-    For each concept, first state it simply in one clear line, THEN go deep with the details, mechanism, and facts. Use simple language for explanation but keep technical terms accurate. Add short concrete examples ("e.g., …") to make abstract points click. The notes should be good enough to study from directly — clear, complete and easy to revise.
+    For each concept, first state it simply in one clear line, THEN go deep with the details, mechanism, and facts. Use simple language for explanation but keep technical terms accurate. Add short concrete examples ("e.g., …") to make abstract points click. The notes should be good enough to study from directly — clear, complete and easy to revise. Maximize detail and structure for the topic.
 
     **COVERAGE — be exhaustive (adapt to what THIS topic genuinely needs):**
     Think first about ALL the angles this topic has, then cover each one as its own section. Depending on the topic this may include: definition & meaning, background/history & evolution, core concepts & principles, classification/types, key features/characteristics, working/mechanism/process, components/structure, causes & effects, advantages & limitations, important facts/data/figures, key persons/committees/articles/dates, examples & case studies, related concepts, current relevance/applications, criticism/challenges, and way forward. Do NOT skip a dimension that matters for this topic.

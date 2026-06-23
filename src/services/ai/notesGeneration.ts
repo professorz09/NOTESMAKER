@@ -60,8 +60,8 @@ export const generateFormattedNotes = async (
 
     **STUDY-NOTES FORMAT:**
     - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary.</div>
-    - Then the deep numbered body.
-    - End with <div class="note-box"><strong>Quick Revision:</strong> 6–10 crisp one-line takeaways.</div>
+    - Then the deep numbered body — as long and detailed as the material allows.
+    - Do NOT add a "Takeaways", "Quick Revision", "Summary" or "Conclusion" section — keep it pure detailed content.
     - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 
     **RULES:**
@@ -146,8 +146,8 @@ export const generateFileNotes = async (
 
     **STUDY-NOTES FORMAT:**
     - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary of the material.</div>
-    - Then the deep numbered body.
-    - End with <div class="note-box"><strong>Quick Revision:</strong> 6–10 crisp one-line takeaways.</div>
+    - Then the deep numbered body — as long and detailed as the material allows.
+    - Do NOT add a "Takeaways", "Quick Revision", "Summary" or "Conclusion" section — keep it pure detailed content.
     - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 
     **RULES:**
