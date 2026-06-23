@@ -57,7 +57,7 @@ export const EmptyState: React.FC = () => (
 
     {/* Heading */}
     <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2 sm:mb-3"
-      style={{ background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+      style={{ background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
     >
       Your Canvas is Ready
     </h2>

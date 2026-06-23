@@ -46,6 +46,11 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status }) => {
         {/* Label */}
         <div className="text-center">
           <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{config.label}</p>
+          {status === GenerationStatus.GENERATING_CHAPTER && (
+            <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+              Detailed notes — this can take a few moments
+            </p>
+          )}
         </div>
 
         {/* Step dots */}
