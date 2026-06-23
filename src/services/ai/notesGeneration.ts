@@ -52,19 +52,22 @@ export const generateFormattedNotes = async (
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
-    Role: Professional Editor.
-    Task: Format notes into a dense, numbered textbook format.
+    Role: Senior Subject-Matter Expert & Textbook Author.
+    Task: Convert the input into the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED notes possible. Don't just reformat — enrich and explain. Cover every point present in the input, and add the depth, context and facts needed to make each point fully understandable on its own.
 
     Input Text: ${rawText}
     Language: ${language}
 
     **RULES:**
-    1. **Structure:** Strict tree (1. -> 1.1 -> 1.1.1).
-    2. **Density:** Remove conversational filler. Make it concise but complete.
-    3. **Formatting:** Use <div class="key-point"> and <div class="note-box">.
-    4. **Visuals:** Create an SVG diagram inside <div class="flowchart-container"> if complex logic exists.
+    1. **Structure:** Strict hierarchical numbered tree (1. → 1.1 → 1.1.1 → 1.1.1.1) using <h1>/<h2>/<h3>/<h4>. Go deep where the content supports it.
+    2. **Depth on every point:** Every sub-heading must be followed by real, complete explanation — never an empty or one-line heading. Explain what it is, why it matters and how it works, with concrete facts (dates, numbers, names, examples).
+    3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence, not 2–3 words.
+    4. **Completeness:** Do NOT drop any topic from the input. If the input is brief, expand each point with accurate supporting detail and context.
+    5. **Density:** No conversational filler or padding — maximum facts per line.
+    6. **Formatting:** Use <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, and <div class="note-box">…</div> for important extra facts/exceptions.
+    7. **Visuals:** Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border, use viewBox) and/or a well-chosen <table> wherever it genuinely aids understanding.
 
-    **Output:** Return ONLY raw HTML.
+    **Output:** Return ONLY raw HTML. No markdown, no code fences.
   `;
 
   const config: any = outputStyle === 'research'
@@ -130,18 +133,21 @@ export const generateFileNotes = async (
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
   ` : `
-    Role: Professional Academic Editor.
-    Task: Analyze the provided files and generate comprehensive, structured notes in a numbered textbook format.
+    Role: Senior Subject-Matter Expert & Textbook Author.
+    Task: Analyze the provided files and generate the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED notes possible from their content. Extract EVERY important point from the files and explain each one in depth — don't just summarize headings.
 
     Language: ${language}
 
     **RULES:**
-    1. **Structure:** Strict tree (1. -> 1.1 -> 1.1.1).
-    2. **Density:** Extract all key information. Make it concise but complete.
-    3. **Formatting:** Use <div class="key-point"> and <div class="note-box">.
-    4. **Visuals:** Create an SVG diagram inside <div class="flowchart-container"> if complex logic exists.
+    1. **Structure:** Strict hierarchical numbered tree (1. → 1.1 → 1.1.1 → 1.1.1.1) using <h1>/<h2>/<h3>/<h4>. Go deep where the content supports it.
+    2. **Depth on every point:** Every sub-heading must be followed by real, complete explanation — never an empty or one-line heading. Cover what it is, why it matters and how it works, with concrete facts (dates, numbers, names, examples) taken from the files.
+    3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence.
+    4. **Completeness:** Do NOT skip any section, table, figure or important detail present in the files. Capture all of it.
+    5. **Density:** No filler or padding — maximum facts per line.
+    6. **Formatting:** Use <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, and <div class="note-box">…</div> for important extra facts/exceptions.
+    7. **Visuals:** Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border, use viewBox) and/or a well-chosen <table> wherever it genuinely aids understanding.
 
-    **Output:** Return ONLY raw HTML.
+    **Output:** Return ONLY raw HTML. No markdown, no code fences.
   `;
 
   const parts: any[] = files.map(f => ({ inlineData: { data: f.data, mimeType: f.mimeType } }));

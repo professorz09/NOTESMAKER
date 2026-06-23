@@ -8,25 +8,31 @@ export const generateTopicContent = async (
   const ai = createAIClient();
 
   const prompt = `
-    Role: Academic Expert & Educator.
-    Task: Write HIGH-DENSITY, EXHAUSTIVE, and HIGHLY STRUCTURED Detailed Notes.
-    Model Config: Maximize information density. Minimal fluff.
+    Role: Senior Subject-Matter Expert, Professor & Exam Mentor.
+    Task: Write the MOST DETAILED, IN-DEPTH, EXHAUSTIVE and PERFECTLY STRUCTURED study notes possible on the topic — the kind a topper would want as a single complete reference. Cover EVERY important dimension of the topic; leave no major sub-topic unexplained.
+    Model Config: Maximize depth + information density. No filler, no repetition, no padding.
 
     Topic: "${topic}"
     Language: ${language}
 
+    **COVERAGE — be exhaustive (adapt to what THIS topic genuinely needs):**
+    Think first about ALL the angles this topic has, then cover each one as its own section. Depending on the topic this may include: definition & meaning, background/history & evolution, core concepts & principles, classification/types, key features/characteristics, working/mechanism/process, components/structure, causes & effects, advantages & limitations, important facts/data/figures, key persons/committees/articles/dates, examples & case studies, related concepts, current relevance/applications, criticism/challenges, and way forward. Do NOT skip a dimension that matters for this topic.
+
     **STRICT NUMBERING & STRUCTURE RULES:**
-    Use strict hierarchical numbering for ALL headings. The structure must be logical and deeply detailed according to the specific topic.
+    Use strict hierarchical numbering for ALL headings. The structure must be logical and go deep (at least 3 levels where the content supports it).
     - <h1>1. [Main Title]</h1>
     - <h2>1.1 [Major Section]</h2>
     - <h3>1.1.1 [Sub-Section]</h3>
     - <h4>1.1.1.1 [Detailed Point]</h4>
 
-    **CONTENT REQUIREMENTS:**
-    1. **Density:** "More facts, fewer filler words." Fit as much information as possible concisely.
-    2. **Depth:** Every sub-section (1.1.1) must contain substantial academic value.
-    3. **Key Concepts:** Wrap vital definitions in: <div class="key-point"><strong>Key Concept:</strong> ...text...</div>
-    4. **Notes (Optional):** Use <div class="note-box">...text...</div> for extra facts or interesting trivia only if relevant.
+    **CONTENT REQUIREMENTS — DEPTH ON EVERY POINT (most important):**
+    1. **Explain every point fully:** Each numbered point must be a real, self-contained explanation — not a one-line heading. After every sub-heading write the actual substance: what it is, why it matters, how it works, with concrete facts. NEVER output a heading with empty or trivial content under it.
+    2. **Use bullets for sub-points:** Under each sub-section, use <ul><li> to break the explanation into clear, complete points. Each bullet should be a full, informative sentence (not 2–3 words).
+    3. **Be concrete:** Include real data — dates, years, numbers, percentages, names, article/section numbers, examples — wherever they exist. Prefer specifics over vague statements.
+    4. **Density:** "More facts, fewer filler words." Pack maximum information; avoid generic intros like "It is important to note that…".
+    5. **Key Concepts:** Wrap vital definitions / must-remember points in: <div class="key-point"><strong>Key Concept:</strong> ...text...</div>
+    6. **Notes / Extra facts:** Use <div class="note-box">...text...</div> for important extra facts, exceptions, or exam-relevant trivia.
+    7. **Bold key terms:** Wrap every important term, name, date and figure in <strong>.
 
     **TABLE FORMAT — AI selects the most appropriate type for this topic:**
     Choose the table format that best organizes the information — do NOT default to comparison every time:
@@ -50,7 +56,9 @@ export const generateTopicContent = async (
     - Use proper viewBox attributes for responsiveness. Do NOT set fixed width/height on <svg>.
     - Include meaningful connections, labels, and icons if possible.
 
-    **Output:** Return ONLY raw HTML.
+    **COMPLETENESS:** Cover the topic end-to-end. Do NOT stop after a few sections — keep going until every major dimension listed above is properly explained in depth. Quality and completeness matter more than brevity.
+
+    **Output:** Return ONLY raw HTML. No markdown, no code fences, no commentary.
   `;
 
   const response = await ai.models.generateContent({
