@@ -22,14 +22,10 @@ export function getSupabaseClient(): SupabaseClient {
   return _client;
 }
 
-// App ships with a hint for the default account so the login form
-// pre-fills on first open. The form itself accepts any email/password
-// — Supabase signs the user in if the credentials match an existing
-// user. There's no signup UI; user creation is admin-only.
-export const DEFAULT_LOGIN_HINT = {
-  email: 'rahulznotes@gmail.com',
-  password: '123456',
-} as const;
+// The login form accepts any email/password — Supabase signs the user
+// in if the credentials match an existing user. There's no signup UI;
+// user creation is admin-only. Credentials are NOT pre-filled or baked
+// into the bundle; the user types them each time.
 
 /** Restore a cached session if one is present. Used by the boot path so
  *  the app skips the login form when the user is already signed in. */

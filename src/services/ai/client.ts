@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { getAccessToken } from "../supabase";
 
 // All AI calls go through a Supabase Edge Function (gemini-proxy) that
@@ -54,6 +54,40 @@ export const createAIClient = () => {
     httpOptions: { baseUrl: PROXY_BASE_URL },
   });
 };
+
+// --- Generation budgets ----------------------------------------------------
+// Gemini 3 (gemini-3.1-pro-preview / gemini-3.1-flash-lite) are *thinking*
+// models. On Vertex they default to a large dynamic thinking budget, and
+// thinking tokens are billed against maxOutputTokens. With the proxy's small
+// default output cap the model spends its whole allotment "thinking" and only
+// emits the heading skeleton before getting cut off — which is why notes
+// started coming back as "headings only" after the Vertex switch.
+//
+// Fix: give long-form generators a generous output cap and a *bounded*
+// thinking level so there's plenty of room left for the actual notes. The
+// proxy translates thinkingLevel -> Vertex's integer thinkingBudget
+// (LOW=1024, MEDIUM=8192, HIGH=dynamic). maxOutputTokens passes through
+// untouched, so no proxy change is needed.
+
+// Detailed, exhaustive notes for a topic — HIGH thinking for depth + a
+// large output cap so the full answer (not just the heading skeleton) lands.
+export const DETAILED_NOTES_CONFIG = {
+  maxOutputTokens: 49152,
+  thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+} as const;
+
+// Long, dense notes / answers — bounded thinking, large output room.
+export const NOTES_GEN_CONFIG = {
+  maxOutputTokens: 32768,
+  thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
+} as const;
+
+// Deep research / analysis — keep HIGH thinking but cap output generously
+// so a long answer isn't truncated mid-way.
+export const RESEARCH_GEN_CONFIG = {
+  maxOutputTokens: 49152,
+  thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+} as const;
 
 export const cleanHtmlOutput = (text: string): string => {
   if (!text) return "";

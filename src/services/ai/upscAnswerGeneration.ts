@@ -1,4 +1,4 @@
-import { createAIClient, cleanHtmlOutput } from './client';
+import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG } from './client';
 
 export type UPSCAnswerStyle = 'auto' | 'topper' | 'bullets' | 'analytical';
 export type UPSCSubject = 'gs' | 'hindi_literature';
@@ -6,7 +6,7 @@ export type UPSCSubject = 'gs' | 'hindi_literature';
 // Correct user's question to proper formal Hindi
 export const correctQuestionHindi = async (
   question: string,
-  modelName: string = "gemini-3-flash-preview"
+  modelName: string = "gemini-3.1-flash-lite"
 ): Promise<string> => {
   const ai = createAIClient();
   const prompt = `आप एक हिंदी भाषा विशेषज्ञ हैं। उपयोगकर्ता ने एक UPSC प्रश्न लिखा है जो Hinglish, टूटी-फूटी हिंदी या मिश्रित भाषा में हो सकता है।
@@ -229,14 +229,18 @@ export const generateUPSCAnswer = async (
 ): Promise<string> => {
   const ai = createAIClient();
   const prompt = buildUPSCPrompt(question, language, wordLimit, answerStyle, subject);
-  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: NOTES_GEN_CONFIG,
+  });
   return cleanHtmlOutput(response.text || "");
 };
 
 export const generateNextUPSCQuestion = async (
   currentQuestion: string,
   language: string,
-  modelName: string = "gemini-3-flash-preview",
+  modelName: string = "gemini-3.1-flash-lite",
   subject: UPSCSubject = 'gs'
 ): Promise<string> => {
   const ai = createAIClient();

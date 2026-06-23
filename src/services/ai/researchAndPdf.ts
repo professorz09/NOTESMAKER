@@ -1,5 +1,4 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { createAIClient, cleanHtmlOutput } from './client';
+import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, RESEARCH_GEN_CONFIG } from './client';
 
 export const generateResearchPaper = async (
   topic: string,
@@ -37,10 +36,7 @@ export const generateResearchPaper = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
-    config: {
-      tools: [{ googleSearch: {} }],
-      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
-    }
+    config: { ...RESEARCH_GEN_CONFIG, tools: [{ googleSearch: {} }] }
   });
 
   return cleanHtmlOutput(response.text || "");
@@ -78,7 +74,8 @@ export const translatePdfToHindi = async (
 
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: { parts }
+    contents: { parts },
+    config: NOTES_GEN_CONFIG,
   });
 
   return cleanHtmlOutput(response.text || "");
@@ -162,7 +159,8 @@ RULES:
 
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: { parts }
+    contents: { parts },
+    config: NOTES_GEN_CONFIG,
   });
 
   return cleanHtmlOutput(response.text || "");
@@ -237,7 +235,8 @@ export const translatePdfPageToHindi = async (
 
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: { parts }
+    contents: { parts },
+    config: NOTES_GEN_CONFIG,
   });
 
   return cleanHtmlOutput(response.text || "");
