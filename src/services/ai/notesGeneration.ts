@@ -1,11 +1,30 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG, RESEARCH_GEN_CONFIG } from './client';
 
+type DetailLevel = 'normal' | 'medium' | 'detailed';
+
+// A depth hint appended to the study-notes prompt so the Normal/Medium/Detailed
+// selector visibly changes the output for pasted-text and file notes (which
+// stay single-pass — the source is already provided, so it's about how far to
+// expand each point, not about discovering more of the topic).
+const detailHint = (level: DetailLevel): string => {
+  if (level === 'detailed') return `
+
+    **DETAIL LEVEL — MAXIMUM:** Expand every single point to its fullest — add background, mechanism, multiple examples, related facts and exceptions for each. Treat this as the most exhaustive possible version of these notes; never trade depth for brevity.`;
+  if (level === 'medium') return `
+
+    **DETAIL LEVEL — HIGH:** Give each point a solid, well-explained treatment with at least one concrete example. Thorough, but tightly written.`;
+  return `
+
+    **DETAIL LEVEL — COMPREHENSIVE:** Cover every point clearly and completely without padding.`;
+};
+
 export const generateFormattedNotes = async (
   rawText: string,
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
   outputStyle: 'notes' | 'upsc' | 'research' = 'notes',
-  wordLimit: number = 250
+  wordLimit: number = 250,
+  detailLevel: DetailLevel = 'medium'
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -80,9 +99,11 @@ export const generateFormattedNotes = async (
     ? { ...RESEARCH_GEN_CONFIG, tools: [{ googleSearch: {} }] }
     : { ...DETAILED_NOTES_CONFIG };
 
+  const finalPrompt = outputStyle === 'notes' ? prompt + detailHint(detailLevel) : prompt;
+
   const response = await ai.models.generateContent({
     model: modelName,
-    contents: prompt,
+    contents: finalPrompt,
     config,
   });
 
@@ -94,7 +115,8 @@ export const generateFileNotes = async (
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
   outputStyle: 'notes' | 'upsc' | 'research' = 'notes',
-  wordLimit: number = 250
+  wordLimit: number = 250,
+  detailLevel: DetailLevel = 'medium'
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -164,8 +186,9 @@ export const generateFileNotes = async (
     **Output:** Return ONLY raw HTML. No markdown, no code fences.
   `;
 
+  const finalPrompt = outputStyle === 'notes' ? prompt + detailHint(detailLevel) : prompt;
   const parts: any[] = files.map(f => ({ inlineData: { data: f.data, mimeType: f.mimeType } }));
-  parts.push({ text: prompt });
+  parts.push({ text: finalPrompt });
 
   const config: any = outputStyle === 'research'
     ? { ...RESEARCH_GEN_CONFIG, tools: [{ googleSearch: {} }] }

@@ -114,6 +114,8 @@ const App: React.FC = () => {
     upscSubject, setUpscSubject,
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
+    detailLevel, setDetailLevel,
+    notesProgress,
     status,
     language, setLanguage,
     aiModel, setAiModel,
@@ -473,6 +475,8 @@ const App: React.FC = () => {
         upscAnswerStyle={upscAnswerStyle} setUpscAnswerStyle={setUpscAnswerStyle}
         upscSubject={upscSubject} setUpscSubject={setUpscSubject}
         wordLimit={wordLimit} setWordLimit={setWordLimit}
+        detailLevel={detailLevel} setDetailLevel={setDetailLevel}
+        notesProgress={notesProgress}
         topicInput={topicInput} setTopicInput={setTopicInput}
         textInput={textInput} setTextInput={setTextInput}
         files={files}

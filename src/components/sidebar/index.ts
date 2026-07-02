@@ -4,6 +4,7 @@ export { SidebarInputSection } from './SidebarInputSection';
 export { SidebarOutputStyleSelector } from './SidebarOutputStyleSelector';
 export { SidebarUPSCSettings } from './SidebarUPSCSettings';
 export { SidebarLanguageModel } from './SidebarLanguageModel';
+export { SidebarDetailLevel } from './SidebarDetailLevel';
 export { SidebarPdfTools } from './SidebarPdfTools';
 export { SidebarOnePager } from './SidebarOnePager';
 export { SidebarFooter } from './SidebarFooter';
