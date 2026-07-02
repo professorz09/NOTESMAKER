@@ -89,6 +89,15 @@ export const RESEARCH_GEN_CONFIG = {
   thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
 } as const;
 
+// UPSC Mains answers — HIGH thinking for genuinely analytical, well-argued
+// answers; output cap is smaller than the notes generators (an answer is a
+// few hundred words of HTML, not a whole chapter) but still generous enough
+// that grounding citations + formatting never truncate the answer.
+export const UPSC_ANSWER_CONFIG = {
+  maxOutputTokens: 24576,
+  thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+} as const;
+
 export const cleanHtmlOutput = (text: string): string => {
   if (!text) return "";
   return text
