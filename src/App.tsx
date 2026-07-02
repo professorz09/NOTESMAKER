@@ -13,6 +13,7 @@ import { useGeneration } from './hooks/useGeneration';
 import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
+import { sanitizeHtml } from './utils/sanitize';
 import { toast } from './components/Toast';
 import { RefreshCw } from 'lucide-react';
 import { getCachedSession, signInWithCredentials, isSupabaseConfigured } from './services/supabase';
@@ -166,8 +167,11 @@ const App: React.FC = () => {
   } = useProjects();
 
   const handleSelectProject = async (id: string) => {
-    const content = await loadProjectContent(id);
-    if (content !== null) {
+    const raw = await loadProjectContent(id);
+    if (raw !== null) {
+      // Re-sanitize on load: projects saved before the style-leak fix can
+      // carry global <style> blocks that break the whole app UI.
+      const content = sanitizeHtml(raw);
       isResettingRef.current = true;
       setGeneratedHtml(content);
       pushToHistory(content);
