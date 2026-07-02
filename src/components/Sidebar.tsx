@@ -18,8 +18,8 @@ import {
 interface SidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
-  mode: 'topic' | 'text' | 'file';
-  setMode: (mode: 'topic' | 'text' | 'file') => void;
+  mode: 'topic' | 'text' | 'file' | 'transcript';
+  setMode: (mode: 'topic' | 'text' | 'file' | 'transcript') => void;
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';
   setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'table') => void;
   upscAnswerStyle: UPSCAnswerStyle;
@@ -79,6 +79,11 @@ interface SidebarProps {
   onePagerTopics: string[];
   onePagerLoading: boolean;
   handleAddOnePager: () => void;
+  transcriptInput: string;
+  setTranscriptInput: (v: string) => void;
+  handleTranscriptFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleGenerateTranscript: () => void;
+  transcriptProgress: { current: number; total: number; step: 'structure' | 'detail' } | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -103,10 +108,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setTranslatePdfFile, translateProgress, translateResumeState, setTranslateResumeState,
   answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
   onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
+  transcriptInput, setTranscriptInput, handleTranscriptFileUpload, handleGenerateTranscript, transcriptProgress,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
   const handleMainClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (mode === 'transcript') { e.preventDefault(); handleGenerateTranscript(); return; }
     if (outputStyle === 'table') { handleGenerateTable(e); return; }
     e.preventDefault();
     handleGenerate(e as unknown as React.FormEvent);
@@ -160,11 +167,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             handleFileUpload={handleFileUpload}
             removeFile={removeFile}
             handleGenerate={handleGenerate}
+            transcriptInput={transcriptInput}
+            setTranscriptInput={setTranscriptInput}
+            handleTranscriptFileUpload={handleTranscriptFileUpload}
+            transcriptProgress={transcriptProgress}
           />
 
-          <SidebarOutputStyleSelector outputStyle={outputStyle} setOutputStyle={setOutputStyle} />
+          {mode !== 'transcript' && (
+            <SidebarOutputStyleSelector outputStyle={outputStyle} setOutputStyle={setOutputStyle} />
+          )}
 
-          {outputStyle === 'upsc' && (
+          {mode !== 'transcript' && outputStyle === 'upsc' && (
             <SidebarUPSCSettings
               wordLimit={wordLimit}
               setWordLimit={setWordLimit}

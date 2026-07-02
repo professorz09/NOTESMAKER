@@ -15,6 +15,7 @@ interface EditorCanvasProps {
   handleEditorBlur: () => void;
   handleEditorKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   handleEditorPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
+  mode: 'topic' | 'text' | 'file' | 'transcript';
   // UPSC next question flow
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';
   upscAnswerStyle: UPSCAnswerStyle;
@@ -34,6 +35,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   handleEditorBlur,
   handleEditorKeyDown,
   handleEditorPaste,
+  mode,
   outputStyle,
   upscAnswerStyle,
   upscSubject,
@@ -65,7 +67,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       </div>
 
       {/* Create Next UPSC Question panel — shown after UPSC answer is generated */}
-      {outputStyle === 'upsc' && generatedHtml && status === GenerationStatus.IDLE && (
+      {mode !== 'transcript' && outputStyle === 'upsc' && generatedHtml && status === GenerationStatus.IDLE && (
         <NextQuestionPanel
           defaultStyle={upscAnswerStyle}
           defaultWordLimit={wordLimit}

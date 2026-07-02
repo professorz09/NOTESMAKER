@@ -58,6 +58,8 @@ export const generateFormattedNotes = async (
     Input Text: ${rawText}
     Language: ${language}
 
+    **ABSOLUTE COMPLETENESS RULE (highest priority):** This is NOT a summary. Do NOT shorten, compress, skip or merge points. Capture EVERY concept, fact, date, number, name, definition, example, list and diagram present in the input, and expand each one. The output must be at least as long and detailed as the input — never shorter. It is far better to be too long than to leave anything out.
+
     **STRUCTURE — you decide what fits:**
     Organize the notes in whatever way best suits the content — decide yourself whether to open with an intro/overview, how to order sections, and how to close. No fixed template is imposed; just keep it well-structured, logical and detailed.
     Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
@@ -141,6 +143,8 @@ export const generateFileNotes = async (
     Task: Analyze the provided files and generate the MOST DETAILED, IN-DEPTH and PERFECTLY STRUCTURED study notes possible from their content. Extract EVERY important point from the files and explain each one in depth — don't just summarize headings.
 
     Language: ${language}
+
+    **ABSOLUTE COMPLETENESS RULE (highest priority):** This is NOT a summary. Do NOT shorten, compress, skip or merge points. Capture EVERY concept, fact, date, number, name, definition, example, table and diagram present in the files, and expand each one. The output must be at least as detailed as the source — never a condensed version. It is far better to be too long than to leave anything out.
 
     **STUDY-NOTES FORMAT:**
     - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary of the material.</div>
