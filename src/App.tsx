@@ -128,6 +128,8 @@ const App: React.FC = () => {
     translateProgress, translateResumeState, setTranslateResumeState,
     answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
     onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
+    transcriptInput, setTranscriptInput, transcriptProgress,
+    handleTranscriptFileUpload, handleGenerateTranscript,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml });
 
   const {
@@ -320,6 +322,14 @@ const App: React.FC = () => {
     handleGenerateTable(e);
   }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, handleGenerateTable]);
 
+  const handleGenerateTranscriptWithAutoSave = useCallback(async () => {
+    if (activeProjectId && generatedHtml) {
+      const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
+      if (html) await saveToProject(activeProjectId, html);
+    }
+    handleGenerateTranscript();
+  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, handleGenerateTranscript]);
+
   // --- PDF EXPORT ---
   const handleExportPDF = () => {
     if (!generatedHtml) {
@@ -505,6 +515,11 @@ const App: React.FC = () => {
         onePagerTopics={onePagerTopics}
         onePagerLoading={onePagerLoading}
         handleAddOnePager={handleAddOnePager}
+        transcriptInput={transcriptInput}
+        setTranscriptInput={setTranscriptInput}
+        handleTranscriptFileUpload={handleTranscriptFileUpload}
+        handleGenerateTranscript={handleGenerateTranscriptWithAutoSave}
+        transcriptProgress={transcriptProgress}
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">
@@ -539,6 +554,7 @@ const App: React.FC = () => {
             handleEditorBlur={handleEditorBlur}
             handleEditorKeyDown={handleEditorKeyDown}
             handleEditorPaste={handleEditorPaste}
+            mode={mode}
             outputStyle={outputStyle}
             upscAnswerStyle={upscAnswerStyle}
             upscSubject={upscSubject}

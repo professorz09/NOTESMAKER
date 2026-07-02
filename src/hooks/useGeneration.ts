@@ -12,6 +12,9 @@ import {
   translatePdfPageToHindi,
   analyzeAnswerPdf,
   generateOnePagerNotes,
+  chunkTranscript,
+  generateTranscriptTitle,
+  generateNotesFromTranscriptChunk,
   type UPSCAnswerStyle,
   type UPSCSubject,
 } from '../services/ai/index';
@@ -40,7 +43,7 @@ export function useGeneration({
   setIsEditing,
   setSidebarOpen,
 }: UseGenerationProps) {
-  const [mode, setMode] = useState<'topic' | 'text' | 'file'>('topic');
+  const [mode, setMode] = useState<'topic' | 'text' | 'file' | 'transcript'>('topic');
   const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
   const [upscAnswerStyle, setUpscAnswerStyle] = useState<UPSCAnswerStyle>('topper');
   const [upscSubject, setUpscSubject] = useState<UPSCSubject>('gs');
@@ -62,6 +65,10 @@ export function useGeneration({
   } | null>(null);
   const [answerPdfFile, setAnswerPdfFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
   const [answerAnalyzing, setAnswerAnalyzing] = useState(false);
+
+  // Class-transcript state
+  const [transcriptInput, setTranscriptInput] = useState('');
+  const [transcriptProgress, setTranscriptProgress] = useState<{ current: number; total: number; step: 'structure' | 'detail' } | null>(null);
 
   // One Pager state
   const [onePagerTopicInput, setOnePagerTopicInput] = useState('');
@@ -364,6 +371,104 @@ export function useGeneration({
     }
   };
 
+  const handleTranscriptFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = (event.target?.result as string) || '';
+      setTranscriptInput(prev => (prev.trim() ? prev + '\n\n' + text : text));
+      toast.success(`"${file.name}" loaded — Generate Notes दबाएं।`);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // Turn a (possibly multi-hour) class transcript into detailed notes.
+  // Runs an automatic staged pipeline: title/overview first, then each
+  // word-bounded chunk is expanded into full detailed HTML and appended
+  // live so the user watches the notes build up. Chunking is what stops
+  // long lectures from getting truncated / silently dropped.
+  const handleGenerateTranscript = async () => {
+    const text = transcriptInput.trim();
+    if (!text) {
+      toast.warning('कृपया transcript paste करें या .txt file upload करें।');
+      return;
+    }
+
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    const chunks = chunkTranscript(text, 5500);
+    const total = chunks.length;
+    setTranscriptProgress({ current: 0, total, step: 'structure' });
+
+    const parts: string[] = [];
+    const pushLive = () => {
+      if (isResettingRef.current) return;
+      const html = parts.join('\n');
+      setGeneratedHtml(html);
+      pushToHistory(html);
+      localStorage.setItem(STORAGE_KEY, html);
+    };
+
+    try {
+      // Step 1 — document title + overview.
+      try {
+        const titleHtml = sanitizeHtml(await generateTranscriptTitle(chunks[0], language, aiModel));
+        if (titleHtml) { parts.push(titleHtml); pushLive(); }
+      } catch (err) {
+        console.error('Transcript title step failed:', err);
+      }
+
+      // Step 2… — detailed notes per chunk, with continued section numbering.
+      let sectionCount = 0;
+      for (let i = 0; i < total; i++) {
+        if (isResettingRef.current) return;
+        setTranscriptProgress({ current: i + 1, total, step: 'detail' });
+
+        let chunkHtml = '';
+        let ok = false;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            chunkHtml = sanitizeHtml(await generateNotesFromTranscriptChunk(
+              chunks[i], i + 1, total, language, aiModel, i === 0, sectionCount + 1,
+            ));
+            ok = true;
+            break;
+          } catch (err) {
+            console.error(`Transcript chunk ${i + 1} attempt ${attempt} failed:`, err);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * attempt));
+          }
+        }
+
+        if (!ok || !chunkHtml) {
+          // Don't lose the whole run for one bad chunk — flag it and continue.
+          parts.push(`<div class="note-box">⚠️ इस भाग (${i + 1}/${total}) के notes generate नहीं हुए — बाकी notes नीचे जारी हैं। इस भाग के लिए दुबारा प्रयास करें।</div>`);
+          pushLive();
+          continue;
+        }
+
+        sectionCount += (chunkHtml.match(/<h2[\s>]/gi) || []).length;
+        parts.push(chunkHtml);
+        pushLive();
+      }
+
+      if (parts.length === 0) {
+        toast.error('Transcript notes generate नहीं हुए। पुनः प्रयास करें।');
+        return;
+      }
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+      toast.success(`Transcript notes तैयार! (${total} भाग)`);
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        toast.error(`Transcript notes failed: ${error.message || 'पुनः प्रयास करें।'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setTranscriptProgress(null);
+    }
+  };
+
   const handleAddOnePager = async () => {
     const topic = onePagerTopicInput.trim();
     if (!topic) return;
@@ -555,6 +660,7 @@ export function useGeneration({
     localStorage.removeItem(STORAGE_KEY);
     setTranslateProgress(null);
     setTranslateResumeState(null);
+    setTranscriptProgress(null);
     setOnePagerTopics([]);
     setTimeout(() => { isResettingRef.current = false; }, 100);
   };
@@ -596,5 +702,10 @@ export function useGeneration({
     onePagerTopics,
     onePagerLoading,
     handleAddOnePager,
+    transcriptInput,
+    setTranscriptInput,
+    transcriptProgress,
+    handleTranscriptFileUpload,
+    handleGenerateTranscript,
   };
 }

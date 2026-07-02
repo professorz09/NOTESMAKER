@@ -9,11 +9,13 @@ export const generateTopicContent = async (
 
   const prompt = `
     Role: Senior Subject-Matter Expert, Professor & Exam Mentor.
-    Task: Write the MOST DETAILED, IN-DEPTH, EXHAUSTIVE and PERFECTLY STRUCTURED study notes possible on the topic — the kind a topper would want as a single complete reference. Cover EVERY important dimension of the topic; leave no major sub-topic unexplained.
-    Model Config: Maximize depth + information density. No filler, no repetition, no padding.
+    Task: Write the MOST DETAILED, IN-DEPTH, EXHAUSTIVE and PERFECTLY STRUCTURED study notes possible on the topic — the kind a topper would want as a single complete reference, comparable to a full chapter in a definitive textbook. Cover EVERY important dimension of the topic; leave no major sub-topic unexplained, unexpanded, or merely mentioned in passing.
+    Model Config: Maximize depth + length + information density. No filler, no repetition, no padding — but also no premature wrap-up. Longer and more thorough is strictly better than shorter here.
 
     Topic: "${topic}"
     Language: ${language}
+
+    **LENGTH TARGET (do not undershoot):** Treat this as writing a complete reference chapter, not a summary. For a normal-sized topic this typically means 8-15+ major sections (h2), each with multiple sub-sections (h3/h4), each sub-section carrying several full paragraphs' worth of explanation and bullets. For a broad topic (an entire subject area, a whole historical period, a full constitutional part, etc.) go even longer and split it into more sections rather than compressing. If you find yourself able to stop early, you have not gone deep enough — keep expanding sub-topics, add more examples, add more sections until the topic is genuinely exhausted.
 
     **STRUCTURE — you decide what fits the topic:**
     You are free to organize the notes in whatever way best suits THIS topic — decide yourself whether to open with an introduction/overview, how to order the sections, and how (or whether) to close. No fixed template is imposed. Just make it well-structured, logical and easy to study from.
@@ -35,10 +37,11 @@ export const generateTopicContent = async (
     1. **Explain every point fully:** Each numbered point must be a real, self-contained explanation — not a one-line heading. After every sub-heading write the actual substance: what it is, why it matters, how it works, with concrete facts. NEVER output a heading with empty or trivial content under it.
     2. **Use bullets for sub-points:** Under each sub-section, use <ul><li> to break the explanation into clear, complete points. Each bullet should be a full, informative sentence (not 2–3 words).
     3. **Be concrete:** Include real data — dates, years, numbers, percentages, names, article/section numbers, examples — wherever they exist. Prefer specifics over vague statements.
-    4. **Density:** "More facts, fewer filler words." Pack maximum information; avoid generic intros like "It is important to note that…".
-    5. **Key Concepts:** Wrap vital definitions / must-remember points in: <div class="key-point"><strong>Key Concept:</strong> ...text...</div>
-    6. **Notes / Extra facts:** Use <div class="note-box">...text...</div> for important extra facts, exceptions, or exam-relevant trivia.
-    7. **Bold key terms:** Wrap every important term, name, date and figure in <strong>.
+    4. **Mandatory examples:** EVERY major sub-section (h3/h4) must include at least one concrete, real-world example, case, or illustration — never leave an explanation abstract when a real example would make it click.
+    5. **Density:** "More facts, fewer filler words." Pack maximum information; avoid generic intros like "It is important to note that…".
+    6. **Key Concepts:** Wrap vital definitions / must-remember points in: <div class="key-point"><strong>Key Concept:</strong> ...text...</div>
+    7. **Notes / Extra facts:** Use <div class="note-box">...text...</div> for important extra facts, exceptions, or exam-relevant trivia.
+    8. **Bold key terms:** Wrap every important term, name, date and figure in <strong>.
 
     **TABLE FORMAT — AI selects the most appropriate type for this topic:**
     Choose the table format that best organizes the information — do NOT default to comparison every time:
@@ -50,7 +53,7 @@ export const generateTopicContent = async (
     • **Data / Statistics** — numerical facts, rankings, percentages across entities or time
     • **Process Steps** — sequential phases: (Phase/Step | Action | Outcome / Indicator)
     • **Concept Map Table** — concept → sub-concepts → real-world applications (3 columns)
-    Include a table ONLY where it adds clear value over prose. Use <thead><tr><th> and <tbody>. Use <ul><li> inside <td> for multiple points per cell.
+    Include a table wherever it adds clear value over prose — for a broad topic that genuinely has multiple comparable dimensions, use 2-3 tables of different types rather than forcing everything into one. Use <thead><tr><th> and <tbody>. Use <ul><li> inside <td> for multiple points per cell.
 
     **VISUALIZATION LOGIC (Optional):**
     Analyze the topic and generate ONE detailed SVG diagram inside <div class="flowchart-container"> ONLY IF it significantly aids understanding (e.g., for processes, cycles, or hierarchies). If not needed, do not include it.
