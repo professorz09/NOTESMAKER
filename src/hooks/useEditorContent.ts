@@ -59,7 +59,9 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
       temp.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
       temp.querySelectorAll('caption.empty-caption').forEach(c => c.remove());
       temp.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
-      const clean = temp.innerHTML;
+      // Re-sanitize on restore: older saved notes may carry global <style>
+      // leaks that the sanitizer now neutralizes.
+      const clean = sanitizeHtml(temp.innerHTML);
       setGeneratedHtml(clean);
       pushToHistory(clean);
     }

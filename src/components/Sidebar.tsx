@@ -2,7 +2,7 @@ import React from 'react';
 import { GenerationStatus } from '../types';
 import { ProjectsPanel } from './ProjectsPanel';
 import type { ProjectMeta } from '../hooks/useProjects';
-import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
+import type { UPSCAnswerStyle, UPSCSubject, DetailLevel } from '../services/ai/index';
 import {
   SidebarHeader,
   SidebarModeTabs,
@@ -10,6 +10,7 @@ import {
   SidebarOutputStyleSelector,
   SidebarUPSCSettings,
   SidebarLanguageModel,
+  SidebarDetailLevel,
   SidebarPdfTools,
   SidebarOnePager,
   SidebarFooter,
@@ -30,6 +31,9 @@ interface SidebarProps {
   setTableInstruction: (v: string) => void;
   wordLimit: number;
   setWordLimit: (limit: number) => void;
+  detailLevel: DetailLevel;
+  setDetailLevel: (level: DetailLevel) => void;
+  notesProgress: { current: number; total: number; label: string } | null;
   topicInput: string;
   setTopicInput: (input: string) => void;
   textInput: string;
@@ -94,6 +98,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   upscSubject, setUpscSubject,
   tableInstruction, setTableInstruction,
   wordLimit, setWordLimit,
+  detailLevel, setDetailLevel,
+  notesProgress,
   topicInput, setTopicInput,
   textInput, setTextInput,
   files, handleFileUpload, removeFile,
@@ -134,13 +140,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // doesn't slip back into the viewport as a 1px vertical strip.
         // The border itself is hidden on mobile (lg:border-r only) for
         // belt-and-suspenders.
+        // Width is applied CONDITIONALLY per state — never emit two
+        // competing `lg:w-*` utilities at once. Previously the base class
+        // always carried `lg:w-[360px]` while the closed state added
+        // `lg:w-0`; Tailwind kept the 360px rule, so on desktop the panel
+        // refused to collapse. Now the open branch owns the desktop width
+        // and the closed branch owns the zero-width collapse.
         className={`
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-[105%] lg:translate-x-0 lg:w-0'}
           fixed lg:relative z-50
-          w-[88vw] max-w-[340px] sm:max-w-[360px] lg:w-[360px] xl:w-[380px]
+          w-[88vw] max-w-[340px] sm:max-w-[360px]
           flex flex-col
           transition-all duration-300 ease-in-out overflow-hidden
           lg:border-r lg:border-white/5
+          ${sidebarOpen
+            ? 'translate-x-0 lg:w-[360px] xl:w-[380px]'
+            : '-translate-x-[105%] lg:translate-x-0 lg:w-0 lg:max-w-0 lg:border-r-0'}
         `}
         style={{
           background: '#0b1120',
@@ -173,6 +187,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             transcriptProgress={transcriptProgress}
           />
 
+          {notesProgress && (
+            <div className="space-y-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/6 px-3 py-2.5">
+              <div className="w-full bg-white/8 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="h-1.5 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.max(6, Math.round((notesProgress.current / Math.max(1, notesProgress.total)) * 100))}%`,
+                    background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+                  }}
+                />
+              </div>
+              <p className="text-[10px] text-indigo-300/90 leading-snug truncate">{notesProgress.label}</p>
+            </div>
+          )}
+
           {mode !== 'transcript' && (
             <SidebarOutputStyleSelector outputStyle={outputStyle} setOutputStyle={setOutputStyle} />
           )}
@@ -186,6 +215,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               upscSubject={upscSubject}
               setUpscSubject={setUpscSubject}
             />
+          )}
+
+          {mode !== 'transcript' && outputStyle === 'notes' && (
+            <SidebarDetailLevel detailLevel={detailLevel} setDetailLevel={setDetailLevel} mode={mode} />
           )}
 
           <SidebarLanguageModel

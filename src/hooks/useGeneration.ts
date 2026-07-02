@@ -15,8 +15,12 @@ import {
   chunkTranscript,
   generateTranscriptTitle,
   generateNotesFromTranscriptChunk,
+  generateTopicOutline,
+  expandTopicSection,
+  generateAdditionalTopicAspects,
   type UPSCAnswerStyle,
   type UPSCSubject,
+  type DetailLevel,
 } from '../services/ai/index';
 import { GenerationStatus } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -49,6 +53,9 @@ export function useGeneration({
   const [upscSubject, setUpscSubject] = useState<UPSCSubject>('gs');
   const [tableInstruction, setTableInstruction] = useState('');
   const [wordLimit, setWordLimit] = useState(250);
+  const [detailLevel, setDetailLevel] = useState<DetailLevel>('medium');
+  // Multi-step notes-pipeline progress (Medium/Detailed topic generation).
+  const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi');
   const [aiModel, setAiModel] = useState('gemini-3.1-pro-preview');
@@ -516,6 +523,82 @@ export function useGeneration({
     return `<section class="upsc-qa-block"><div class="upsc-question-header"><span class="${tagClass}">${tagLabel}</span><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
   };
 
+  // Medium/Detailed topic pipeline: plan an outline, then expand each section
+  // in its own call and append live so a broad topic is covered end-to-end
+  // without the single-call output cap truncating it. Falls back to a single
+  // shot if the outline step fails. Manages its own live state + progress;
+  // relies on the caller's try/catch + finally (status + notesProgress reset).
+  const runLeveledTopicPipeline = async (topic: string, level: 'medium' | 'detailed') => {
+    const parts: string[] = [];
+    const pushLive = () => {
+      if (isResettingRef.current) return;
+      const html = sanitizeHtml(parts.join('\n'));
+      setGeneratedHtml(html);
+      pushToHistory(html);
+      localStorage.setItem(STORAGE_KEY, html);
+    };
+
+    setNotesProgress({ current: 0, total: 1, label: 'Structure तैयार हो रहा है…' });
+    let outline = null as Awaited<ReturnType<typeof generateTopicOutline>>;
+    try {
+      outline = await generateTopicOutline(topic, language, aiModel, level);
+    } catch (err) {
+      console.error('Outline step failed:', err);
+    }
+
+    // Outline failed — don't lose the request; fall back to a single-shot.
+    if (!outline || !outline.sections.length) {
+      const single = await generateTopicContent(topic, language, aiModel);
+      finishGeneration(single);
+      return;
+    }
+
+    const sections = outline.sections;
+    const allHeadings = sections.map(s => s.heading);
+    const total = sections.length + (level === 'detailed' ? 1 : 0);
+
+    parts.push(
+      `<h1>${escapeHtml(outline.title || topic)}</h1>` +
+      (outline.overview ? `<div class="key-point"><strong>Overview:</strong> ${escapeHtml(outline.overview)}</div>` : '')
+    );
+    pushLive();
+
+    for (let i = 0; i < sections.length; i++) {
+      if (isResettingRef.current) return;
+      setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1}/${total}: ${sections[i].heading}` });
+      let html = '';
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          html = await expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level);
+          break;
+        } catch (err) {
+          console.error(`Section ${i + 1} attempt ${attempt} failed:`, err);
+          if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * attempt));
+        }
+      }
+      if (html) { parts.push(html); pushLive(); }
+    }
+
+    // Detailed only: a final "what's still missing?" completeness pass.
+    if (level === 'detailed' && !isResettingRef.current) {
+      setNotesProgress({ current: total, total, label: 'बचे हुए ज़रूरी बिंदु जोड़े जा रहे हैं…' });
+      try {
+        const extra = await generateAdditionalTopicAspects(topic, allHeadings, sections.length + 1, language, aiModel);
+        if (extra && extra.replace(/<[^>]*>/g, '').trim().length > 20) { parts.push(extra); pushLive(); }
+      } catch (err) {
+        console.error('Completeness pass failed:', err);
+      }
+    }
+
+    if (parts.length <= 1) {
+      // Nothing but the title survived — fall back to single-shot.
+      const single = await generateTopicContent(topic, language, aiModel);
+      finishGeneration(single);
+      return;
+    }
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'topic' && !topicInput.trim()) {
@@ -551,15 +634,22 @@ export function useGeneration({
           result = wrapUPSCBlock(question, answer, upscSubject);
         }
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
+        else if (detailLevel !== 'normal') {
+          // Medium/Detailed → multi-step outline+expand pipeline (manages its
+          // own live state); nothing more to finishGeneration here.
+          await runLeveledTopicPipeline(topicInput.trim(), detailLevel);
+          toast.success('Detailed notes तैयार!');
+          return;
+        }
         else result = await generateTopicContent(topicInput, language, aiModel);
       } else if (mode === 'text') {
         // outputStyle === 'table' is handled by handleGenerateTable, not this
         // path — narrow the type here so the AI service signature stays clean.
         const docStyle = (outputStyle === 'table' ? 'notes' : outputStyle) as 'notes' | 'upsc' | 'research';
-        result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit);
+        result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
       } else {
         const docStyle = (outputStyle === 'table' ? 'notes' : outputStyle) as 'notes' | 'upsc' | 'research';
-        result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit);
+        result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
       }
       finishGeneration(result);
       toast.success('Content generated successfully!');
@@ -570,6 +660,7 @@ export function useGeneration({
       }
     } finally {
       if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setNotesProgress(null);
     }
   };
 
@@ -661,6 +752,7 @@ export function useGeneration({
     setTranslateProgress(null);
     setTranslateResumeState(null);
     setTranscriptProgress(null);
+    setNotesProgress(null);
     setOnePagerTopics([]);
     setTimeout(() => { isResettingRef.current = false; }, 100);
   };
@@ -672,6 +764,8 @@ export function useGeneration({
     upscSubject, setUpscSubject,
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
+    detailLevel, setDetailLevel,
+    notesProgress,
     status,
     language, setLanguage,
     aiModel, setAiModel,
