@@ -339,16 +339,26 @@ const App: React.FC = () => {
   }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, handleGenerateTranscript]);
 
   // --- PDF EXPORT ---
-  const handleExportPDF = () => {
-    if (!generatedHtml) {
-      toast.info('Nothing to export yet. Generate some content first.');
-      return;
-    }
-    let content = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
+  // Shared by both export paths: strip in-editor-only UI (edit triggers,
+  // table toolbars) that must never appear in an exported document.
+  const getExportableContent = (): string | null => {
+    if (!generatedHtml) return null;
+    const content = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
     const temp = document.createElement('div');
     temp.innerHTML = content;
     temp.querySelectorAll('.ai-edit-trigger').forEach(t => t.remove());
-    content = temp.innerHTML;
+    return temp.innerHTML;
+  };
+
+  // Path 1: browser print window — user can print or "Save as PDF" via the
+  // native print dialog. Best for fine control (paper size, margins) but
+  // requires pop-ups allowed and an extra manual "Save as PDF" step.
+  const handleExportPDF = () => {
+    const content = getExportableContent();
+    if (content === null) {
+      toast.info('Nothing to export yet. Generate some content first.');
+      return;
+    }
     const win = window.open('', '_blank');
     if (!win) {
       toast.error('Pop-ups are blocked. Please allow pop-ups for this site to export PDF.');
@@ -358,6 +368,32 @@ const App: React.FC = () => {
     win.document.write(buildPrintHtml(content, fontSize, lineHeight));
     win.document.close();
   };
+
+  // Path 2: direct download — no browser dialog, no pop-up permission needed.
+  // Rasterizes the notes into a real multi-page PDF file and saves it
+  // straight to Downloads (or the mobile share sheet), paginated so no
+  // heading/row/diagram is ever cut across a page boundary.
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const handleDownloadPdfDirect = useCallback(async () => {
+    const content = getExportableContent();
+    if (content === null) {
+      toast.info('Nothing to export yet. Generate some content first.');
+      return;
+    }
+    setIsDownloadingPdf(true);
+    try {
+      const { exportContentAsPdfDirect } = await import('./utils/pdfDirectExport');
+      const html = isEditing && editorRef.current ? getCleanHtml() : (generatedHtml || '');
+      const baseName = extractProjectName(html).replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'Notes';
+      await exportContentAsPdfDirect(content, { fontSize, lineHeight, fileName: baseName });
+      toast.success('PDF downloaded!');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`PDF download failed: ${err?.message || 'Please try again.'}`);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  }, [generatedHtml, isEditing, editorRef, getCleanHtml, fontSize, lineHeight]);
 
   // --- TABLE OF CONTENTS ---
   const handleAddTableOfContents = () => {
@@ -606,6 +642,8 @@ const App: React.FC = () => {
           openSelectionRewriteModal={openSelectionRewriteModal}
           saveToStorage={saveToStorage}
           handleExportPDF={handleExportPDF}
+          handleDownloadPdfDirect={handleDownloadPdfDirect}
+          isDownloadingPdf={isDownloadingPdf}
           handleAddTableOfContents={handleAddTableOfContents}
           isDarkMode={isDarkMode}
           toggleDarkMode={() => setIsDarkMode(d => !d)}

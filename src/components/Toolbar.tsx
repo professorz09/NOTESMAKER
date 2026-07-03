@@ -9,6 +9,7 @@ import {
   Check,
   PenTool,
   Printer,
+  Download,
   Moon,
   Sun,
   ListOrdered,
@@ -35,6 +36,8 @@ interface ToolbarProps {
   openSelectionRewriteModal: () => void;
   saveToStorage: () => void;
   handleExportPDF: () => void;
+  handleDownloadPdfDirect: () => void;
+  isDownloadingPdf: boolean;
   handleAddTableOfContents: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
@@ -73,7 +76,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   lineHeight, handleLineHeightIncrease, handleLineHeightDecrease,
   isEditing, setIsEditing,
   openSelectionRewriteModal, saveToStorage,
-  handleExportPDF, handleAddTableOfContents,
+  handleExportPDF, handleDownloadPdfDirect, isDownloadingPdf,
+  handleAddTableOfContents,
   isDarkMode, toggleDarkMode,
 }) => {
   return (
@@ -201,15 +205,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <span className="hidden md:inline font-semibold">Index</span>
         </Button>
 
-        {/* Export PDF */}
+        {/* Export via browser print dialog (fine control, needs pop-ups allowed) */}
         <Button
-          variant="primary"
+          variant="secondary"
           onClick={handleExportPDF}
-          className="rounded-xl bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 shadow-md !px-2.5 sm:!px-3.5 !py-1.5 text-xs gap-1.5"
-          title="Export as PDF"
+          className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-300 dark:hover:border-blue-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl text-slate-600 dark:text-slate-300 !px-2 sm:!px-2.5 !py-1.5 text-xs gap-1"
+          title="Print / Export via browser (opens print dialog)"
         >
           <Printer className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="hidden sm:inline font-semibold">Export</span>
+          <span className="hidden sm:inline font-semibold">Print</span>
+        </Button>
+
+        {/* Direct PDF download — no print dialog, saves straight to Downloads */}
+        <Button
+          variant="primary"
+          onClick={handleDownloadPdfDirect}
+          disabled={isDownloadingPdf}
+          isLoading={isDownloadingPdf}
+          className="rounded-xl bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 shadow-md !px-2.5 sm:!px-3.5 !py-1.5 text-xs gap-1.5"
+          title="Download as PDF (direct, no print dialog)"
+        >
+          {!isDownloadingPdf && <Download className="w-3.5 h-3.5 flex-shrink-0" />}
+          <span className="hidden sm:inline font-semibold">{isDownloadingPdf ? 'Preparing…' : 'Download'}</span>
         </Button>
       </div>
     </div>
