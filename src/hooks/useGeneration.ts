@@ -1510,12 +1510,8 @@ export function useGeneration({
       toast.warning('Please enter a topic first.');
       return;
     }
-    if (mode === 'text' && !textInput.trim()) {
-      toast.warning('Please paste some text first.');
-      return;
-    }
-    if (mode === 'file' && files.length === 0) {
-      toast.warning('Please upload at least one file first.');
+    if ((mode === 'text' || mode === 'file') && !textInput.trim() && files.length === 0) {
+      toast.warning('Please paste some text or upload at least one file first.');
       return;
     }
 
@@ -1547,25 +1543,30 @@ export function useGeneration({
           return;
         }
         else result = await generateTopicContent(topicInput, language, aiModel);
-      } else if (mode === 'text') {
+      } else if (mode === 'text' || mode === 'file') {
+        // Text and File share one sidebar panel — whichever the user actually
+        // filled in decides the pipeline. Files win when both are present,
+        // since a file pipeline covers file content that a text-only prompt
+        // can't see.
         // outputStyle === 'table' is handled by handleGenerateTable, not this
         // path — narrow the type here so the AI service signature stays clean.
         const docStyle = (outputStyle === 'table' ? 'notes' : outputStyle) as 'notes' | 'upsc' | 'research';
-        if (docStyle === 'notes' && detailLevel !== 'normal') {
-          const built = await runLeveledTextPipeline(textInput.trim(), detailLevel);
-          if (!built) result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
-          else { if (!isResettingRef.current) toast.success('Detailed notes तैयार!'); return; }
+        if (files.length > 0) {
+          if (docStyle === 'notes' && detailLevel !== 'normal') {
+            const built = await runLeveledFilePipeline(files, detailLevel);
+            if (!built) result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
+            else { if (!isResettingRef.current) toast.success('Detailed notes तैयार!'); return; }
+          } else {
+            result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
+          }
         } else {
-          result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
-        }
-      } else {
-        const docStyle = (outputStyle === 'table' ? 'notes' : outputStyle) as 'notes' | 'upsc' | 'research';
-        if (docStyle === 'notes' && detailLevel !== 'normal') {
-          const built = await runLeveledFilePipeline(files, detailLevel);
-          if (!built) result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
-          else { if (!isResettingRef.current) toast.success('Detailed notes तैयार!'); return; }
-        } else {
-          result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
+          if (docStyle === 'notes' && detailLevel !== 'normal') {
+            const built = await runLeveledTextPipeline(textInput.trim(), detailLevel);
+            if (!built) result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
+            else { if (!isResettingRef.current) toast.success('Detailed notes तैयार!'); return; }
+          } else {
+            result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
+          }
         }
       }
       finishGeneration(result);

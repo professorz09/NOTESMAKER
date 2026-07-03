@@ -132,6 +132,12 @@ html, body {
 .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(51,65,85,0.5); }
 .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(71,85,105,0.9); }
 
+/* Hides the scrollbar itself while keeping the element scrollable — used on
+   the toolbar so it can scroll horizontally as an overflow safety net on
+   narrow phones without a visible scroll track cluttering a 52px-tall bar. */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
 /* ─── Focus ring for accessibility ─── */
 button:focus-visible, a:focus-visible {
   outline: 2px solid #3b82f6;

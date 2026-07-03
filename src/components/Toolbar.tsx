@@ -15,6 +15,9 @@ import {
   ListOrdered,
   AlignJustify,
   Type,
+  Bold,
+  Italic,
+  Underline,
 } from 'lucide-react';
 import { Button } from './Button';
 
@@ -33,6 +36,7 @@ interface ToolbarProps {
   handleLineHeightDecrease: () => void;
   isEditing: boolean;
   setIsEditing: (editing: boolean) => void;
+  execFormat: (command: 'bold' | 'italic' | 'underline') => void;
   openSelectionRewriteModal: () => void;
   saveToStorage: () => void;
   handleExportPDF: () => void;
@@ -45,13 +49,15 @@ interface ToolbarProps {
 
 const IconBtn: React.FC<{
   onClick: () => void;
+  onMouseDown?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   title: string;
   className?: string;
   children: React.ReactNode;
-}> = ({ onClick, disabled, title, className = '', children }) => (
+}> = ({ onClick, onMouseDown, disabled, title, className = '', children }) => (
   <button
     onClick={onClick}
+    onMouseDown={onMouseDown}
     disabled={disabled}
     title={title}
     aria-label={title}
@@ -59,11 +65,17 @@ const IconBtn: React.FC<{
     // toolbar), 36px on lg+ where the cursor is precise and density
     // matters more. focus-visible ring gives keyboard users a clear
     // affordance the pre-existing styling lacked.
-    className={`min-w-[40px] min-h-[40px] lg:min-w-[36px] lg:min-h-[36px] flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${className}`}
+    className={`min-w-[40px] min-h-[40px] lg:min-w-[36px] lg:min-h-[36px] flex-shrink-0 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${className}`}
   >
     {children}
   </button>
 );
+
+// Toolbar buttons act on the editor's current text selection, so a plain
+// onClick would first steal focus from the editor and collapse that
+// selection. preventDefault on mousedown keeps the selection alive through
+// the click.
+const keepSelection = (e: React.MouseEvent<HTMLButtonElement>) => e.preventDefault();
 
 const Divider = () => (
   <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5 flex-shrink-0" />
@@ -74,7 +86,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   handleUndo, handleRedo, canUndo, canRedo,
   fontSize, handleZoomOut, handleZoomIn,
   lineHeight, handleLineHeightIncrease, handleLineHeightDecrease,
-  isEditing, setIsEditing,
+  isEditing, setIsEditing, execFormat,
   openSelectionRewriteModal, saveToStorage,
   handleExportPDF, handleDownloadPdfDirect, isDownloadingPdf,
   handleAddTableOfContents,
@@ -86,14 +98,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         bg-white/98 dark:bg-slate-900/98 backdrop-blur-xl
         border-b sm:border border-slate-200/70 dark:border-slate-700/70
         sm:rounded-2xl
-        flex items-center justify-between
+        flex items-center justify-between gap-1
         px-2 sm:px-3
+        overflow-x-auto scrollbar-none
         shadow-[0_1px_3px_rgb(0,0,0,0.06)] sm:shadow-[0_4px_24px_rgb(0,0,0,0.07)]
         z-30 transition-all duration-300"
       style={{ height: '3.25rem', paddingTop: 'env(safe-area-inset-top, 0px)' }}
     >
       {/* ── LEFT ── */}
-      <div className="flex items-center gap-1 sm:gap-1.5">
+      <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
 
         {/* Sidebar toggle */}
         <IconBtn
@@ -115,6 +128,23 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <Redo className="w-3.5 h-3.5" />
           </IconBtn>
         </div>
+
+        {/* Bold / Italic / Underline — only actionable while editing, so it
+            only takes up space then. Mirrors Ctrl+B/I/U for touch users who
+            have no keyboard shortcut. */}
+        {isEditing && (
+          <div className="flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-0.5 border border-slate-200/60 dark:border-slate-700/60">
+            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('bold')} title="Bold (Ctrl+B)">
+              <Bold className="w-3.5 h-3.5" />
+            </IconBtn>
+            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('italic')} title="Italic (Ctrl+I)">
+              <Italic className="w-3.5 h-3.5" />
+            </IconBtn>
+            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('underline')} title="Underline (Ctrl+U)">
+              <Underline className="w-3.5 h-3.5" />
+            </IconBtn>
+          </div>
+        )}
 
         {/* Font size — visible on sm+, compact on mobile */}
         <div className="hidden xs:flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-0.5 border border-slate-200/60 dark:border-slate-700/60">
@@ -146,7 +176,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </div>
 
       {/* ── RIGHT ── */}
-      <div className="flex items-center gap-1 sm:gap-1.5">
+      <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
 
         {/* Dark mode */}
         <IconBtn onClick={toggleDarkMode} title={isDarkMode ? 'Light Mode' : 'Dark Mode'}>

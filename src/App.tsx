@@ -105,6 +105,7 @@ const App: React.FC = () => {
     handleEditorInput, handleEditorBlur, handleEditorKeyDown, handleEditorPaste,
     handleZoomIn, handleZoomOut,
     handleLineHeightIncrease, handleLineHeightDecrease,
+    execFormat,
   } = useEditorContent({ pushToHistory });
 
   const {
@@ -645,6 +646,7 @@ const App: React.FC = () => {
           handleLineHeightIncrease={handleLineHeightIncrease}
           handleLineHeightDecrease={handleLineHeightDecrease}
           isEditing={isEditing} setIsEditing={setIsEditing}
+          execFormat={execFormat}
           openSelectionRewriteModal={openSelectionRewriteModal}
           saveToStorage={saveToStorage}
           handleExportPDF={handleExportPDF}

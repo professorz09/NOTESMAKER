@@ -25,7 +25,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({
     ? 'Generating…'
     : mode === 'transcript'
       ? 'Generate Notes'
-      : GENERATE_LABELS[outputStyle] ?? (mode === 'text' ? 'Format My Notes' : mode === 'file' ? 'Analyze Files' : 'Generate Notes');
+      : GENERATE_LABELS[outputStyle] ?? 'Generate Notes';
 
   return (
     <div

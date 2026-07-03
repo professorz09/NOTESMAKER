@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Upload, X, Mic, Youtube } from 'lucide-react';
+import { FileText, Upload, X, Youtube } from 'lucide-react';
 
 interface SidebarInputSectionProps {
   mode: 'topic' | 'text' | 'file' | 'transcript';
@@ -24,8 +24,8 @@ interface SidebarInputSectionProps {
 
 const LABELS: Record<string, string> = {
   topic: 'Your Topic',
-  text: 'Paste Raw Notes',
-  file: 'Upload Files',
+  text: 'Text / Files',
+  file: 'Text / Files',
   transcript: 'Class Transcript',
 };
 
@@ -74,23 +74,50 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
             )}
           </div>
         )
-      ) : mode === 'text' ? (
-        <textarea
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-          placeholder="Paste your rough notes or content here..."
-          rows={5}
-          className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
-        />
-      ) : mode === 'transcript' ? (
-        <div className="space-y-2.5">
-          <div className="rounded-lg bg-indigo-500/8 border border-indigo-500/15 px-3 py-2">
-            <p className="text-[10px] text-indigo-300/90 leading-relaxed">
-              <Mic className="w-3 h-3 inline -mt-0.5 mr-1" />
-              YouTube link डालें या पूरी class (3–4 घंटे तक) की transcript paste करें। AI इसे अपने‑आप हिस्सों में बाँटकर step‑by‑step detailed, structured notes बनाएगा — कुछ भी miss नहीं होगा। बस <strong>Generate Notes</strong> दबाएं।
-            </p>
+      ) : mode === 'text' || mode === 'file' ? (
+        <div className="space-y-3">
+          <textarea
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder="Paste your rough notes or content here..."
+            rows={5}
+            className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
+          />
+
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-white/8" />
+            <span className="text-[9px] text-slate-600 uppercase tracking-widest">and / or</span>
+            <div className="h-px flex-1 bg-white/8" />
           </div>
 
+          <label className="block relative cursor-pointer">
+            <input type="file" multiple accept=".pdf,.txt,image/*" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <div className="flex flex-col items-center gap-2 py-6 px-4 rounded-xl border-2 border-dashed border-white/10 hover:border-blue-500/40 hover:bg-blue-500/4 transition-all">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <Upload className="w-4.5 h-4.5 text-blue-400" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-slate-300">Drop files or click to upload</p>
+                <p className="text-xs text-slate-600 mt-1">PDF, TXT, Images supported</p>
+              </div>
+            </div>
+          </label>
+          {files.length > 0 && (
+            <div className="space-y-2">
+              {files.map((file, i) => (
+                <div key={i} className="flex items-center gap-3 bg-white/4 rounded-xl px-3 py-2.5 border border-white/6">
+                  <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span className="text-xs text-slate-300 truncate flex-1">{file.name}</span>
+                  <button type="button" onClick={() => removeFile(i)} className="text-slate-600 hover:text-red-400 transition-colors flex-shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2.5">
           {/* YouTube / video link */}
           <div className="flex items-center gap-2 bg-white/4 border border-white/8 rounded-xl px-3 py-2 focus-within:border-red-500/50 transition-all">
             <Youtube className="w-4 h-4 text-red-400/90 flex-shrink-0" />
@@ -116,7 +143,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
           <textarea
             value={transcriptInput}
             onChange={(e) => setTranscriptInput(e.target.value)}
-            placeholder="यहाँ पूरी class transcript paste करें..."
+            placeholder="यहाँ पूरी class transcript paste करें (3–4 घंटे तक)..."
             rows={6}
             className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
           />
@@ -152,34 +179,6 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
                     ? 'Step 1/2 — structure बन रहा है…'
                     : `Step 2/2 — detailed notes (भाग ${transcriptProgress.current}/${transcriptProgress.total})`}
               </p>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <label className="block relative cursor-pointer">
-            <input type="file" multiple accept=".pdf,.txt,image/*" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            <div className="flex flex-col items-center gap-3 py-8 px-4 rounded-xl border-2 border-dashed border-white/10 hover:border-blue-500/40 hover:bg-blue-500/4 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Upload className="w-5 h-5 text-blue-400" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-slate-300">Drop files or click to upload</p>
-                <p className="text-xs text-slate-600 mt-1">PDF, TXT, Images supported</p>
-              </div>
-            </div>
-          </label>
-          {files.length > 0 && (
-            <div className="space-y-2">
-              {files.map((file, i) => (
-                <div key={i} className="flex items-center gap-3 bg-white/4 rounded-xl px-3 py-2.5 border border-white/6">
-                  <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                  <span className="text-xs text-slate-300 truncate flex-1">{file.name}</span>
-                  <button type="button" onClick={() => removeFile(i)} className="text-slate-600 hover:text-red-400 transition-colors flex-shrink-0">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
             </div>
           )}
         </div>
