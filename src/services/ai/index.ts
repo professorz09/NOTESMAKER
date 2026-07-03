@@ -8,6 +8,8 @@ export { chunkTranscript, generateTranscriptTitle, generateNotesFromTranscriptCh
 export type { TranscriptSection } from './transcriptGeneration';
 export { generateTopicOutline, expandTopicSection, generateAdditionalTopicAspects, generateDeepOutline, expandDeepSection } from './leveledNotesGeneration';
 export type { DetailLevel, TopicOutline, TopicOutlineSection, DeepOutline } from './leveledNotesGeneration';
+export { outlineTextChunk, generateTextTitle, expandTextChunkStructured, outlineFiles, generateFilesTitle, expandFilesSection } from './sourceNotesGeneration';
+export type { SourceSection } from './sourceNotesGeneration';
 export { rewriteContent, rewriteSection, expandSection, generateNextContent, generateDetailedNextTopic } from './contentRewrite';
 export { generateDiagram, generateSectionImage } from './diagramAndImage';
 export { generateResearchPaper, translatePdfToHindi, analyzeAnswerPdf, translatePdfPageToHindi } from './researchAndPdf';

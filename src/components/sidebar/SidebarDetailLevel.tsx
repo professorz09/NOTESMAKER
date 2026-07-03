@@ -56,5 +56,12 @@ export const SidebarDetailLevel: React.FC<SidebarDetailLevelProps> = ({ detailLe
           : 'AI पहले पूरे video का ढांचा (सभी topics + sub-points) बनाता है, screen पर live mindmap दिखता है, फिर हर हिस्से को structure के अनुसार ' + (detailLevel === 'deep' ? 'सबसे गहराई में (sub-points तक)' : detailLevel === 'detailed' ? 'गहराई में' : 'अच्छे से') + ' expand करता है।'}
       </p>
     )}
+    {(mode === 'text' || mode === 'file') && (
+      <p className="text-[9.5px] text-slate-600 leading-relaxed px-0.5">
+        {detailLevel === 'normal'
+          ? (mode === 'text' ? 'Normal: पूरा text सीधे detailed notes में बदल जाएगा।' : 'Normal: सभी files सीधे detailed notes में बदल जाएँगी।')
+          : `AI पहले ${mode === 'text' ? 'पूरे content' : 'files'} का ढांचा बनाता है, screen पर live mindmap दिखता है, फिर हर हिस्से को ${detailLevel === 'deep' ? 'सबसे गहराई में' : detailLevel === 'detailed' ? 'गहराई में' : 'अच्छे से'} ${mode === 'file' ? 'उन्हीं files से' : ''} expand करता है — कुछ भी miss नहीं होता।`}
+      </p>
+    )}
   </div>
 );

@@ -1,4 +1,5 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
+import { parseOutlineSectionsJson, type OutlineSection } from './outlineParsing';
 
 // ---------------------------------------------------------------------------
 // Class-transcript → detailed notes pipeline.
@@ -175,32 +176,7 @@ export const generateNotesFromTranscriptChunk = async (
 // chunk-by-chunk so nothing is dropped from a multi-hour class.
 // ---------------------------------------------------------------------------
 
-export interface TranscriptSection {
-  heading: string;
-  subheadings: string[];
-}
-
-function parseSectionsJson(raw: string): TranscriptSection[] {
-  if (!raw) return [];
-  let text = raw.trim().replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) return [];
-  try {
-    const obj = JSON.parse(text.slice(start, end + 1));
-    if (!Array.isArray(obj.sections)) return [];
-    return obj.sections
-      .map((s: any) => ({
-        heading: String(s?.heading || s?.title || '').trim(),
-        subheadings: Array.isArray(s?.subheadings)
-          ? s.subheadings.map((x: any) => String(x || '').trim()).filter(Boolean)
-          : [],
-      }))
-      .filter((s: TranscriptSection) => s.heading);
-  } catch {
-    return [];
-  }
-}
+export type TranscriptSection = OutlineSection;
 
 /**
  * Phase 1 — extract the structured skeleton (topics + sub-points) the teacher
@@ -235,7 +211,7 @@ export const outlineTranscriptChunk = async (
     config: NOTES_GEN_CONFIG,
   });
 
-  return parseSectionsJson(response.text || '');
+  return parseOutlineSectionsJson(response.text || '');
 };
 
 /**

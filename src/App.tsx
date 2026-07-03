@@ -134,7 +134,7 @@ const App: React.FC = () => {
     transcriptInput, setTranscriptInput, transcriptProgress,
     handleTranscriptFileUpload, handleGenerateTranscript,
     youtubeUrl, setYoutubeUrl,
-    mindmap, resolveMindmapAction,
+    mindmap, resolveMindmapAction, handleMindmapAddMore, handleMindmapNodeClick, handleMindmapDone,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml });
 
   const {
@@ -627,6 +627,10 @@ const App: React.FC = () => {
             mindmap={mindmap}
             onRetry={() => resolveMindmapAction('retry')}
             onSkip={() => resolveMindmapAction('skip')}
+            onFinish={() => resolveMindmapAction('finish')}
+            onNodeClick={handleMindmapNodeClick}
+            onAddMore={handleMindmapAddMore}
+            onDone={handleMindmapDone}
           />
         )}
         <Toolbar

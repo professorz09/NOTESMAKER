@@ -1,4 +1,5 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
+import { parseOutlineSectionsJson, parseOutlineJsonObject } from './outlineParsing';
 
 // ---------------------------------------------------------------------------
 // Leveled topic-notes pipeline (Normal / Medium / Detailed).
@@ -38,37 +39,16 @@ export interface DeepOutline extends TopicOutline {
   focusAreas: string[];
 }
 
-/** Tolerantly extract the first JSON object from a model response. */
+/** Tolerantly extract title/overview/sections from a model response. */
 function parseOutlineJson(raw: string): TopicOutline | null {
-  if (!raw) return null;
-  let text = raw.trim()
-    .replace(/^\s*```(?:json)?\s*/i, '')
-    .replace(/\s*```\s*$/i, '');
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) return null;
-  text = text.slice(start, end + 1);
-  try {
-    const obj = JSON.parse(text);
-    const sections: TopicOutlineSection[] = Array.isArray(obj.sections)
-      ? obj.sections
-          .map((s: any) => ({
-            heading: String(s?.heading || s?.title || '').trim(),
-            subheadings: Array.isArray(s?.subheadings)
-              ? s.subheadings.map((x: any) => String(x || '').trim()).filter(Boolean)
-              : [],
-          }))
-          .filter((s: TopicOutlineSection) => s.heading)
-      : [];
-    if (!sections.length) return null;
-    return {
-      title: String(obj.title || '').trim(),
-      overview: String(obj.overview || '').trim(),
-      sections,
-    };
-  } catch {
-    return null;
-  }
+  const sections = parseOutlineSectionsJson(raw);
+  if (!sections.length) return null;
+  const obj = parseOutlineJsonObject(raw) || {};
+  return {
+    title: String(obj.title || '').trim(),
+    overview: String(obj.overview || '').trim(),
+    sections,
+  };
 }
 
 /**
@@ -225,13 +205,10 @@ export const generateDeepOutline = async (
 
   const base = parseOutlineJson(response.text || '');
   if (!base) return null;
-  const focusAreas = (() => {
-    try {
-      const m = (response.text || '').match(/"focusAreas"\s*:\s*\[([^\]]*)\]/);
-      if (!m) return [];
-      return m[1].split(',').map(s => s.replace(/^\s*"|"\s*$/g, '').trim()).filter(Boolean);
-    } catch { return []; }
-  })();
+  const raw = parseOutlineJsonObject(response.text || '');
+  const focusAreas: string[] = Array.isArray(raw?.focusAreas)
+    ? raw.focusAreas.map((x: any) => String(x || '').trim()).filter(Boolean)
+    : [];
   return { ...base, focusAreas };
 };
 

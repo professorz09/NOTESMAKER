@@ -22,6 +22,12 @@ import {
   generateAdditionalTopicAspects,
   generateDeepOutline,
   expandDeepSection,
+  outlineTextChunk,
+  generateTextTitle,
+  expandTextChunkStructured,
+  outlineFiles,
+  generateFilesTitle,
+  expandFilesSection,
   type UPSCAnswerStyle,
   type UPSCSubject,
   type DetailLevel,
@@ -36,9 +42,132 @@ import { toast } from '../components/Toast';
 
 // The two models the app ships with — Pro for structuring/reasoning, Flash for
 // fast fan-out expansion. Used by the Deep pipeline exactly as-is (names must
-// not change: these are the current supported IDs).
+// not change: these are the current supported IDs). A manual "deepen this
+// node" click always forces the Pro model too, regardless of the pipeline's
+// chosen level, since a one-off deeper pass is worth the extra quality.
 const DEEP_PRO_MODEL = 'gemini-3.1-pro-preview';
 const DEEP_FLASH_MODEL = 'gemini-3.1-flash-lite';
+
+type MindmapAction = 'retry' | 'skip' | 'finish';
+
+/**
+ * Shared controller behind every leveled pipeline's live mind map. Handles
+ * the interactions that work independently of the main generation loop:
+ *   - "Add a point" — an ad-hoc extra section the user types in, generated
+ *     and appended live, usable at any time the map is open (mid-generation
+ *     or after it finishes).
+ *   - Click a node — always re-runs that group's registered `regenerate`
+ *     closure (which pipelines register at the STRONGEST setting — Pro
+ *     model, max depth — regardless of the level the automatic pass used).
+ *     Works for 'done' nodes (regenerate deeper), 'error' nodes (retry), and
+ *     'skipped' nodes (generate on demand) alike, since every group is
+ *     registered via `registerGroup` BEFORE the pipeline even attempts it —
+ *     `partIndex` starts at -1 (not yet in `parts[]`) and is filled in via
+ *     `setGroupPartIndex` once the automatic attempt (or a click) succeeds.
+ * `parts`/`mm` are the pipeline's own mutable arrays/object — the controller
+ * mutates them in place so the pipeline's own `pushLive`/`syncMm` calls (and
+ * the controller's own) always see one consistent shared state.
+ */
+function createMindmapController(
+  mm: MindmapState,
+  syncMm: () => void,
+  parts: string[],
+  pushLive: (recordHistory?: boolean) => void,
+  extraExpand: (heading: string, sectionNumber: number, allHeadings: string[]) => Promise<string>,
+  isResettingRef: MutableRefObject<boolean>,
+) {
+  const groups = new Map<string, { partIndex: number; regenerate: () => Promise<string> }>();
+  let doneResolve: (() => void) | null = null;
+
+  const registerGroup = (groupId: string, regenerate: () => Promise<string>) => {
+    groups.set(groupId, { partIndex: -1, regenerate });
+  };
+  const setGroupPartIndex = (groupId: string, partIndex: number) => {
+    const g = groups.get(groupId);
+    if (g) g.partIndex = partIndex;
+  };
+
+  const onAddMore = async (text: string) => {
+    const heading = text.trim();
+    if (!heading || isResettingRef.current || mm.addBusy) return;
+    mm.addBusy = true;
+    const nodeId = `extra-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
+    const sectionNumber = mm.nodes.length + 1;
+    const allHeadings = mm.nodes.map(n => n.label);
+    mm.nodes.push({ id: nodeId, label: heading, status: 'active', children: [], groupId: nodeId });
+    registerGroup(nodeId, () => extraExpand(heading, sectionNumber, allHeadings));
+    syncMm();
+    try {
+      const html = await extraExpand(heading, sectionNumber, allHeadings);
+      if (isResettingRef.current) return;
+      const idx = parts.length;
+      parts.push(html);
+      setGroupPartIndex(nodeId, idx);
+      pushLive(true);
+      const node = mm.nodes.find(n => n.id === nodeId);
+      if (node) node.status = 'done';
+    } catch (err) {
+      console.error('Add-more point failed:', err);
+      const node = mm.nodes.find(n => n.id === nodeId);
+      if (node) node.status = 'error';
+      toast.error('यह point generate नहीं हुआ — नोड पर दुबारा click करें।');
+    } finally {
+      mm.addBusy = false;
+      syncMm();
+    }
+  };
+
+  const onNodeClick = async (nodeId: string) => {
+    if (isResettingRef.current) return;
+    const node = mm.nodes.find(n => n.id === nodeId);
+    if (!node || node.status === 'active') return;
+    const group = groups.get(node.groupId);
+    if (!group) return; // no generator registered for this node (shouldn't normally happen)
+    const prevStatus = node.status;
+    const groupNodeIds = mm.nodes.filter(n => n.groupId === node.groupId).map(n => n.id);
+    groupNodeIds.forEach(id => {
+      const n = mm.nodes.find(x => x.id === id);
+      if (n) n.status = 'active';
+    });
+    mm.errorNodeId = null;
+    syncMm();
+    try {
+      const html = await group.regenerate();
+      if (isResettingRef.current) return;
+      if (group.partIndex === -1) {
+        group.partIndex = parts.length;
+        parts.push(html);
+      } else {
+        parts[group.partIndex] = html;
+      }
+      pushLive(true);
+      groupNodeIds.forEach(id => {
+        const n = mm.nodes.find(x => x.id === id);
+        if (n) n.status = 'done';
+      });
+    } catch (err) {
+      console.error('Node regenerate failed:', err);
+      groupNodeIds.forEach(id => {
+        const n = mm.nodes.find(x => x.id === id);
+        if (n) n.status = prevStatus;
+      });
+      toast.error('यह भाग update नहीं हुआ — दुबारा कोशिश करें।');
+    } finally {
+      syncMm();
+    }
+  };
+
+  const markDone = () => { mm.complete = true; syncMm(); };
+  const waitForDone = () => new Promise<void>((resolve) => { doneResolve = resolve; });
+  const resolveDone = () => {
+    const r = doneResolve;
+    doneResolve = null;
+    if (r) r();
+  };
+
+  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, markDone, waitForDone, resolveDone };
+}
+type MindmapController = ReturnType<typeof createMindmapController>;
 
 interface UseGenerationProps {
   pushToHistory: (content: string) => void;
@@ -68,19 +197,24 @@ export function useGeneration({
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('medium');
   // Multi-step notes-pipeline progress (Medium/Detailed/Deep topic generation).
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
-  // Live mind map shown while the topic pipeline runs.
+  // Live mind map shown while a leveled pipeline runs.
   const [mindmap, setMindmap] = useState<MindmapState | null>(null);
-  // Resolver for the Retry/Skip prompt when a section fails mid-pipeline.
-  const mindmapActionRef = useRef<((a: 'retry' | 'skip') => void) | null>(null);
+  // Resolver for the Retry/Skip/Finish prompt when a section fails mid-pipeline.
+  const mindmapActionRef = useRef<((a: MindmapAction) => void) | null>(null);
+  // Add-a-point / node-click / done-button bridge for the active pipeline.
+  const mindmapControllerRef = useRef<MindmapController | null>(null);
 
-  const resolveMindmapAction = (action: 'retry' | 'skip') => {
+  const resolveMindmapAction = (action: MindmapAction) => {
     const r = mindmapActionRef.current;
     mindmapActionRef.current = null;
     if (r) r(action);
   };
-  const waitForMindmapAction = () => new Promise<'retry' | 'skip'>((resolve) => {
+  const waitForMindmapAction = () => new Promise<MindmapAction>((resolve) => {
     mindmapActionRef.current = resolve;
   });
+  const handleMindmapAddMore = (text: string) => { mindmapControllerRef.current?.onAddMore(text); };
+  const handleMindmapNodeClick = (nodeId: string) => { mindmapControllerRef.current?.onNodeClick(nodeId); };
+  const handleMindmapDone = () => { mindmapControllerRef.current?.resolveDone(); };
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi');
   const [aiModel, setAiModel] = useState('gemini-3.1-pro-preview');
@@ -482,6 +616,7 @@ export function useGeneration({
       setNotesProgress(null);
       setMindmap(null);
       mindmapActionRef.current = null;
+      mindmapControllerRef.current = null;
     }
   };
 
@@ -545,6 +680,8 @@ export function useGeneration({
   // (every topic + sub-point) as a live mind map, then expand each segment
   // into structured detailed notes from the transcript. Returns false if the
   // skeleton step produced nothing (caller falls back to the simple path).
+  // Nodes from the same chunk share a groupId (one API call produced them
+  // together) — clicking any of them regenerates that whole chunk deeper.
   const runLeveledTranscriptPipeline = async (text: string, level: 'medium' | 'detailed' | 'deep'): Promise<boolean> => {
     const chunks = chunkTranscript(text, level === 'deep' ? 4500 : 5500);
     const total = chunks.length;
@@ -567,13 +704,18 @@ export function useGeneration({
       subtitle: `Transcript • ${level} pipeline`,
       nodes: [],
       errorNodeId: null,
+      complete: false,
+      addBusy: false,
     };
     const syncMm = () => setMindmap({
-      title: mm.title,
-      subtitle: mm.subtitle,
-      errorNodeId: mm.errorNodeId,
+      ...mm,
       nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
     });
+
+    const extraExpand = (heading: string, num: number, allH: string[]) =>
+      expandTopicSection(mm.title || 'Class Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed');
+    const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
+    mindmapControllerRef.current = controller;
 
     // Phase 1 — build the skeleton of the whole video (outline every segment).
     setNotesProgress({ current: 0, total, label: 'पूरे video का ढांचा बन रहा है…' });
@@ -590,11 +732,13 @@ export function useGeneration({
       if (secs.length) anyRealOutline = true;
       else secs = [{ heading: `भाग ${i + 1}`, subheadings: [] }];
       const before = mm.nodes.length;
+      const groupId = `c${i}`;
       secs.forEach((s, j) => mm.nodes.push({
         id: `c${i}s${j}`,
         label: s.heading,
         status: 'pending',
         children: s.subheadings.map((h, k) => ({ id: `c${i}s${j}l${k}`, label: h })),
+        groupId,
       }));
       chunkRange.push({ start: before, end: mm.nodes.length });
       chunkSections.push(secs);
@@ -619,11 +763,27 @@ export function useGeneration({
       console.error('Transcript title step failed:', err);
     }
 
+    // Section numbers are precomputed from the already-built outline (Phase
+    // 1 ran fully before Phase 2 starts) rather than accumulated as chunks
+    // succeed — this keeps numbering stable regardless of skip/finish/retry
+    // outcomes, and lets every chunk's regenerate closure be registered
+    // up front so skipped/never-reached nodes stay clickable.
+    const chunkStartNum: number[] = [];
+    { let running = 1; for (let i = 0; i < total; i++) { chunkStartNum.push(running); running += chunkSections[i].length; } }
+    for (let i = 0; i < total; i++) {
+      const startNum = chunkStartNum[i];
+      controller.registerGroup(`c${i}`, () => expandTranscriptChunkStructured(
+        chunks[i], chunkSections[i], startNum, i + 1, total, language, DEEP_PRO_MODEL, 'deep',
+      ));
+    }
+
     // Phase 2 — expand each segment following its outline.
-    let sectionCounter = 0;
+    let stoppedEarly = false;
     for (let i = 0; i < total; i++) {
       if (isResettingRef.current) { setMindmap(null); return true; }
       const range = chunkRange[i];
+      const groupId = `c${i}`;
+      const startSectionNumber = chunkStartNum[i];
       for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
       mm.errorNodeId = null;
       syncMm();
@@ -637,7 +797,7 @@ export function useGeneration({
           if (isResettingRef.current) { setMindmap(null); return true; }
           try {
             html = await expandTranscriptChunkStructured(
-              chunks[i], chunkSections[i], sectionCounter + 1, i + 1, total, language, expandModel, level,
+              chunks[i], chunkSections[i], startSectionNumber, i + 1, total, language, expandModel, level,
             );
             ok = true;
             break;
@@ -651,10 +811,162 @@ export function useGeneration({
         for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'error';
         mm.errorNodeId = mm.nodes[range.start].id;
         syncMm();
-        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry या Skip चुनें` });
+        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry, Skip या Finish चुनें` });
         const action = await waitForMindmapAction();
         if (isResettingRef.current) { setMindmap(null); return true; }
         mm.errorNodeId = null;
+        if (action === 'finish') { skipped = true; stoppedEarly = true; break retryLoop; }
+        if (action === 'skip') { skipped = true; break retryLoop; }
+        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
+        syncMm();
+      }
+
+      if (skipped) {
+        // No placeholder text — the node's 'skipped' status is enough, and
+        // it stays clickable to generate on demand (group registered above).
+        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'skipped';
+        syncMm();
+        if (stoppedEarly) break;
+        continue;
+      }
+
+      const partIndex = parts.length;
+      parts.push(html);
+      controller.setGroupPartIndex(groupId, partIndex);
+      for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'done';
+      pushLive();
+      syncMm();
+    }
+
+    if (parts.length === 0) { setMindmap(null); return false; }
+
+    controller.markDone();
+    await controller.waitForDone();
+    if (isResettingRef.current) { setMindmap(null); return true; }
+
+    pushLive(true);
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+    return true;
+  };
+
+  // Medium/Detailed/Deep pasted-TEXT path: same shape as the transcript
+  // pipeline (build the whole skeleton, then expand each chunk following it)
+  // but grounded in pasted notes/content instead of spoken class audio, so
+  // long pastes don't get truncated or silently compressed either. Returns
+  // false if the skeleton step produced nothing (caller falls back to the
+  // single-shot generateFormattedNotes path).
+  const runLeveledTextPipeline = async (text: string, level: 'medium' | 'detailed' | 'deep'): Promise<boolean> => {
+    const chunks = chunkTranscript(text, level === 'deep' ? 4500 : 5500);
+    const total = chunks.length;
+    const outlineModel = level === 'deep' ? DEEP_PRO_MODEL : DEEP_FLASH_MODEL;
+    const expandModel = level === 'deep' ? DEEP_FLASH_MODEL : aiModel;
+
+    const parts: string[] = [];
+    const pushLive = (recordHistory = false) => {
+      if (isResettingRef.current) return;
+      const html = sanitizeHtml(parts.join('\n'));
+      setGeneratedHtml(html);
+      if (recordHistory) pushToHistory(html);
+      localStorage.setItem(STORAGE_KEY, html);
+    };
+
+    const mm: MindmapState = {
+      title: 'Notes', subtitle: `Text • ${level} pipeline`, nodes: [], errorNodeId: null, complete: false, addBusy: false,
+    };
+    const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
+
+    const extraExpand = (heading: string, num: number, allH: string[]) =>
+      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed');
+    const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
+    mindmapControllerRef.current = controller;
+
+    setNotesProgress({ current: 0, total, label: 'पूरे content का ढांचा बन रहा है…' });
+    syncMm();
+    const chunkSections: TranscriptSection[][] = [];
+    const chunkRange: { start: number; end: number }[] = [];
+    let anyRealOutline = false;
+    for (let i = 0; i < total; i++) {
+      if (isResettingRef.current) { setMindmap(null); return true; }
+      setNotesProgress({ current: i + 1, total, label: `ढांचा बन रहा है (भाग ${i + 1}/${total})` });
+      let secs: TranscriptSection[] = [];
+      try { secs = await outlineTextChunk(chunks[i], i + 1, total, language, outlineModel); }
+      catch (err) { console.error(`Text outline chunk ${i + 1} failed:`, err); }
+      if (secs.length) anyRealOutline = true;
+      else secs = [{ heading: `भाग ${i + 1}`, subheadings: [] }];
+      const before = mm.nodes.length;
+      const groupId = `c${i}`;
+      secs.forEach((s, j) => mm.nodes.push({
+        id: `c${i}s${j}`, label: s.heading, status: 'pending',
+        children: s.subheadings.map((h, k) => ({ id: `c${i}s${j}l${k}`, label: h })), groupId,
+      }));
+      chunkRange.push({ start: before, end: mm.nodes.length });
+      chunkSections.push(secs);
+      syncMm();
+    }
+
+    if (!anyRealOutline) { setMindmap(null); return false; }
+
+    try {
+      const titleHtml = sanitizeHtml(await generateTextTitle(chunks[0], language, aiModel));
+      if (titleHtml) {
+        parts.push(titleHtml);
+        const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+        if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
+        syncMm();
+        pushLive();
+      }
+    } catch (err) {
+      console.error('Text title step failed:', err);
+    }
+
+    // Precompute section numbers from the already-built outline so every
+    // chunk's regenerate closure can be registered up front, keeping
+    // skipped/never-reached nodes clickable-to-generate regardless of order.
+    const chunkStartNum: number[] = [];
+    { let running = 1; for (let i = 0; i < total; i++) { chunkStartNum.push(running); running += chunkSections[i].length; } }
+    for (let i = 0; i < total; i++) {
+      const startNum = chunkStartNum[i];
+      controller.registerGroup(`c${i}`, () => expandTextChunkStructured(
+        chunks[i], chunkSections[i], startNum, i + 1, total, language, DEEP_PRO_MODEL, 'deep',
+      ));
+    }
+
+    let stoppedEarly = false;
+    for (let i = 0; i < total; i++) {
+      if (isResettingRef.current) { setMindmap(null); return true; }
+      const range = chunkRange[i];
+      const groupId = `c${i}`;
+      const startSectionNumber = chunkStartNum[i];
+      for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
+      mm.errorNodeId = null;
+      syncMm();
+      setNotesProgress({ current: i + 1, total, label: `detailed notes बन रहे हैं (भाग ${i + 1}/${total})` });
+
+      let html = '';
+      let skipped = false;
+      retryLoop: while (true) {
+        let ok = false;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          if (isResettingRef.current) { setMindmap(null); return true; }
+          try {
+            html = await expandTextChunkStructured(chunks[i], chunkSections[i], startSectionNumber, i + 1, total, language, expandModel, level);
+            ok = true;
+            break;
+          } catch (err) {
+            console.error(`Text expand chunk ${i + 1} attempt ${attempt} failed:`, err);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
+          }
+        }
+        if (ok) break retryLoop;
+
+        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'error';
+        mm.errorNodeId = mm.nodes[range.start].id;
+        syncMm();
+        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry, Skip या Finish चुनें` });
+        const action = await waitForMindmapAction();
+        if (isResettingRef.current) { setMindmap(null); return true; }
+        mm.errorNodeId = null;
+        if (action === 'finish') { skipped = true; stoppedEarly = true; break retryLoop; }
         if (action === 'skip') { skipped = true; break retryLoop; }
         for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
         syncMm();
@@ -663,19 +975,157 @@ export function useGeneration({
       if (skipped) {
         for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'skipped';
         syncMm();
-        parts.push(`<div class="note-box">⚠️ भाग ${i + 1} skip किया गया।</div>`);
-        pushLive();
+        if (stoppedEarly) break;
         continue;
       }
 
-      sectionCounter += (html.match(/<h2[\s>]/gi) || []).length || chunkSections[i].length;
+      const partIndex = parts.length;
+      parts.push(html);
+      controller.setGroupPartIndex(groupId, partIndex);
       for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'done';
-      if (html) { parts.push(html); pushLive(); }
+      pushLive();
       syncMm();
     }
 
-    setMindmap(null);
-    if (parts.length === 0) return false;
+    if (parts.length === 0) { setMindmap(null); return false; }
+
+    controller.markDone();
+    await controller.waitForDone();
+    if (isResettingRef.current) { setMindmap(null); return true; }
+
+    pushLive(true);
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+    return true;
+  };
+
+  // Medium/Detailed/Deep uploaded-FILE path: analyze the file(s) once into a
+  // structured outline, then expand section by section — re-sending the
+  // file(s) with every call so each section stays grounded in the real
+  // content instead of drifting on inference. Returns false if the outline
+  // step produced nothing (caller falls back to the single-shot
+  // generateFileNotes path).
+  const runLeveledFilePipeline = async (
+    uploadedFiles: { name: string; mimeType: string; data: string }[],
+    level: 'medium' | 'detailed' | 'deep',
+  ): Promise<boolean> => {
+    const fileParts = uploadedFiles.map(f => ({ data: f.data, mimeType: f.mimeType }));
+    const outlineModel = level === 'deep' ? DEEP_PRO_MODEL : DEEP_FLASH_MODEL;
+    const expandModel = level === 'deep' ? DEEP_FLASH_MODEL : aiModel;
+
+    const parts: string[] = [];
+    const pushLive = (recordHistory = false) => {
+      if (isResettingRef.current) return;
+      const html = sanitizeHtml(parts.join('\n'));
+      setGeneratedHtml(html);
+      if (recordHistory) pushToHistory(html);
+      localStorage.setItem(STORAGE_KEY, html);
+    };
+
+    const mm: MindmapState = {
+      title: 'Notes', subtitle: `Files • ${level} pipeline`, nodes: [], errorNodeId: null, complete: false, addBusy: false,
+    };
+    const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
+
+    const extraExpand = (heading: string, num: number, allH: string[]) =>
+      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed');
+    const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
+    mindmapControllerRef.current = controller;
+
+    setNotesProgress({ current: 0, total: 1, label: 'Files का ढांचा बन रहा है…' });
+    syncMm();
+
+    let sections: TranscriptSection[] = [];
+    try { sections = await outlineFiles(fileParts, language, outlineModel); }
+    catch (err) { console.error('File outline failed:', err); }
+
+    if (!sections.length) { setMindmap(null); return false; }
+
+    const allHeadings = sections.map(s => s.heading);
+    const total = sections.length;
+
+    mm.nodes = sections.map((s, i) => ({
+      id: `s${i}`, label: s.heading, status: 'pending' as const,
+      children: (s.subheadings || []).map((h, j) => ({ id: `s${i}-${j}`, label: h })), groupId: `s${i}`,
+    }));
+    syncMm();
+
+    try {
+      const titleHtml = sanitizeHtml(await generateFilesTitle(fileParts, language, aiModel));
+      if (titleHtml) {
+        parts.push(titleHtml);
+        const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+        if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
+        syncMm();
+        pushLive();
+      }
+    } catch (err) {
+      console.error('File title step failed:', err);
+    }
+
+    // Register every node's regenerate closure up front so skipped/
+    // never-reached nodes stay clickable-to-generate while the map is open.
+    sections.forEach((s, i) => controller.registerGroup(mm.nodes[i].groupId, () =>
+      expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep')));
+
+    let stoppedEarly = false;
+    for (let i = 0; i < sections.length; i++) {
+      if (isResettingRef.current) { setMindmap(null); return true; }
+      mm.nodes[i].status = 'active';
+      mm.errorNodeId = null;
+      syncMm();
+      setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1}/${total}: ${sections[i].heading}` });
+
+      let html = '';
+      let skipped = false;
+      retryLoop: while (true) {
+        let ok = false;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          if (isResettingRef.current) { setMindmap(null); return true; }
+          try {
+            html = await expandFilesSection(fileParts, sections[i], i + 1, allHeadings, language, expandModel, level);
+            ok = true;
+            break;
+          } catch (err) {
+            console.error(`File section ${i + 1} attempt ${attempt} failed:`, err);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
+          }
+        }
+        if (ok) break retryLoop;
+
+        mm.nodes[i].status = 'error';
+        mm.errorNodeId = mm.nodes[i].id;
+        syncMm();
+        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry, Skip या Finish चुनें` });
+        const action = await waitForMindmapAction();
+        if (isResettingRef.current) { setMindmap(null); return true; }
+        mm.errorNodeId = null;
+        if (action === 'finish') { skipped = true; stoppedEarly = true; break retryLoop; }
+        if (action === 'skip') { skipped = true; break retryLoop; }
+        mm.nodes[i].status = 'active';
+        syncMm();
+      }
+
+      if (skipped) {
+        mm.nodes[i].status = 'skipped';
+        syncMm();
+        if (stoppedEarly) break;
+        continue;
+      }
+
+      const partIndex = parts.length;
+      parts.push(html);
+      controller.setGroupPartIndex(mm.nodes[i].groupId, partIndex);
+      mm.nodes[i].status = 'done';
+      syncMm();
+      pushLive();
+    }
+
+    if (parts.length === 0) { setMindmap(null); return false; }
+
+    controller.markDone();
+    await controller.waitForDone();
+    if (isResettingRef.current) { setMindmap(null); return true; }
+
     pushLive(true);
     if (window.innerWidth < 1024) setSidebarOpen(false);
     return true;
@@ -731,7 +1181,10 @@ export function useGeneration({
   // Medium/Detailed/Deep topic pipeline: plan an outline, then expand each
   // section in its own call and append live so a broad topic is covered
   // end-to-end without the single-call output cap truncating it. A live mind
-  // map tracks every section's status; a failed section pauses for Retry/Skip.
+  // map tracks every section's status; a failed section pauses for
+  // Retry/Skip/Finish-now. Once complete, the map stays open — the user can
+  // add extra points or click any node to regenerate it deeper — until they
+  // press Done.
   //
   //   Medium   → outline (Pro/selected) + section expand (selected model).
   //   Detailed → same + a completeness "what's missing?" pass.
@@ -759,13 +1212,18 @@ export function useGeneration({
       : level === 'detailed' ? 'Detailed pipeline' : 'Medium pipeline';
 
     // Local mutable mind map; re-clone into state on every change to re-render.
-    const mm: MindmapState = { title: topic, subtitle, nodes: [], errorNodeId: null };
+    const mm: MindmapState = { title: topic, subtitle, nodes: [], errorNodeId: null, complete: false, addBusy: false };
     const syncMm = () => setMindmap({
-      title: mm.title,
-      subtitle: mm.subtitle,
-      errorNodeId: mm.errorNodeId,
+      ...mm,
       nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
     });
+
+    // "Add a point" always uses general-knowledge elaboration at max depth on
+    // the chosen model — a lightweight companion to the main pipeline.
+    const extraExpand = (heading: string, num: number, allH: string[]) =>
+      expandTopicSection(topic, { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed');
+    const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
+    mindmapControllerRef.current = controller;
 
     setNotesProgress({ current: 0, total: 1, label: 'Structure तैयार हो रहा है…' });
     syncMm();
@@ -802,6 +1260,7 @@ export function useGeneration({
       label: s.heading,
       status: 'pending' as const,
       children: (s.subheadings || []).map((h, j) => ({ id: `s${i}-${j}`, label: h })),
+      groupId: `s${i}`,
     }));
     syncMm();
 
@@ -814,7 +1273,22 @@ export function useGeneration({
     const expandOne = (i: number) => level === 'deep'
       ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, DEEP_FLASH_MODEL)
       : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium' | 'detailed');
+    // Clicking a node (done/error/never-attempted) always regenerates via Pro
+    // at max depth, one strength level above whatever the automatic pass used.
+    const deepenOne = (i: number) =>
+      expandDeepSection(topic, sections[i], i + 1, allHeadings, [sections[i].heading], language, DEEP_PRO_MODEL);
+    const runCompleteness = () => generateAdditionalTopicAspects(
+      topic, allHeadings, sections.length + 1, language, level === 'deep' ? DEEP_PRO_MODEL : aiModel,
+    );
 
+    // Register every node's regenerate closure UP FRONT (before generation
+    // even starts) so every node — including ones later skipped or never
+    // reached because the user chose "Finish now" — stays clickable to
+    // generate/deepen on demand while the map is open.
+    sections.forEach((_, i) => controller.registerGroup(mm.nodes[i].groupId, () => deepenOne(i)));
+    if (hasCompletenessPass) controller.registerGroup('extra', runCompleteness);
+
+    let stoppedEarly = false;
     for (let i = 0; i < sections.length; i++) {
       if (isResettingRef.current) { setMindmap(null); return; }
       mm.nodes[i].status = 'active';
@@ -825,7 +1299,7 @@ export function useGeneration({
       let html = '';
       let skipped = false;
       // Two silent auto-retries; if still failing, pause on the node for the
-      // user to Retry or Skip (loops until one resolves).
+      // user to Retry, Skip, or Finish now with whatever's already built.
       retryLoop: while (true) {
         let ok = false;
         for (let attempt = 1; attempt <= 2; attempt++) {
@@ -841,53 +1315,76 @@ export function useGeneration({
         mm.nodes[i].status = 'error';
         mm.errorNodeId = mm.nodes[i].id;
         syncMm();
-        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry या Skip चुनें` });
+        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry, Skip या Finish चुनें` });
         const action = await waitForMindmapAction();
         if (isResettingRef.current) { setMindmap(null); return; }
         mm.errorNodeId = null;
+        if (action === 'finish') { skipped = true; stoppedEarly = true; break retryLoop; }
         if (action === 'skip') { skipped = true; break retryLoop; }
         mm.nodes[i].status = 'active';
         syncMm();
       }
 
       if (skipped) {
+        // Leave content untouched (no placeholder text) — the node's
+        // 'skipped' status is enough, and it stays clickable to generate
+        // on demand later since its group was registered up front.
         mm.nodes[i].status = 'skipped';
         syncMm();
-        parts.push(`<div class="note-box">⚠️ "${escapeHtml(sections[i].heading)}" इस भाग को skip किया गया।</div>`);
-        pushLive();
+        if (stoppedEarly) break;
         continue;
       }
 
+      const partIndex = parts.length;
+      parts.push(html);
+      controller.setGroupPartIndex(mm.nodes[i].groupId, partIndex);
       mm.nodes[i].status = 'done';
       syncMm();
-      if (html) { parts.push(html); pushLive(); }
+      pushLive();
     }
 
-    // Detailed & Deep: a final "what's still missing?" completeness pass.
-    if (hasCompletenessPass && !isResettingRef.current) {
-      mm.nodes.push({ id: 'extra', label: 'बचे हुए ज़रूरी बिंदु', status: 'active', children: [] });
+    // Detailed & Deep: a final "what's still missing?" completeness pass —
+    // skipped if the user chose to finish early (the node stays clickable).
+    if (hasCompletenessPass) {
+      const extraId = 'extra';
+      mm.nodes.push({ id: extraId, label: 'बचे हुए ज़रूरी बिंदु', status: stoppedEarly ? 'skipped' : 'active', children: [], groupId: extraId });
       syncMm();
-      setNotesProgress({ current: total, total, label: 'बचे हुए ज़रूरी बिंदु जोड़े जा रहे हैं…' });
-      try {
-        const extra = await generateAdditionalTopicAspects(
-          topic, allHeadings, sections.length + 1, language, level === 'deep' ? DEEP_PRO_MODEL : aiModel,
-        );
-        if (extra && extra.replace(/<[^>]*>/g, '').trim().length > 20) { parts.push(extra); pushLive(); }
-        mm.nodes[mm.nodes.length - 1].status = 'done';
-      } catch (err) {
-        console.error('Completeness pass failed:', err);
-        mm.nodes[mm.nodes.length - 1].status = 'skipped';
+      if (!stoppedEarly && !isResettingRef.current) {
+        setNotesProgress({ current: total, total, label: 'बचे हुए ज़रूरी बिंदु जोड़े जा रहे हैं…' });
+        try {
+          const extra = await runCompleteness();
+          const node = mm.nodes[mm.nodes.length - 1];
+          if (extra && extra.replace(/<[^>]*>/g, '').trim().length > 20) {
+            const partIndex = parts.length;
+            parts.push(extra);
+            controller.setGroupPartIndex(extraId, partIndex);
+            pushLive();
+            node.status = 'done';
+          } else {
+            node.status = 'skipped';
+          }
+        } catch (err) {
+          console.error('Completeness pass failed:', err);
+          mm.nodes[mm.nodes.length - 1].status = 'skipped';
+        }
+        syncMm();
       }
-      syncMm();
     }
 
-    setMindmap(null);
     if (parts.length <= 1) {
       // Nothing but the title survived — fall back to single-shot.
+      setMindmap(null);
       const single = await generateTopicContent(topic, language, aiModel);
       finishGeneration(single);
       return;
     }
+
+    // Stay open for review / "add a point" / deepen-a-node until the user
+    // explicitly presses Done — see createMindmapController.
+    controller.markDone();
+    await controller.waitForDone();
+    if (isResettingRef.current) { setMindmap(null); return; }
+
     pushLive(true); // record the finished notes as one clean undo entry
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
@@ -931,7 +1428,7 @@ export function useGeneration({
           // Medium/Detailed → multi-step outline+expand pipeline (manages its
           // own live state); nothing more to finishGeneration here.
           await runLeveledTopicPipeline(topicInput.trim(), detailLevel);
-          toast.success('Detailed notes तैयार!');
+          if (!isResettingRef.current) toast.success('Detailed notes तैयार!');
           return;
         }
         else result = await generateTopicContent(topicInput, language, aiModel);
@@ -939,10 +1436,22 @@ export function useGeneration({
         // outputStyle === 'table' is handled by handleGenerateTable, not this
         // path — narrow the type here so the AI service signature stays clean.
         const docStyle = (outputStyle === 'table' ? 'notes' : outputStyle) as 'notes' | 'upsc' | 'research';
-        result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
+        if (docStyle === 'notes' && detailLevel !== 'normal') {
+          const built = await runLeveledTextPipeline(textInput.trim(), detailLevel);
+          if (!built) result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
+          else { if (!isResettingRef.current) toast.success('Detailed notes तैयार!'); return; }
+        } else {
+          result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
+        }
       } else {
         const docStyle = (outputStyle === 'table' ? 'notes' : outputStyle) as 'notes' | 'upsc' | 'research';
-        result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
+        if (docStyle === 'notes' && detailLevel !== 'normal') {
+          const built = await runLeveledFilePipeline(files, detailLevel);
+          if (!built) result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
+          else { if (!isResettingRef.current) toast.success('Detailed notes तैयार!'); return; }
+        } else {
+          result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
+        }
       }
       finishGeneration(result);
       toast.success('Content generated successfully!');
@@ -956,6 +1465,7 @@ export function useGeneration({
       setNotesProgress(null);
       setMindmap(null);
       mindmapActionRef.current = null;
+      mindmapControllerRef.current = null;
     }
   };
 
@@ -1048,8 +1558,11 @@ export function useGeneration({
     setTranslateResumeState(null);
     setTranscriptProgress(null);
     setNotesProgress(null);
-    // Unblock a pipeline paused on a Retry/Skip prompt, then hide the map.
+    // Unblock a pipeline paused on a Retry/Skip/Finish prompt or waiting on
+    // the Done button, then hide the map.
     if (mindmapActionRef.current) resolveMindmapAction('skip');
+    mindmapControllerRef.current?.resolveDone();
+    mindmapControllerRef.current = null;
     setMindmap(null);
     setOnePagerTopics([]);
     setTimeout(() => { isResettingRef.current = false; }, 100);
@@ -1103,5 +1616,8 @@ export function useGeneration({
     handleGenerateTranscript,
     mindmap,
     resolveMindmapAction,
+    handleMindmapAddMore,
+    handleMindmapNodeClick,
+    handleMindmapDone,
   };
 }
