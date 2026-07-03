@@ -222,7 +222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           )}
 
-          {mode !== 'transcript' && outputStyle === 'notes' && (
+          {(mode === 'transcript' || outputStyle === 'notes') && (
             <SidebarDetailLevel detailLevel={detailLevel} setDetailLevel={setDetailLevel} mode={mode} />
           )}
 

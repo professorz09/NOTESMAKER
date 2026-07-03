@@ -164,3 +164,135 @@ export const generateNotesFromTranscriptChunk = async (
 
   return cleanHtmlOutput(response.text || '');
 };
+
+// ---------------------------------------------------------------------------
+// Leveled transcript pipeline (Medium / Detailed / Deep).
+//
+// Instead of turning each chunk straight into prose, the leveled pipeline
+// first builds the SKELETON of the whole video — every topic + sub-point the
+// teacher covers — then expands that structure segment by segment. This gives
+// a proper hierarchical structure (and a live mind map), while still processing
+// chunk-by-chunk so nothing is dropped from a multi-hour class.
+// ---------------------------------------------------------------------------
+
+export interface TranscriptSection {
+  heading: string;
+  subheadings: string[];
+}
+
+function parseSectionsJson(raw: string): TranscriptSection[] {
+  if (!raw) return [];
+  let text = raw.trim().replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return [];
+  try {
+    const obj = JSON.parse(text.slice(start, end + 1));
+    if (!Array.isArray(obj.sections)) return [];
+    return obj.sections
+      .map((s: any) => ({
+        heading: String(s?.heading || s?.title || '').trim(),
+        subheadings: Array.isArray(s?.subheadings)
+          ? s.subheadings.map((x: any) => String(x || '').trim()).filter(Boolean)
+          : [],
+      }))
+      .filter((s: TranscriptSection) => s.heading);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Phase 1 — extract the structured skeleton (topics + sub-points) the teacher
+ * covers in ONE transcript segment. No explanation yet, just the structure.
+ */
+export const outlineTranscriptChunk = async (
+  chunkText: string,
+  part: number,
+  total: number,
+  language: string,
+  modelName: string,
+): Promise<TranscriptSection[]> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Expert note-structurer.
+    Task: Below is segment ${part} of ${total} of a SPOKEN class/lecture transcript. Extract the STRUCTURED OUTLINE of every topic and key sub-point the teacher actually covers in THIS segment — the skeleton of all points, in the order taught. Ignore filler, greetings and off-topic tangents. Do NOT explain anything yet; only the structure.
+
+    Language for headings: ${language}
+    Transcript segment:
+    """${chunkText}"""
+
+    Output STRICT JSON ONLY (no markdown/code fences):
+    { "sections": [ { "heading": "specific topic", "subheadings": ["specific sub-point", "..."] } ] }
+
+    Capture EVERY real point — do not merge or drop any. Headings must be concrete and specific to what was actually said, never generic placeholders.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: NOTES_GEN_CONFIG,
+  });
+
+  return parseSectionsJson(response.text || '');
+};
+
+/**
+ * Phase 2 — expand ONE segment into detailed, structured notes that follow the
+ * segment's outline, drawing all content from the transcript text. Depth scales
+ * with the chosen level (Deep expands sub-points into their own sub-sections).
+ */
+export const expandTranscriptChunkStructured = async (
+  chunkText: string,
+  sections: TranscriptSection[],
+  startSectionNumber: number,
+  part: number,
+  total: number,
+  language: string,
+  modelName: string,
+  level: 'medium' | 'detailed' | 'deep',
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const depth = level === 'deep'
+    ? 'Go MAXIMALLY deep on every point AND sub-point: full explanation, mechanism, and every fact, date, number, name, definition and example the teacher stated — expand each sub-point into its own <h4> where it has parts. Miss nothing.'
+    : level === 'detailed'
+      ? 'Explain every point and sub-point thoroughly, with the concrete facts and examples from the transcript.'
+      : 'Give each point a solid, clear explanation using the key facts from the transcript.';
+
+  const outlineList = sections
+    .map((s, i) => `${startSectionNumber + i}. ${s.heading}${s.subheadings.length ? ' — ' + s.subheadings.join('; ') : ''}`)
+    .join('\n');
+
+  const prompt = `
+    Role: Senior Subject-Matter Expert & Textbook Author.
+    Task: Write DETAILED, structured study notes for segment ${part} of ${total} of a class transcript, following the outline below. Draw ALL content from the transcript segment — capture every fact, date, number, name, definition and example the teacher stated. This is NOT a summary; do not shorten or drop points.
+
+    Language: ${language}
+
+    Outline to follow (number the sections continuing from ${startSectionNumber}):
+    ${outlineList}
+
+    Transcript segment (your source):
+    """${chunkText}"""
+
+    ${depth}
+
+    FORMAT:
+    - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
+    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, <div class="note-box">…</div> for important extra facts/examples/exceptions.
+    - Add a <table> where the segment compares or lists data; add ONE clean SVG inside <div class="flowchart-container"> (no border, use viewBox) where a process/hierarchy/timeline is described.
+    - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
+
+    Output: Return ONLY raw HTML. No markdown, no code fences.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: DETAILED_NOTES_CONFIG,
+  });
+
+  return cleanHtmlOutput(response.text || '');
+};

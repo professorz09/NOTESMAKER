@@ -15,6 +15,8 @@ import {
   chunkTranscript,
   generateTranscriptTitle,
   generateNotesFromTranscriptChunk,
+  outlineTranscriptChunk,
+  expandTranscriptChunkStructured,
   generateTopicOutline,
   expandTopicSection,
   generateAdditionalTopicAspects,
@@ -23,6 +25,7 @@ import {
   type UPSCAnswerStyle,
   type UPSCSubject,
   type DetailLevel,
+  type TranscriptSection,
 } from '../services/ai/index';
 import { GenerationStatus, type MindmapState } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -460,6 +463,30 @@ export function useGeneration({
     }
 
     setStatus(GenerationStatus.GENERATING_CHAPTER);
+    try {
+      if (detailLevel === 'normal') {
+        await runSimpleTranscriptPipeline(text);
+      } else {
+        const built = await runLeveledTranscriptPipeline(text, detailLevel);
+        if (!built) await runSimpleTranscriptPipeline(text); // structure step failed → fall back
+      }
+      if (!isResettingRef.current) toast.success('Transcript notes तैयार!');
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        toast.error(`Transcript notes failed: ${error.message || 'पुनः प्रयास करें।'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setTranscriptProgress(null);
+      setNotesProgress(null);
+      setMindmap(null);
+      mindmapActionRef.current = null;
+    }
+  };
+
+  // Normal transcript path: title + straight per-chunk detailed notes.
+  const runSimpleTranscriptPipeline = async (text: string) => {
     const chunks = chunkTranscript(text, 5500);
     const total = chunks.length;
     setTranscriptProgress({ current: 0, total, step: 'structure' });
@@ -474,62 +501,184 @@ export function useGeneration({
     };
 
     try {
-      // Step 1 — document title + overview.
-      try {
-        const titleHtml = sanitizeHtml(await generateTranscriptTitle(chunks[0], language, aiModel));
-        if (titleHtml) { parts.push(titleHtml); pushLive(); }
-      } catch (err) {
-        console.error('Transcript title step failed:', err);
+      const titleHtml = sanitizeHtml(await generateTranscriptTitle(chunks[0], language, aiModel));
+      if (titleHtml) { parts.push(titleHtml); pushLive(); }
+    } catch (err) {
+      console.error('Transcript title step failed:', err);
+    }
+
+    let sectionCount = 0;
+    for (let i = 0; i < total; i++) {
+      if (isResettingRef.current) return;
+      setTranscriptProgress({ current: i + 1, total, step: 'detail' });
+
+      let chunkHtml = '';
+      let ok = false;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          chunkHtml = sanitizeHtml(await generateNotesFromTranscriptChunk(
+            chunks[i], i + 1, total, language, aiModel, i === 0, sectionCount + 1,
+          ));
+          ok = true;
+          break;
+        } catch (err) {
+          console.error(`Transcript chunk ${i + 1} attempt ${attempt} failed:`, err);
+          if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * attempt));
+        }
       }
 
-      // Step 2… — detailed notes per chunk, with continued section numbering.
-      let sectionCount = 0;
-      for (let i = 0; i < total; i++) {
-        if (isResettingRef.current) return;
-        setTranscriptProgress({ current: i + 1, total, step: 'detail' });
+      if (!ok || !chunkHtml) {
+        parts.push(`<div class="note-box">⚠️ इस भाग (${i + 1}/${total}) के notes generate नहीं हुए — बाकी notes नीचे जारी हैं। इस भाग के लिए दुबारा प्रयास करें।</div>`);
+        pushLive();
+        continue;
+      }
 
-        let chunkHtml = '';
+      sectionCount += (chunkHtml.match(/<h2[\s>]/gi) || []).length;
+      parts.push(chunkHtml);
+      pushLive();
+    }
+
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+  };
+
+  // Medium/Detailed/Deep transcript path: build the full video's skeleton
+  // (every topic + sub-point) as a live mind map, then expand each segment
+  // into structured detailed notes from the transcript. Returns false if the
+  // skeleton step produced nothing (caller falls back to the simple path).
+  const runLeveledTranscriptPipeline = async (text: string, level: 'medium' | 'detailed' | 'deep'): Promise<boolean> => {
+    const chunks = chunkTranscript(text, level === 'deep' ? 4500 : 5500);
+    const total = chunks.length;
+    // Deep uses Pro for the structure and Flash for the (many) expansions;
+    // Medium/Detailed structure fast on Flash and expand on the chosen model.
+    const outlineModel = level === 'deep' ? DEEP_PRO_MODEL : DEEP_FLASH_MODEL;
+    const expandModel = level === 'deep' ? DEEP_FLASH_MODEL : aiModel;
+
+    const parts: string[] = [];
+    const pushLive = (recordHistory = false) => {
+      if (isResettingRef.current) return;
+      const html = sanitizeHtml(parts.join('\n'));
+      setGeneratedHtml(html);
+      if (recordHistory) pushToHistory(html);
+      localStorage.setItem(STORAGE_KEY, html);
+    };
+
+    const mm: MindmapState = {
+      title: 'Class Notes',
+      subtitle: `Transcript • ${level} pipeline`,
+      nodes: [],
+      errorNodeId: null,
+    };
+    const syncMm = () => setMindmap({
+      title: mm.title,
+      subtitle: mm.subtitle,
+      errorNodeId: mm.errorNodeId,
+      nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
+    });
+
+    // Phase 1 — build the skeleton of the whole video (outline every segment).
+    setNotesProgress({ current: 0, total, label: 'पूरे video का ढांचा बन रहा है…' });
+    syncMm();
+    const chunkSections: TranscriptSection[][] = [];
+    const chunkRange: { start: number; end: number }[] = [];
+    let anyRealOutline = false;
+    for (let i = 0; i < total; i++) {
+      if (isResettingRef.current) { setMindmap(null); return true; }
+      setNotesProgress({ current: i + 1, total, label: `ढांचा बन रहा है (भाग ${i + 1}/${total})` });
+      let secs: TranscriptSection[] = [];
+      try { secs = await outlineTranscriptChunk(chunks[i], i + 1, total, language, outlineModel); }
+      catch (err) { console.error(`Transcript outline chunk ${i + 1} failed:`, err); }
+      if (secs.length) anyRealOutline = true;
+      else secs = [{ heading: `भाग ${i + 1}`, subheadings: [] }];
+      const before = mm.nodes.length;
+      secs.forEach((s, j) => mm.nodes.push({
+        id: `c${i}s${j}`,
+        label: s.heading,
+        status: 'pending',
+        children: s.subheadings.map((h, k) => ({ id: `c${i}s${j}l${k}`, label: h })),
+      }));
+      chunkRange.push({ start: before, end: mm.nodes.length });
+      chunkSections.push(secs);
+      syncMm();
+    }
+
+    // Structure step wholesale-failed (e.g. network) → let the caller fall
+    // back to the simple per-chunk pipeline the user knows works.
+    if (!anyRealOutline) { setMindmap(null); return false; }
+
+    // Title + overview.
+    try {
+      const titleHtml = sanitizeHtml(await generateTranscriptTitle(chunks[0], language, aiModel));
+      if (titleHtml) {
+        parts.push(titleHtml);
+        const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+        if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
+        syncMm();
+        pushLive();
+      }
+    } catch (err) {
+      console.error('Transcript title step failed:', err);
+    }
+
+    // Phase 2 — expand each segment following its outline.
+    let sectionCounter = 0;
+    for (let i = 0; i < total; i++) {
+      if (isResettingRef.current) { setMindmap(null); return true; }
+      const range = chunkRange[i];
+      for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
+      mm.errorNodeId = null;
+      syncMm();
+      setNotesProgress({ current: i + 1, total, label: `detailed notes बन रहे हैं (भाग ${i + 1}/${total})` });
+
+      let html = '';
+      let skipped = false;
+      retryLoop: while (true) {
         let ok = false;
         for (let attempt = 1; attempt <= 2; attempt++) {
+          if (isResettingRef.current) { setMindmap(null); return true; }
           try {
-            chunkHtml = sanitizeHtml(await generateNotesFromTranscriptChunk(
-              chunks[i], i + 1, total, language, aiModel, i === 0, sectionCount + 1,
-            ));
+            html = await expandTranscriptChunkStructured(
+              chunks[i], chunkSections[i], sectionCounter + 1, i + 1, total, language, expandModel, level,
+            );
             ok = true;
             break;
           } catch (err) {
-            console.error(`Transcript chunk ${i + 1} attempt ${attempt} failed:`, err);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * attempt));
+            console.error(`Transcript expand chunk ${i + 1} attempt ${attempt} failed:`, err);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
           }
         }
+        if (ok) break retryLoop;
 
-        if (!ok || !chunkHtml) {
-          // Don't lose the whole run for one bad chunk — flag it and continue.
-          parts.push(`<div class="note-box">⚠️ इस भाग (${i + 1}/${total}) के notes generate नहीं हुए — बाकी notes नीचे जारी हैं। इस भाग के लिए दुबारा प्रयास करें।</div>`);
-          pushLive();
-          continue;
-        }
+        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'error';
+        mm.errorNodeId = mm.nodes[range.start].id;
+        syncMm();
+        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry या Skip चुनें` });
+        const action = await waitForMindmapAction();
+        if (isResettingRef.current) { setMindmap(null); return true; }
+        mm.errorNodeId = null;
+        if (action === 'skip') { skipped = true; break retryLoop; }
+        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
+        syncMm();
+      }
 
-        sectionCount += (chunkHtml.match(/<h2[\s>]/gi) || []).length;
-        parts.push(chunkHtml);
+      if (skipped) {
+        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'skipped';
+        syncMm();
+        parts.push(`<div class="note-box">⚠️ भाग ${i + 1} skip किया गया।</div>`);
         pushLive();
+        continue;
       }
 
-      if (parts.length === 0) {
-        toast.error('Transcript notes generate नहीं हुए। पुनः प्रयास करें।');
-        return;
-      }
-      if (window.innerWidth < 1024) setSidebarOpen(false);
-      toast.success(`Transcript notes तैयार! (${total} भाग)`);
-    } catch (error: any) {
-      if (!isResettingRef.current) {
-        console.error(error);
-        toast.error(`Transcript notes failed: ${error.message || 'पुनः प्रयास करें।'}`);
-      }
-    } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
-      setTranscriptProgress(null);
+      sectionCounter += (html.match(/<h2[\s>]/gi) || []).length || chunkSections[i].length;
+      for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'done';
+      if (html) { parts.push(html); pushLive(); }
+      syncMm();
     }
+
+    setMindmap(null);
+    if (parts.length === 0) return false;
+    pushLive(true);
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+    return true;
   };
 
   const handleAddOnePager = async () => {
