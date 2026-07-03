@@ -115,6 +115,7 @@ const App: React.FC = () => {
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     detailLevel, setDetailLevel,
+    groundingEnabled, setGroundingEnabled,
     notesProgress,
     status,
     language, setLanguage,
@@ -564,6 +565,7 @@ const App: React.FC = () => {
         upscSubject={upscSubject} setUpscSubject={setUpscSubject}
         wordLimit={wordLimit} setWordLimit={setWordLimit}
         detailLevel={detailLevel} setDetailLevel={setDetailLevel}
+        groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled}
         notesProgress={notesProgress}
         topicInput={topicInput} setTopicInput={setTopicInput}
         textInput={textInput} setTextInput={setTextInput}

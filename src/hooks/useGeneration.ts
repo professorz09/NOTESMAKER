@@ -28,6 +28,7 @@ import {
   outlineFiles,
   generateFilesTitle,
   expandFilesSection,
+  scanSectionsForGroundingAdditions,
   type UPSCAnswerStyle,
   type UPSCSubject,
   type RefinementOptions,
@@ -212,6 +213,13 @@ export function useGeneration({
   const [tableInstruction, setTableInstruction] = useState('');
   const [wordLimit, setWordLimit] = useState(250);
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('medium');
+  // Optional final pipeline step (off by default — a leveled generation
+  // behaves exactly as before when this is off). When on, after every
+  // section is generated, one extra call scans all section headings and
+  // adds a live-search-grounded "current update" box only to the sections
+  // that genuinely need current/latest information — everything else is
+  // left untouched.
+  const [groundingEnabled, setGroundingEnabled] = useState(false);
   // Multi-step notes-pipeline progress (Medium/Detailed/Deep topic generation).
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
@@ -232,6 +240,45 @@ export function useGeneration({
   const handleMindmapAddMore = (text: string) => { mindmapControllerRef.current?.onAddMore(text); };
   const handleMindmapNodeClick = (nodeId: string, instruction?: string) => { mindmapControllerRef.current?.onNodeClick(nodeId, instruction); };
   const handleMindmapDone = () => { mindmapControllerRef.current?.resolveDone(); };
+
+  // Shared "Grounding" pass, run once by every leveled pipeline right after
+  // all its sections exist, before the mind map hands control back to the
+  // user. No-ops instantly if the toggle is off — existing behavior is
+  // unchanged. `entries` describes each already-generated unit (one topic
+  // section, or one transcript/text chunk covering several headings) with
+  // where its content lives in `parts[]` so an addition can be appended in
+  // place. A section with `partIndex < 0` (never actually generated, e.g.
+  // skipped) is automatically excluded by the caller.
+  const runGroundingPass = async (
+    contextTitle: string,
+    mm: MindmapState,
+    syncMm: () => void,
+    parts: string[],
+    pushLive: (recordHistory?: boolean) => void,
+    entries: { heading: string; subheadings: string[]; partIndex: number; nodeIds: string[] }[],
+  ) => {
+    if (!groundingEnabled || isResettingRef.current || !entries.length) return;
+    setNotesProgress({ current: entries.length, total: entries.length, label: '🌐 latest जानकारी के लिए grounding scan हो रहा है…' });
+    try {
+      const additions = await scanSectionsForGroundingAdditions(
+        contextTitle,
+        entries.map(e => ({ heading: e.heading, subheadings: e.subheadings })),
+        language,
+        DEEP_PRO_MODEL,
+      );
+      if (!additions.length || isResettingRef.current) return;
+      for (const add of additions) {
+        const entry = entries[add.sectionIndex];
+        if (!entry) continue;
+        parts[entry.partIndex] = parts[entry.partIndex] + '\n' + sanitizeHtml(add.additionHtml);
+      }
+      pushLive(true);
+      syncMm();
+      toast.success(`🌐 ${additions.length} भाग में latest जानकारी जोड़ी गई।`);
+    } catch (err) {
+      console.error('Grounding pass failed (notes are still complete without it):', err);
+    }
+  };
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi');
   const [aiModel, setAiModel] = useState('gemini-3.1-pro-preview');
@@ -800,6 +847,7 @@ export function useGeneration({
     }
 
     // Phase 2 — expand each segment following its outline.
+    const chunkPartIndex: number[] = new Array(total).fill(-1);
     let stoppedEarly = false;
     for (let i = 0; i < total; i++) {
       if (isResettingRef.current) { setMindmap(null); return true; }
@@ -855,12 +903,21 @@ export function useGeneration({
       const partIndex = parts.length;
       parts.push(html);
       controller.setGroupPartIndex(groupId, partIndex);
+      chunkPartIndex[i] = partIndex;
       for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'done';
       pushLive();
       syncMm();
     }
 
     if (parts.length === 0) { setMindmap(null); return false; }
+
+
+    await runGroundingPass(mm.title, mm, syncMm, parts, pushLive, chunkSections.map((secs, i) => ({
+      heading: secs.map(s => s.heading).join('; ') || `भाग ${i + 1}`,
+      subheadings: secs.flatMap(s => s.subheadings),
+      partIndex: chunkPartIndex[i],
+      nodeIds: mm.nodes.slice(chunkRange[i].start, chunkRange[i].end).map(n => n.id),
+    })).filter(e => e.partIndex >= 0));
 
     controller.markDone();
     await controller.waitForDone();
@@ -956,6 +1013,7 @@ export function useGeneration({
       ));
     }
 
+    const chunkPartIndex: number[] = new Array(total).fill(-1);
     let stoppedEarly = false;
     for (let i = 0; i < total; i++) {
       if (isResettingRef.current) { setMindmap(null); return true; }
@@ -1007,12 +1065,21 @@ export function useGeneration({
       const partIndex = parts.length;
       parts.push(html);
       controller.setGroupPartIndex(groupId, partIndex);
+      chunkPartIndex[i] = partIndex;
       for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'done';
       pushLive();
       syncMm();
     }
 
     if (parts.length === 0) { setMindmap(null); return false; }
+
+
+    await runGroundingPass(mm.title, mm, syncMm, parts, pushLive, chunkSections.map((secs, i) => ({
+      heading: secs.map(s => s.heading).join('; ') || `भाग ${i + 1}`,
+      subheadings: secs.flatMap(s => s.subheadings),
+      partIndex: chunkPartIndex[i],
+      nodeIds: mm.nodes.slice(chunkRange[i].start, chunkRange[i].end).map(n => n.id),
+    })).filter(e => e.partIndex >= 0));
 
     controller.markDone();
     await controller.waitForDone();
@@ -1092,6 +1159,7 @@ export function useGeneration({
     sections.forEach((s, i) => controller.registerGroup(mm.nodes[i].groupId, (instruction, existingHtml) =>
       expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep', { existingHtml, customInstruction: instruction })));
 
+    const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
     let stoppedEarly = false;
     for (let i = 0; i < sections.length; i++) {
       if (isResettingRef.current) { setMindmap(null); return true; }
@@ -1140,12 +1208,21 @@ export function useGeneration({
       const partIndex = parts.length;
       parts.push(html);
       controller.setGroupPartIndex(mm.nodes[i].groupId, partIndex);
+      sectionPartIndex[i] = partIndex;
       mm.nodes[i].status = 'done';
       syncMm();
       pushLive();
     }
 
     if (parts.length === 0) { setMindmap(null); return false; }
+
+
+    await runGroundingPass(mm.title || 'Notes', mm, syncMm, parts, pushLive, sections.map((s, i) => ({
+      heading: s.heading,
+      subheadings: s.subheadings,
+      partIndex: sectionPartIndex[i],
+      nodeIds: [mm.nodes[i].id],
+    })).filter(e => e.partIndex >= 0));
 
     controller.markDone();
     await controller.waitForDone();
@@ -1316,6 +1393,7 @@ export function useGeneration({
     sections.forEach((_, i) => controller.registerGroup(mm.nodes[i].groupId, (instruction, existingHtml) => deepenOne(i, instruction, existingHtml)));
     if (hasCompletenessPass) controller.registerGroup('extra', runCompleteness);
 
+    const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
     let stoppedEarly = false;
     for (let i = 0; i < sections.length; i++) {
       if (isResettingRef.current) { setMindmap(null); return; }
@@ -1366,6 +1444,7 @@ export function useGeneration({
       const partIndex = parts.length;
       parts.push(html);
       controller.setGroupPartIndex(mm.nodes[i].groupId, partIndex);
+      sectionPartIndex[i] = partIndex;
       mm.nodes[i].status = 'done';
       syncMm();
       pushLive();
@@ -1409,6 +1488,14 @@ export function useGeneration({
 
     // Stay open for review / "add a point" / deepen-a-node until the user
     // explicitly presses Done — see createMindmapController.
+
+    await runGroundingPass(outline.title || topic, mm, syncMm, parts, pushLive, sections.map((s, i) => ({
+      heading: s.heading,
+      subheadings: s.subheadings,
+      partIndex: sectionPartIndex[i],
+      nodeIds: [mm.nodes[i].id],
+    })).filter(e => e.partIndex >= 0));
+
     controller.markDone();
     await controller.waitForDone();
     if (isResettingRef.current) { setMindmap(null); return; }
@@ -1604,6 +1691,7 @@ export function useGeneration({
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
     detailLevel, setDetailLevel,
+    groundingEnabled, setGroundingEnabled,
     notesProgress,
     status,
     language, setLanguage,

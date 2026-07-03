@@ -33,6 +33,8 @@ interface SidebarProps {
   setWordLimit: (limit: number) => void;
   detailLevel: DetailLevel;
   setDetailLevel: (level: DetailLevel) => void;
+  groundingEnabled: boolean;
+  setGroundingEnabled: (v: boolean) => void;
   notesProgress: { current: number; total: number; label: string } | null;
   topicInput: string;
   setTopicInput: (input: string) => void;
@@ -101,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   tableInstruction, setTableInstruction,
   wordLimit, setWordLimit,
   detailLevel, setDetailLevel,
+  groundingEnabled, setGroundingEnabled,
   notesProgress,
   topicInput, setTopicInput,
   textInput, setTextInput,
@@ -223,7 +226,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {(mode === 'transcript' || outputStyle === 'notes') && (
-            <SidebarDetailLevel detailLevel={detailLevel} setDetailLevel={setDetailLevel} mode={mode} />
+            <SidebarDetailLevel
+              detailLevel={detailLevel} setDetailLevel={setDetailLevel} mode={mode}
+              groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled}
+            />
           )}
 
           <SidebarLanguageModel

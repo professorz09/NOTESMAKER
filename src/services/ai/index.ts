@@ -11,6 +11,8 @@ export type { DetailLevel, TopicOutline, TopicOutlineSection, DeepOutline } from
 export { outlineTextChunk, generateTextTitle, expandTextChunkStructured, outlineFiles, generateFilesTitle, expandFilesSection } from './sourceNotesGeneration';
 export type { SourceSection } from './sourceNotesGeneration';
 export type { RefinementOptions } from './refinement';
+export { scanSectionsForGroundingAdditions } from './groundingEnrichment';
+export type { GroundingSectionMeta, GroundingAddition } from './groundingEnrichment';
 export { rewriteContent, rewriteSection, expandSection, generateNextContent, generateDetailedNextTopic } from './contentRewrite';
 export { generateDiagram, generateSectionImage } from './diagramAndImage';
 export { generateResearchPaper, translatePdfToHindi, analyzeAnswerPdf, translatePdfPageToHindi } from './researchAndPdf';
