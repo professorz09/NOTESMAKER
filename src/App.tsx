@@ -624,6 +624,7 @@ const App: React.FC = () => {
             handleEditorKeyDown={handleEditorKeyDown}
             handleEditorPaste={handleEditorPaste}
             mode={mode}
+            onGetStarted={() => setSidebarOpen(true)}
             outputStyle={outputStyle}
             upscAnswerStyle={upscAnswerStyle}
             upscSubject={upscSubject}

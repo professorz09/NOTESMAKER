@@ -86,6 +86,12 @@ html, body {
 .dark .editor-content .one-pager-divider { border-top-color: #334155; }
 .editor-content .flowchart-container svg { max-width: 100%; height: auto; }
 .editor-content .generated-image-container img { max-width: 100%; height: auto; border-radius: 12px; }
+/* Safety nets so notes never force horizontal scroll on small screens:
+   any embedded image scales down, and long unbroken strings (URLs, long
+   Devanagari compounds) wrap instead of overflowing the page. */
+.editor-content img { max-width: 100%; height: auto; }
+.editor-content { overflow-wrap: break-word; word-break: break-word; }
+.editor-content pre { white-space: pre-wrap; word-break: break-word; }
 
 /* Dark mode editor */
 .dark .editor-content h1 { color: #f1f5f9; }
