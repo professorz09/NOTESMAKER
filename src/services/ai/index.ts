@@ -5,8 +5,8 @@ export { generateUPSCAnswer, generateNextUPSCQuestion, correctQuestionHindi } fr
 export { generateSmartTable, extendTableRows } from './tableGeneration';
 export { generateFormattedNotes, generateFileNotes, generateOnePagerNotes } from './notesGeneration';
 export { chunkTranscript, generateTranscriptTitle, generateNotesFromTranscriptChunk } from './transcriptGeneration';
-export { generateTopicOutline, expandTopicSection, generateAdditionalTopicAspects } from './leveledNotesGeneration';
-export type { DetailLevel, TopicOutline, TopicOutlineSection } from './leveledNotesGeneration';
+export { generateTopicOutline, expandTopicSection, generateAdditionalTopicAspects, generateDeepOutline, expandDeepSection } from './leveledNotesGeneration';
+export type { DetailLevel, TopicOutline, TopicOutlineSection, DeepOutline } from './leveledNotesGeneration';
 export { rewriteContent, rewriteSection, expandSection, generateNextContent, generateDetailedNextTopic } from './contentRewrite';
 export { generateDiagram, generateSectionImage } from './diagramAndImage';
 export { generateResearchPaper, translatePdfToHindi, analyzeAnswerPdf, translatePdfPageToHindi } from './researchAndPdf';

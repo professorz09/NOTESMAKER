@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Upload, X, Mic } from 'lucide-react';
+import { FileText, Upload, X, Mic, Youtube } from 'lucide-react';
 
 interface SidebarInputSectionProps {
   mode: 'topic' | 'text' | 'file' | 'transcript';
@@ -17,7 +17,9 @@ interface SidebarInputSectionProps {
   transcriptInput: string;
   setTranscriptInput: (v: string) => void;
   handleTranscriptFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  transcriptProgress: { current: number; total: number; step: 'structure' | 'detail' } | null;
+  transcriptProgress: { current: number; total: number; step: 'fetch' | 'structure' | 'detail'; note?: string } | null;
+  youtubeUrl: string;
+  setYoutubeUrl: (v: string) => void;
 }
 
 const LABELS: Record<string, string> = {
@@ -36,6 +38,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
   handleGenerate,
   transcriptInput, setTranscriptInput,
   handleTranscriptFileUpload, transcriptProgress,
+  youtubeUrl, setYoutubeUrl,
 }) => (
   <div className="space-y-2">
     <label className="block text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
@@ -84,14 +87,37 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
           <div className="rounded-lg bg-indigo-500/8 border border-indigo-500/15 px-3 py-2">
             <p className="text-[10px] text-indigo-300/90 leading-relaxed">
               <Mic className="w-3 h-3 inline -mt-0.5 mr-1" />
-              पूरी class (3–4 घंटे तक) की transcript डालें। AI इसे अपने‑आप हिस्सों में बाँटकर step‑by‑step detailed, structured notes बनाएगा — कुछ भी miss नहीं होगा। बस paste करें और <strong>Generate Notes</strong> दबाएं।
+              YouTube link डालें या पूरी class (3–4 घंटे तक) की transcript paste करें। AI इसे अपने‑आप हिस्सों में बाँटकर step‑by‑step detailed, structured notes बनाएगा — कुछ भी miss नहीं होगा। बस <strong>Generate Notes</strong> दबाएं।
             </p>
           </div>
+
+          {/* YouTube / video link */}
+          <div className="flex items-center gap-2 bg-white/4 border border-white/8 rounded-xl px-3 py-2 focus-within:border-red-500/50 transition-all">
+            <Youtube className="w-4 h-4 text-red-400/90 flex-shrink-0" />
+            <input
+              type="url"
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              placeholder="YouTube video link paste करें…"
+              className="flex-1 bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none min-w-0"
+            />
+            {youtubeUrl.trim() && (
+              <button type="button" onClick={() => setYoutubeUrl('')} className="text-slate-600 hover:text-red-400 flex-shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-white/8" />
+            <span className="text-[9px] text-slate-600 uppercase tracking-widest">या transcript</span>
+            <div className="h-px flex-1 bg-white/8" />
+          </div>
+
           <textarea
             value={transcriptInput}
             onChange={(e) => setTranscriptInput(e.target.value)}
             placeholder="यहाँ पूरी class transcript paste करें..."
-            rows={7}
+            rows={6}
             className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
           />
           <label className="block relative cursor-pointer">
@@ -110,17 +136,21 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
             <div className="space-y-1.5 pt-0.5">
               <div className="w-full bg-white/8 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="h-1.5 rounded-full transition-all duration-500"
+                  className={`h-1.5 rounded-full transition-all duration-500 ${transcriptProgress.step === 'fetch' ? 'animate-pulse' : ''}`}
                   style={{
-                    width: `${transcriptProgress.step === 'structure' ? 6 : Math.round((transcriptProgress.current / transcriptProgress.total) * 100)}%`,
-                    background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+                    width: `${transcriptProgress.step === 'fetch' ? 20 : transcriptProgress.step === 'structure' ? 6 : Math.round((transcriptProgress.current / transcriptProgress.total) * 100)}%`,
+                    background: transcriptProgress.step === 'fetch'
+                      ? 'linear-gradient(90deg, #ef4444, #f97316)'
+                      : 'linear-gradient(90deg, #4f46e5, #7c3aed)',
                   }}
                 />
               </div>
               <p className="text-[10px] text-indigo-300/90">
-                {transcriptProgress.step === 'structure'
-                  ? 'Step 1/2 — structure बन रहा है…'
-                  : `Step 2/2 — detailed notes (भाग ${transcriptProgress.current}/${transcriptProgress.total})`}
+                {transcriptProgress.step === 'fetch'
+                  ? (transcriptProgress.note || 'YouTube से transcript लाई जा रही है…')
+                  : transcriptProgress.step === 'structure'
+                    ? 'Step 1/2 — structure बन रहा है…'
+                    : `Step 2/2 — detailed notes (भाग ${transcriptProgress.current}/${transcriptProgress.total})`}
               </p>
             </div>
           )}

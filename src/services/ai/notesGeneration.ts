@@ -1,13 +1,13 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG, RESEARCH_GEN_CONFIG } from './client';
 
-type DetailLevel = 'normal' | 'medium' | 'detailed';
+type DetailLevel = 'normal' | 'medium' | 'detailed' | 'deep';
 
 // A depth hint appended to the study-notes prompt so the Normal/Medium/Detailed
 // selector visibly changes the output for pasted-text and file notes (which
 // stay single-pass — the source is already provided, so it's about how far to
 // expand each point, not about discovering more of the topic).
 const detailHint = (level: DetailLevel): string => {
-  if (level === 'detailed') return `
+  if (level === 'detailed' || level === 'deep') return `
 
     **DETAIL LEVEL — MAXIMUM:** Expand every single point to its fullest — add background, mechanism, multiple examples, related facts and exceptions for each. Treat this as the most exhaustive possible version of these notes; never trade depth for brevity.`;
   if (level === 'medium') return `

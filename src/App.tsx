@@ -6,6 +6,7 @@ import { Button } from './components/Button';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { ClearConfirmModal } from './components/ClearConfirmModal';
 import { EditorCanvas } from './components/EditorCanvas';
+import { MindmapOverlay } from './components/MindmapOverlay';
 import { GenerationStatus } from './types';
 import { useHistory } from './hooks/useHistory';
 import { useEditorContent } from './hooks/useEditorContent';
@@ -133,6 +134,8 @@ const App: React.FC = () => {
     onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
     transcriptInput, setTranscriptInput, transcriptProgress,
     handleTranscriptFileUpload, handleGenerateTranscript,
+    youtubeUrl, setYoutubeUrl,
+    mindmap, resolveMindmapAction,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml });
 
   const {
@@ -528,10 +531,19 @@ const App: React.FC = () => {
         handleTranscriptFileUpload={handleTranscriptFileUpload}
         handleGenerateTranscript={handleGenerateTranscriptWithAutoSave}
         transcriptProgress={transcriptProgress}
+        youtubeUrl={youtubeUrl}
+        setYoutubeUrl={setYoutubeUrl}
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">
-        <LoadingOverlay status={status} />
+        {!mindmap && <LoadingOverlay status={status} />}
+        {mindmap && (
+          <MindmapOverlay
+            mindmap={mindmap}
+            onRetry={() => resolveMindmapAction('retry')}
+            onSkip={() => resolveMindmapAction('skip')}
+          />
+        )}
         <Toolbar
           sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}
           handleUndo={handleUndo} handleRedo={handleRedo}
