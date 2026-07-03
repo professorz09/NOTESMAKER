@@ -1,5 +1,13 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
 import { parseOutlineSectionsJson, type OutlineSection } from './outlineParsing';
+import { buildRefinementDirective, type RefinementOptions } from './refinement';
+
+// The label inside <div class="key-point"> is left for the model to choose
+// (Key Concept / Definition / Formula / Rule / Warning / …) rather than
+// hard-coded, so a formula box and a historical-date box don't both get
+// forced to say the same literal word.
+const KEY_POINT_RULE =
+  '<div class="key-point"><strong>[a short label that actually fits this box\'s content — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time]:</strong> …</div> for vital definitions or rules, and <div class="note-box">…</div> for important extra facts, exceptions or examples the teacher stressed.';
 
 // ---------------------------------------------------------------------------
 // Class-transcript → detailed notes pipeline.
@@ -139,7 +147,9 @@ export const generateNotesFromTranscriptChunk = async (
     **ABSOLUTE COMPLETENESS RULE (most important):**
     - Capture EVERY concept, fact, date, number, name, definition, formula, example, analogy, list, cause/effect and question the teacher mentions in this segment. Do NOT skip or merge points.
     - This is NOT a summary. Do NOT shorten or compress. Where the teacher explained something briefly, EXPAND it into a clear, complete explanation so each point is understandable on its own.
+    - Watch especially for content that's easy to lose because it's mentioned only once or in passing: an example given quickly, a definition dropped mid-sentence, a number or date said once without emphasis, a side-comparison, an aside the teacher adds and moves on from, something said right before/after a topic change. These are exactly the kind of things that go missing — deliberately scan for them, don't just follow the main thread.
     - Drop ONLY the spoken noise: filler words, repetitions, greetings, "let's take a break", off-topic chatter. Keep 100% of the actual teaching.
+    - Before finishing, mentally re-scan the transcript segment once more against your draft and confirm nothing substantive was left out.
 
     **STRUCTURE:**
     - Use numbered headings that CONTINUE the document: your first <h2> for this segment must be numbered ${startSectionNumber}, then ${startSectionNumber + 1}, and so on. Break into <h3>/<h4> sub-points where the content is layered.
@@ -150,7 +160,7 @@ export const generateNotesFromTranscriptChunk = async (
     1. Every heading is followed by real explanation — never an empty or one-line heading. Say what it is, why it matters, how it works, with the concrete facts from the transcript.
     2. Break explanations into <ul><li> points; each bullet is a full, informative sentence — never 2–3 words.
     3. Use <strong> for key terms / dates / figures / names.
-    4. Use <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, and <div class="note-box">…</div> for important extra facts, exceptions or examples the teacher stressed.
+    4. Use ${KEY_POINT_RULE}
     5. Add a <table> whenever the segment compares things, lists categories, or presents data.
     6. Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border on the SVG, use viewBox) whenever the segment describes a process, hierarchy, timeline or relationship that a visual would clarify. Keep it readable and responsive.
 
@@ -195,6 +205,8 @@ export const outlineTranscriptChunk = async (
     Role: Expert note-structurer.
     Task: Below is segment ${part} of ${total} of a SPOKEN class/lecture transcript. Extract the STRUCTURED OUTLINE of every topic and key sub-point the teacher actually covers in THIS segment — the skeleton of all points, in the order taught. Ignore filler, greetings and off-topic tangents. Do NOT explain anything yet; only the structure.
 
+    This structure is what the NEXT step will be limited to explaining — anything you leave out here will not make it into the final notes. So err on the side of including a sub-point rather than dropping it, including things mentioned only briefly, in passing, or as an aside — a quick example, a definition dropped mid-sentence, a number said once, a side-comparison. Do not silently fold two distinct points into one heading.
+
     Language for headings: ${language}
     Transcript segment:
     """${chunkText}"""
@@ -228,6 +240,7 @@ export const expandTranscriptChunkStructured = async (
   language: string,
   modelName: string,
   level: 'medium' | 'detailed' | 'deep',
+  refine?: RefinementOptions,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -255,12 +268,14 @@ export const expandTranscriptChunkStructured = async (
 
     ${depth}
 
+    COMPLETENESS SAFETY NET: the outline above was extracted separately and may itself have missed something small. While writing, re-read the transcript segment against it — if you spot a real point (a fact, example, definition, aside) the outline doesn't cover, still include it under the most relevant heading (or as its own <h3>/<h4>) rather than silently dropping it because it wasn't listed.
+
     FORMAT:
     - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
-    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, <div class="note-box">…</div> for important extra facts/examples/exceptions.
+    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, ${KEY_POINT_RULE}
     - Add a <table> where the segment compares or lists data; add ONE clean SVG inside <div class="flowchart-container"> (no border, use viewBox) where a process/hierarchy/timeline is described.
     - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
-
+    ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML. No markdown, no code fences.
   `;
 

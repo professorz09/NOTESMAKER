@@ -202,7 +202,7 @@ export const translatePdfPageToHindi = async (
     • Bullet/numbered lists → <ul><li> or <ol><li>
     • Tables → full <table><caption>Hindi title</caption><thead><tbody><tr><th><td>
     • Bold/key terms → <strong>
-    • Definition/concept box → <div class="key-point"><strong>मुख्य बिंदु:</strong> ...</div>
+    • Definition/concept/formula/rule box → <div class="key-point"><strong>[उसी box में जो असल में है उसके हिसाब से label चुनें, जैसे मुख्य बिंदु / परिभाषा / सूत्र / नियम — हर बार एक जैसा शब्द मत रखें]:</strong> ...</div>
     • Fact box → <div class="note-box">...</div>
     • All sections must be wrapped in <div class="page-section">
 

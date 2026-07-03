@@ -1,5 +1,6 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
 import { parseOutlineSectionsJson, type OutlineSection } from './outlineParsing';
+import { buildRefinementDirective, type RefinementOptions } from './refinement';
 
 // ---------------------------------------------------------------------------
 // Source-grounded leveled pipelines: Pasted Text and Uploaded Files.
@@ -15,6 +16,11 @@ import { parseOutlineSectionsJson, type OutlineSection } from './outlineParsing'
 
 export type SourceSection = OutlineSection;
 
+// The label inside <div class="key-point"> is left for the model to choose
+// (Key Concept / Definition / Formula / Rule / …) instead of one fixed word.
+const KEY_POINT_RULE =
+  '<div class="key-point"><strong>[a short label that actually fits this box\'s content — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time]:</strong> …</div> for vital definitions or rules, and <div class="note-box">…</div> for important extra facts/examples/exceptions.';
+
 // --- Pasted text -----------------------------------------------------------
 
 export const outlineTextChunk = async (
@@ -29,6 +35,8 @@ export const outlineTextChunk = async (
   const prompt = `
     Role: Expert note-structurer.
     Task: Below is segment ${part} of ${total} of source material (pasted notes/content) that needs to become study notes. Extract the STRUCTURED OUTLINE of every topic and key sub-point covered in THIS segment — the skeleton of all points, in the order they appear. Do NOT explain anything yet; only the structure.
+
+    This structure is what the NEXT step will be limited to explaining — anything left out here will not make it into the final notes. Err on the side of including a sub-point rather than dropping it, including things mentioned only briefly or in passing. Do not silently fold two distinct points into one heading.
 
     Language for headings: ${language}
     Source segment:
@@ -77,6 +85,7 @@ export const expandTextChunkStructured = async (
   language: string,
   modelName: string,
   level: 'medium' | 'detailed' | 'deep',
+  refine?: RefinementOptions,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -104,12 +113,14 @@ export const expandTextChunkStructured = async (
 
     ${depth}
 
+    COMPLETENESS SAFETY NET: the outline above was extracted separately and may itself have missed something small. While writing, re-check the source segment against it — if you spot a real point the outline doesn't cover, still include it under the most relevant heading (or as its own <h3>/<h4>) rather than dropping it because it wasn't listed.
+
     FORMAT:
     - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
-    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, <div class="note-box">…</div> for important extra facts/examples/exceptions.
+    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, ${KEY_POINT_RULE}
     - Add a <table> where the segment compares or lists data; add ONE clean SVG inside <div class="flowchart-container"> (no border, use viewBox) where a process/hierarchy/timeline is described.
     - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
-
+    ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML. No markdown, no code fences.
   `;
 
@@ -129,6 +140,8 @@ export const outlineFiles = async (
   const prompt = `
     Role: Expert note-structurer.
     Task: Analyze the attached file(s) and extract the STRUCTURED OUTLINE of every topic, section and key sub-point they contain — the skeleton of everything, in a logical reading order. Do NOT explain anything yet; only the structure.
+
+    This structure is what the NEXT step will be limited to explaining — anything left out here will not make it into the final notes, so err on the side of including a sub-point rather than dropping it, including things mentioned only in a caption, footnote, table cell or aside.
 
     Language for headings: ${language}
 
@@ -178,6 +191,7 @@ export const expandFilesSection = async (
   language: string,
   modelName: string,
   level: 'medium' | 'detailed' | 'deep',
+  refine?: RefinementOptions,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -206,12 +220,14 @@ export const expandFilesSection = async (
 
     ${depth}
 
+    COMPLETENESS SAFETY NET: re-check the relevant part of the files against your draft before finishing — if you notice a fact, label, footnote or table value that belongs in this section but isn't in your draft yet, add it rather than leaving it out.
+
     FORMAT:
     - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then <h3>${sectionNumber}.1 …</h3> sub-sections, <h4> for a further level where needed.
-    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, <div class="note-box">…</div> for important extra facts/exceptions.
+    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, ${KEY_POINT_RULE}
     - Add a <table> where the section compares or lists data from the files; add ONE clean SVG inside <div class="flowchart-container"> (no border, use viewBox) where a process/hierarchy/timeline is described.
     - Never output an empty or one-line heading. No filler.
-
+    ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
 

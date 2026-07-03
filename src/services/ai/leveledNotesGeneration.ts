@@ -1,5 +1,14 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
 import { parseOutlineSectionsJson, parseOutlineJsonObject } from './outlineParsing';
+import { buildRefinementDirective, type RefinementOptions } from './refinement';
+
+// Shared formatting rule text used by every expand-a-section prompt below.
+// The label inside <div class="key-point"> is deliberately left for the
+// model to choose (Key Concept / Definition / Formula / Rule / Warning /
+// …) instead of being hard-coded to one literal phrase — a formula and a
+// historical date box shouldn't both be forced to say "Key Concept:".
+const FORMATTING_RULE =
+  '<div class="key-point"><strong>[a short label that actually fits this box\'s content, e.g. Key Concept / Definition / Formula / Rule — pick freshly each time, don\'t default to the same word]:</strong> …</div> for a vital definition or rule, and <div class="note-box">…</div> for an important extra fact/exception/example.';
 
 // ---------------------------------------------------------------------------
 // Leveled topic-notes pipeline (Normal / Medium / Detailed).
@@ -113,6 +122,7 @@ export const expandTopicSection = async (
   language: string,
   modelName: string = 'gemini-3.1-pro-preview',
   level: Exclude<DetailLevel, 'normal'> = 'medium',
+  refine?: RefinementOptions,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -144,10 +154,10 @@ export const expandTopicSection = async (
     - State each concept simply first, then explain in depth with concrete facts — real dates, numbers, names, article/section numbers — and at least one real example ("e.g., …") per sub-section.
     - Use <ul><li> for points; each bullet is a full, informative sentence (never 2-3 words).
     - <strong> for every key term, name, date and figure.
-    - <div class="key-point"><strong>Key Concept:</strong> …</div> for a vital definition, and <div class="note-box">…</div> for an important extra fact/exception/example.
+    - ${FORMATTING_RULE}
     - Add a <table> if this section compares things or lists data. Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border, use viewBox) ONLY if a process/hierarchy/timeline here genuinely benefits from it.
     - Never output an empty or one-line heading. No filler, maximum facts per line.
-
+    ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
 
@@ -213,10 +223,9 @@ export const generateDeepOutline = async (
 };
 
 /**
- * DEEP level — Step 2 (Gemini 3 Flash-Lite). Expand ONE sub-topic section into
- * full detailed HTML, covering each of its sub-sub-topics and expanding their
- * main points. Flash is fast/cheap and well-suited to fanning the Pro-planned
- * skeleton out into prose. Focus areas get extra depth.
+ * DEEP level — Step 2. Expand ONE sub-topic section into full detailed HTML,
+ * covering each of its sub-sub-topics and expanding their main points, at
+ * Gemini 3 Pro quality throughout the pipeline. Focus areas get extra depth.
  */
 export const expandDeepSection = async (
   topic: string,
@@ -225,7 +234,8 @@ export const expandDeepSection = async (
   allHeadings: string[],
   focusAreas: string[],
   language: string,
-  flashModel: string,
+  modelName: string,
+  refine?: RefinementOptions,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -251,15 +261,15 @@ export const expandDeepSection = async (
     RULES:
     - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then <h3>${sectionNumber}.1 …</h3>, <h3>${sectionNumber}.2 …</h3>, using <h4> for a further level where needed.
     - State each point simply, then explain it in depth with concrete real facts (dates, numbers, names, articles) and at least one real example per sub-section.
-    - <ul><li> full-sentence bullets, <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for a vital definition, <div class="note-box">…</div> for an important extra fact/exception.
+    - <ul><li> full-sentence bullets, <strong> for key terms/dates/figures, ${FORMATTING_RULE}
     - Add a <table> if this section compares or lists data; add ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox) only if a process/hierarchy/timeline genuinely benefits.
     - No empty or one-line headings. No filler.
-
+    ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
 
   const response = await ai.models.generateContent({
-    model: flashModel,
+    model: modelName,
     contents: prompt,
     config: DETAILED_NOTES_CONFIG,
   });
@@ -278,6 +288,7 @@ export const generateAdditionalTopicAspects = async (
   startSectionNumber: number,
   language: string,
   modelName: string = 'gemini-3.1-pro-preview',
+  refine?: RefinementOptions,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -292,7 +303,7 @@ export const generateAdditionalTopicAspects = async (
     - Number new sections starting from <h2>${startSectionNumber}. …</h2> and continue (${startSectionNumber + 1}, …). Use <h3>/<h4> sub-sections with real depth and examples.
     - Same formatting as the rest of the notes: <ul><li> full-sentence bullets, <strong> key terms, <div class="key-point"> / <div class="note-box">, a <table> or one SVG in <div class="flowchart-container"> where it genuinely helps.
     - If, after honest review, nothing important is missing, output NOTHING at all (an empty response).
-
+    ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML (or empty). No markdown, no code fences, no apology text.
   `;
 

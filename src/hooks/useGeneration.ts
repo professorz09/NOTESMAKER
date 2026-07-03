@@ -30,6 +30,7 @@ import {
   expandFilesSection,
   type UPSCAnswerStyle,
   type UPSCSubject,
+  type RefinementOptions,
   type DetailLevel,
   type TranscriptSection,
 } from '../services/ai/index';
@@ -40,15 +41,27 @@ import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas,
 import { fetchVideoTranscript, looksLikeVideoUrl } from '../services/supadata';
 import { toast } from '../components/Toast';
 
-// The two models the app ships with — Pro for structuring/reasoning, Flash for
-// fast fan-out expansion. Used by the Deep pipeline exactly as-is (names must
-// not change: these are the current supported IDs). A manual "deepen this
-// node" click always forces the Pro model too, regardless of the pipeline's
-// chosen level, since a one-off deeper pass is worth the extra quality.
+// Every leveled pipeline's own internal calls (outline/structure, Deep-level
+// expansion, completeness passes, and any manual "regenerate this node"
+// click) always use Gemini 3 Pro — quality and completeness matter more here
+// than speed, and Flash-lite measurably drops depth/accuracy on this kind of
+// dense, structure-heavy generation. The name must not change: this is the
+// current supported Pro model ID. (Medium/Detailed's per-section automatic
+// expand still respects the user's own Sidebar model choice, `aiModel`.)
 const DEEP_PRO_MODEL = 'gemini-3.1-pro-preview';
-const DEEP_FLASH_MODEL = 'gemini-3.1-flash-lite';
 
 type MindmapAction = 'retry' | 'skip' | 'finish';
+
+// A group's regenerate closure receives the user's optional free-text
+// instruction ("add a real example", "make a table here", …) and — when the
+// group already has content — that existing draft, so a manual regenerate is
+// a REVISION pass ("improve this draft per my instruction") rather than a
+// blind rewrite. Both args are undefined for a first-time generate.
+type RegenerateFn = (instruction?: string, existingHtml?: string) => Promise<string>;
+// The "add a point" field's generator also accepts an optional refine block
+// so the SAME function can serve both the initial generation and, later,
+// clicks that improve what it produced.
+type ExtraExpandFn = (heading: string, sectionNumber: number, allHeadings: string[], refine?: RefinementOptions) => Promise<string>;
 
 /**
  * Shared controller behind every leveled pipeline's live mind map. Handles
@@ -56,10 +69,12 @@ type MindmapAction = 'retry' | 'skip' | 'finish';
  *   - "Add a point" — an ad-hoc extra section the user types in, generated
  *     and appended live, usable at any time the map is open (mid-generation
  *     or after it finishes).
- *   - Click a node — always re-runs that group's registered `regenerate`
- *     closure (which pipelines register at the STRONGEST setting — Pro
- *     model, max depth — regardless of the level the automatic pass used).
- *     Works for 'done' nodes (regenerate deeper), 'error' nodes (retry), and
+ *   - Click a node, optionally with a custom instruction — re-runs that
+ *     group's registered `regenerate` closure (pipelines register these at
+ *     the STRONGEST setting — Pro model, max depth — regardless of the level
+ *     the automatic pass used), passing the instruction plus the section's
+ *     existing draft (if any) so it's an improvement pass, not a rewrite.
+ *     Works for 'done' nodes (revise/deepen), 'error' nodes (retry), and
  *     'skipped' nodes (generate on demand) alike, since every group is
  *     registered via `registerGroup` BEFORE the pipeline even attempts it —
  *     `partIndex` starts at -1 (not yet in `parts[]`) and is filled in via
@@ -73,13 +88,13 @@ function createMindmapController(
   syncMm: () => void,
   parts: string[],
   pushLive: (recordHistory?: boolean) => void,
-  extraExpand: (heading: string, sectionNumber: number, allHeadings: string[]) => Promise<string>,
+  extraExpand: ExtraExpandFn,
   isResettingRef: MutableRefObject<boolean>,
 ) {
-  const groups = new Map<string, { partIndex: number; regenerate: () => Promise<string> }>();
+  const groups = new Map<string, { partIndex: number; regenerate: RegenerateFn }>();
   let doneResolve: (() => void) | null = null;
 
-  const registerGroup = (groupId: string, regenerate: () => Promise<string>) => {
+  const registerGroup = (groupId: string, regenerate: RegenerateFn) => {
     groups.set(groupId, { partIndex: -1, regenerate });
   };
   const setGroupPartIndex = (groupId: string, partIndex: number) => {
@@ -95,7 +110,8 @@ function createMindmapController(
     const sectionNumber = mm.nodes.length + 1;
     const allHeadings = mm.nodes.map(n => n.label);
     mm.nodes.push({ id: nodeId, label: heading, status: 'active', children: [], groupId: nodeId });
-    registerGroup(nodeId, () => extraExpand(heading, sectionNumber, allHeadings));
+    registerGroup(nodeId, (instruction, existingHtml) =>
+      extraExpand(heading, sectionNumber, allHeadings, { existingHtml, customInstruction: instruction }));
     syncMm();
     try {
       const html = await extraExpand(heading, sectionNumber, allHeadings);
@@ -117,13 +133,14 @@ function createMindmapController(
     }
   };
 
-  const onNodeClick = async (nodeId: string) => {
+  const onNodeClick = async (nodeId: string, instruction?: string) => {
     if (isResettingRef.current) return;
     const node = mm.nodes.find(n => n.id === nodeId);
     if (!node || node.status === 'active') return;
     const group = groups.get(node.groupId);
     if (!group) return; // no generator registered for this node (shouldn't normally happen)
     const prevStatus = node.status;
+    const existingHtml = group.partIndex >= 0 ? parts[group.partIndex] : undefined;
     const groupNodeIds = mm.nodes.filter(n => n.groupId === node.groupId).map(n => n.id);
     groupNodeIds.forEach(id => {
       const n = mm.nodes.find(x => x.id === id);
@@ -132,7 +149,7 @@ function createMindmapController(
     mm.errorNodeId = null;
     syncMm();
     try {
-      const html = await group.regenerate();
+      const html = await group.regenerate(instruction, existingHtml);
       if (isResettingRef.current) return;
       if (group.partIndex === -1) {
         group.partIndex = parts.length;
@@ -213,7 +230,7 @@ export function useGeneration({
     mindmapActionRef.current = resolve;
   });
   const handleMindmapAddMore = (text: string) => { mindmapControllerRef.current?.onAddMore(text); };
-  const handleMindmapNodeClick = (nodeId: string) => { mindmapControllerRef.current?.onNodeClick(nodeId); };
+  const handleMindmapNodeClick = (nodeId: string, instruction?: string) => { mindmapControllerRef.current?.onNodeClick(nodeId, instruction); };
   const handleMindmapDone = () => { mindmapControllerRef.current?.resolveDone(); };
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   const [language, setLanguage] = useState('Hindi');
@@ -683,12 +700,16 @@ export function useGeneration({
   // Nodes from the same chunk share a groupId (one API call produced them
   // together) — clicking any of them regenerates that whole chunk deeper.
   const runLeveledTranscriptPipeline = async (text: string, level: 'medium' | 'detailed' | 'deep'): Promise<boolean> => {
-    const chunks = chunkTranscript(text, level === 'deep' ? 4500 : 5500);
+    // Smaller chunks = less transcript text competing for the output-token
+    // budget on each expand call, which is the single biggest lever against
+    // content silently going missing on long/dense lectures.
+    const chunks = chunkTranscript(text, 4500);
     const total = chunks.length;
-    // Deep uses Pro for the structure and Flash for the (many) expansions;
-    // Medium/Detailed structure fast on Flash and expand on the chosen model.
-    const outlineModel = level === 'deep' ? DEEP_PRO_MODEL : DEEP_FLASH_MODEL;
-    const expandModel = level === 'deep' ? DEEP_FLASH_MODEL : aiModel;
+    // Structuring always uses Pro (quality matters most for getting the
+    // skeleton right); Deep also forces Pro for expansion, Medium/Detailed
+    // expand on whichever model the user picked in the Sidebar.
+    const outlineModel = DEEP_PRO_MODEL;
+    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : aiModel;
 
     const parts: string[] = [];
     const pushLive = (recordHistory = false) => {
@@ -712,8 +733,8 @@ export function useGeneration({
       nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
     });
 
-    const extraExpand = (heading: string, num: number, allH: string[]) =>
-      expandTopicSection(mm.title || 'Class Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed');
+    const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
+      expandTopicSection(mm.title || 'Class Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
@@ -772,8 +793,9 @@ export function useGeneration({
     { let running = 1; for (let i = 0; i < total; i++) { chunkStartNum.push(running); running += chunkSections[i].length; } }
     for (let i = 0; i < total; i++) {
       const startNum = chunkStartNum[i];
-      controller.registerGroup(`c${i}`, () => expandTranscriptChunkStructured(
+      controller.registerGroup(`c${i}`, (instruction, existingHtml) => expandTranscriptChunkStructured(
         chunks[i], chunkSections[i], startNum, i + 1, total, language, DEEP_PRO_MODEL, 'deep',
+        { existingHtml, customInstruction: instruction },
       ));
     }
 
@@ -856,10 +878,12 @@ export function useGeneration({
   // false if the skeleton step produced nothing (caller falls back to the
   // single-shot generateFormattedNotes path).
   const runLeveledTextPipeline = async (text: string, level: 'medium' | 'detailed' | 'deep'): Promise<boolean> => {
-    const chunks = chunkTranscript(text, level === 'deep' ? 4500 : 5500);
+    // Smaller chunks = less source text competing for the output-token
+    // budget per expand call — the main defense against silently dropped content.
+    const chunks = chunkTranscript(text, 4500);
     const total = chunks.length;
-    const outlineModel = level === 'deep' ? DEEP_PRO_MODEL : DEEP_FLASH_MODEL;
-    const expandModel = level === 'deep' ? DEEP_FLASH_MODEL : aiModel;
+    const outlineModel = DEEP_PRO_MODEL;
+    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : aiModel;
 
     const parts: string[] = [];
     const pushLive = (recordHistory = false) => {
@@ -875,8 +899,8 @@ export function useGeneration({
     };
     const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
 
-    const extraExpand = (heading: string, num: number, allH: string[]) =>
-      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed');
+    const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
+      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
@@ -926,8 +950,9 @@ export function useGeneration({
     { let running = 1; for (let i = 0; i < total; i++) { chunkStartNum.push(running); running += chunkSections[i].length; } }
     for (let i = 0; i < total; i++) {
       const startNum = chunkStartNum[i];
-      controller.registerGroup(`c${i}`, () => expandTextChunkStructured(
+      controller.registerGroup(`c${i}`, (instruction, existingHtml) => expandTextChunkStructured(
         chunks[i], chunkSections[i], startNum, i + 1, total, language, DEEP_PRO_MODEL, 'deep',
+        { existingHtml, customInstruction: instruction },
       ));
     }
 
@@ -1009,8 +1034,8 @@ export function useGeneration({
     level: 'medium' | 'detailed' | 'deep',
   ): Promise<boolean> => {
     const fileParts = uploadedFiles.map(f => ({ data: f.data, mimeType: f.mimeType }));
-    const outlineModel = level === 'deep' ? DEEP_PRO_MODEL : DEEP_FLASH_MODEL;
-    const expandModel = level === 'deep' ? DEEP_FLASH_MODEL : aiModel;
+    const outlineModel = DEEP_PRO_MODEL;
+    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : aiModel;
 
     const parts: string[] = [];
     const pushLive = (recordHistory = false) => {
@@ -1026,8 +1051,8 @@ export function useGeneration({
     };
     const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
 
-    const extraExpand = (heading: string, num: number, allH: string[]) =>
-      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed');
+    const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
+      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
@@ -1064,8 +1089,8 @@ export function useGeneration({
 
     // Register every node's regenerate closure up front so skipped/
     // never-reached nodes stay clickable-to-generate while the map is open.
-    sections.forEach((s, i) => controller.registerGroup(mm.nodes[i].groupId, () =>
-      expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep')));
+    sections.forEach((s, i) => controller.registerGroup(mm.nodes[i].groupId, (instruction, existingHtml) =>
+      expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep', { existingHtml, customInstruction: instruction })));
 
     let stoppedEarly = false;
     for (let i = 0; i < sections.length; i++) {
@@ -1220,8 +1245,8 @@ export function useGeneration({
 
     // "Add a point" always uses general-knowledge elaboration at max depth on
     // the chosen model — a lightweight companion to the main pipeline.
-    const extraExpand = (heading: string, num: number, allH: string[]) =>
-      expandTopicSection(topic, { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed');
+    const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
+      expandTopicSection(topic, { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
@@ -1271,21 +1296,24 @@ export function useGeneration({
     pushLive();
 
     const expandOne = (i: number) => level === 'deep'
-      ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, DEEP_FLASH_MODEL)
+      ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, DEEP_PRO_MODEL)
       : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium' | 'detailed');
     // Clicking a node (done/error/never-attempted) always regenerates via Pro
-    // at max depth, one strength level above whatever the automatic pass used.
-    const deepenOne = (i: number) =>
-      expandDeepSection(topic, sections[i], i + 1, allHeadings, [sections[i].heading], language, DEEP_PRO_MODEL);
-    const runCompleteness = () => generateAdditionalTopicAspects(
+    // at max depth, one strength level above whatever the automatic pass
+    // used — carrying the existing draft + any typed instruction as a
+    // revision pass rather than a blind rewrite.
+    const deepenOne = (i: number, instruction?: string, existingHtml?: string) =>
+      expandDeepSection(topic, sections[i], i + 1, allHeadings, [sections[i].heading], language, DEEP_PRO_MODEL, { existingHtml, customInstruction: instruction });
+    const runCompleteness = (instruction?: string, existingHtml?: string) => generateAdditionalTopicAspects(
       topic, allHeadings, sections.length + 1, language, level === 'deep' ? DEEP_PRO_MODEL : aiModel,
+      { existingHtml, customInstruction: instruction },
     );
 
     // Register every node's regenerate closure UP FRONT (before generation
     // even starts) so every node — including ones later skipped or never
     // reached because the user chose "Finish now" — stays clickable to
     // generate/deepen on demand while the map is open.
-    sections.forEach((_, i) => controller.registerGroup(mm.nodes[i].groupId, () => deepenOne(i)));
+    sections.forEach((_, i) => controller.registerGroup(mm.nodes[i].groupId, (instruction, existingHtml) => deepenOne(i, instruction, existingHtml)));
     if (hasCompletenessPass) controller.registerGroup('extra', runCompleteness);
 
     let stoppedEarly = false;
