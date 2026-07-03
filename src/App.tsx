@@ -16,7 +16,6 @@ import { useProjects } from './hooks/useProjects';
 import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { sanitizeHtml } from './utils/sanitize';
 import { toast } from './components/Toast';
-import { RefreshCw } from 'lucide-react';
 import { getCachedSession, signInWithCredentials, isSupabaseConfigured } from './services/supabase';
 
 function extractProjectName(html: string): string {
@@ -403,10 +402,38 @@ const App: React.FC = () => {
   // the session in localStorage; getSession() resolves instantly).
   if (bootChecking) {
     return (
-      <div className={`flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
+      <div className={`flex h-screen items-center justify-center px-6 bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 ${isDarkMode ? 'dark' : ''}`}>
+        <div className="flex flex-col items-center gap-5">
+          <div
+            className="w-[68px] h-[68px] rounded-[20px] flex items-center justify-center shadow-xl animate-pulse"
+            style={{
+              background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #6d28d9 100%)',
+              boxShadow: '0 0 0 1px rgba(99,102,241,0.3), 0 10px 30px rgba(29,78,216,0.45)',
+            }}
+          >
+            <svg width="40" height="40" viewBox="0 0 26 26" fill="none">
+              <path d="M13 7 C10 6 7 6.5 5 7.5 L5 20 C7 19 10 18.5 13 19.5 Z" fill="white" opacity="0.55" />
+              <path d="M13 7 C16 6 19 6.5 21 7.5 L21 20 C19 19 16 18.5 13 19.5 Z" fill="white" opacity="0.78" />
+              <line x1="13" y1="7" x2="13" y2="19.5" stroke="white" strokeWidth="1.2" opacity="0.9" />
+              <path d="M13 3.5 L4.5 7 L13 10.5 L21.5 7 Z" fill="white" opacity="0.92" />
+              <path d="M20 2.5 L20.5 4 L22 4.5 L20.5 5 L20 6.5 L19.5 5 L18 4.5 L19.5 4 Z" fill="#c4b5fd" opacity="0.9" />
+            </svg>
+          </div>
+          <div className="text-center">
+            <h1 className="text-2xl font-black tracking-tight leading-none">
+              <span className="bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">UPSC </span>
+              <span className="bg-gradient-to-r from-indigo-500 to-violet-500 bg-clip-text text-transparent">Notes Maker</span>
+            </h1>
+            <p className="text-[11px] font-semibold tracking-[0.22em] text-slate-400 dark:text-slate-500 uppercase mt-2">AI Study Notes</p>
+          </div>
+          <div className="w-40 h-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden mt-1">
+            <div
+              className="h-full w-1/2 rounded-full"
+              style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', animation: 'nm-boot-slide 1.1s ease-in-out infinite' }}
+            />
+          </div>
         </div>
+        <style>{`@keyframes nm-boot-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(280%); } }`}</style>
       </div>
     );
   }
@@ -416,21 +443,42 @@ const App: React.FC = () => {
       <div className={`flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 px-4 py-8 ${isDarkMode ? 'dark' : ''}`}>
         <form
           onSubmit={handleLogin}
+          autoComplete="off"
           className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-7 sm:p-9 w-full max-w-sm border border-slate-200/70 dark:border-slate-700/70"
         >
           <div className="flex flex-col items-center text-center mb-7">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30">
-              <span className="text-white text-2xl font-bold">N</span>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30"
+              style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #6d28d9 100%)' }}
+            >
+              <svg width="36" height="36" viewBox="0 0 26 26" fill="none">
+                <path d="M13 7 C10 6 7 6.5 5 7.5 L5 20 C7 19 10 18.5 13 19.5 Z" fill="white" opacity="0.55" />
+                <path d="M13 7 C16 6 19 6.5 21 7.5 L21 20 C19 19 16 18.5 13 19.5 Z" fill="white" opacity="0.78" />
+                <line x1="13" y1="7" x2="13" y2="19.5" stroke="white" strokeWidth="1.2" opacity="0.9" />
+                <path d="M13 3.5 L4.5 7 L13 10.5 L21.5 7 Z" fill="white" opacity="0.92" />
+              </svg>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">Welcome back</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Sign in to NotesMaker</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">UPSC Notes Maker</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Sign in to continue</p>
+          </div>
+
+          {/* Off-screen (not display:none — browsers skip hidden fields for
+              autofill) decoys absorb aggressive browser/password-manager
+              autofill so the real email/password below stay empty on load. */}
+          <div style={{ position: 'absolute', left: '-9999px', top: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+            <input type="text" name="username" autoComplete="username" tabIndex={-1} />
+            <input type="password" name="password" autoComplete="current-password" tabIndex={-1} />
           </div>
 
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5" htmlFor="login-email">Email</label>
           <input
             id="login-email"
+            name="nm-login-email"
             type="email"
-            autoComplete="email"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             placeholder="you@example.com"
             required
             value={loginEmail}
@@ -442,8 +490,9 @@ const App: React.FC = () => {
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5" htmlFor="login-password">Password</label>
           <input
             id="login-password"
+            name="nm-login-password"
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             placeholder="Enter your password"
             required
             value={loginPassword}

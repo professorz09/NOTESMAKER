@@ -594,11 +594,14 @@ export function useGeneration({
   // own live state + progress; caller's finally resets status/progress/mindmap.
   const runLeveledTopicPipeline = async (topic: string, level: 'medium' | 'detailed' | 'deep') => {
     const parts: string[] = [];
-    const pushLive = () => {
+    // During the build we only update the canvas + storage; we record a single
+    // undo-history entry at the very end (recordHistory=true) so Undo doesn't
+    // have to step back through every intermediate section.
+    const pushLive = (recordHistory = false) => {
       if (isResettingRef.current) return;
       const html = sanitizeHtml(parts.join('\n'));
       setGeneratedHtml(html);
-      pushToHistory(html);
+      if (recordHistory) pushToHistory(html);
       localStorage.setItem(STORAGE_KEY, html);
     };
 
@@ -736,6 +739,7 @@ export function useGeneration({
       finishGeneration(single);
       return;
     }
+    pushLive(true); // record the finished notes as one clean undo entry
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
