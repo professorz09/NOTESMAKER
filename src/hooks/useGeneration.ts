@@ -175,6 +175,15 @@ function createMindmapController(
     }
   };
 
+  // Attach/clear a per-section instruction during the review (approval) step.
+  const setNodeInstruction = (nodeId: string, instruction: string) => {
+    const node = mm.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    const text = instruction.trim();
+    node.instruction = text || undefined;
+    syncMm();
+  };
+
   const markDone = () => { mm.complete = true; syncMm(); };
   const waitForDone = () => new Promise<void>((resolve) => { doneResolve = resolve; });
   const resolveDone = () => {
@@ -183,7 +192,7 @@ function createMindmapController(
     if (r) r();
   };
 
-  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, markDone, waitForDone, resolveDone };
+  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, setNodeInstruction, markDone, waitForDone, resolveDone };
 }
 type MindmapController = ReturnType<typeof createMindmapController>;
 
@@ -237,9 +246,35 @@ export function useGeneration({
   const waitForMindmapAction = () => new Promise<MindmapAction>((resolve) => {
     mindmapActionRef.current = resolve;
   });
+  // Approval gate: each leveled pipeline pauses after building its outline
+  // until the user reviews/instructs and presses "Approve & Generate".
+  const mindmapApproveRef = useRef<(() => void) | null>(null);
+  const waitForApproval = () => new Promise<void>((resolve) => { mindmapApproveRef.current = resolve; });
+  const handleMindmapApprove = () => {
+    const r = mindmapApproveRef.current;
+    mindmapApproveRef.current = null;
+    if (r) r();
+  };
   const handleMindmapAddMore = (text: string) => { mindmapControllerRef.current?.onAddMore(text); };
   const handleMindmapNodeClick = (nodeId: string, instruction?: string) => { mindmapControllerRef.current?.onNodeClick(nodeId, instruction); };
+  const handleMindmapSetNodeInstruction = (nodeId: string, instruction: string) => { mindmapControllerRef.current?.setNodeInstruction(nodeId, instruction); };
   const handleMindmapDone = () => { mindmapControllerRef.current?.resolveDone(); };
+
+  // Shared review/approval gate. Every leveled pipeline calls this right after
+  // its outline (nodes) is built and before any expensive expansion — the mind
+  // map shows the plan, the user can attach a per-section instruction to any
+  // node, then presses "Approve & Generate" to proceed. Returns true if the
+  // user approved, false if the generation was reset (Clear) while waiting.
+  const runApprovalGate = async (mm: MindmapState, syncMm: () => void): Promise<boolean> => {
+    if (isResettingRef.current) return false;
+    mm.awaitingApproval = true;
+    setNotesProgress({ current: 0, total: 1, label: 'Review the plan — add instructions per topic, then Approve' });
+    syncMm();
+    await waitForApproval();
+    mm.awaitingApproval = false;
+    syncMm();
+    return !isResettingRef.current;
+  };
 
   // Shared "Grounding" pass, run once by every leveled pipeline right after
   // all its sections exist, before the mind map hands control back to the
@@ -772,6 +807,7 @@ export function useGeneration({
       subtitle: `Transcript • ${level} pipeline`,
       nodes: [],
       errorNodeId: null,
+      awaitingApproval: false,
       complete: false,
       addBusy: false,
     };
@@ -846,6 +882,18 @@ export function useGeneration({
       ));
     }
 
+    // Any per-section instructions set during review, gathered for the chunk
+    // (a chunk covers several nodes, so its instruction combines theirs).
+    const chunkInstruction = (i: number): string | undefined => {
+      const r = chunkRange[i];
+      const notes: string[] = [];
+      for (let k = r.start; k < r.end; k++) if (mm.nodes[k].instruction) notes.push(`For "${mm.nodes[k].label}": ${mm.nodes[k].instruction}`);
+      return notes.length ? notes.join(' ') : undefined;
+    };
+
+    // Pause for review / per-section instructions before expanding.
+    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return true; }
+
     // Phase 2 — expand each segment following its outline.
     const chunkPartIndex: number[] = new Array(total).fill(-1);
     let stoppedEarly = false;
@@ -866,8 +914,10 @@ export function useGeneration({
         for (let attempt = 1; attempt <= 2; attempt++) {
           if (isResettingRef.current) { setMindmap(null); return true; }
           try {
+            const ci = chunkInstruction(i);
             html = await expandTranscriptChunkStructured(
               chunks[i], chunkSections[i], startSectionNumber, i + 1, total, language, expandModel, level,
+              ci ? { customInstruction: ci } : undefined,
             );
             ok = true;
             break;
@@ -952,7 +1002,7 @@ export function useGeneration({
     };
 
     const mm: MindmapState = {
-      title: 'Notes', subtitle: `Text • ${level} pipeline`, nodes: [], errorNodeId: null, complete: false, addBusy: false,
+      title: 'Notes', subtitle: `Text • ${level} pipeline`, nodes: [], errorNodeId: null, awaitingApproval: false, complete: false, addBusy: false,
     };
     const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
 
@@ -1013,6 +1063,16 @@ export function useGeneration({
       ));
     }
 
+    const chunkInstruction = (i: number): string | undefined => {
+      const r = chunkRange[i];
+      const notes: string[] = [];
+      for (let k = r.start; k < r.end; k++) if (mm.nodes[k].instruction) notes.push(`For "${mm.nodes[k].label}": ${mm.nodes[k].instruction}`);
+      return notes.length ? notes.join(' ') : undefined;
+    };
+
+    // Pause for review / per-section instructions before expanding.
+    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return true; }
+
     const chunkPartIndex: number[] = new Array(total).fill(-1);
     let stoppedEarly = false;
     for (let i = 0; i < total; i++) {
@@ -1032,7 +1092,8 @@ export function useGeneration({
         for (let attempt = 1; attempt <= 2; attempt++) {
           if (isResettingRef.current) { setMindmap(null); return true; }
           try {
-            html = await expandTextChunkStructured(chunks[i], chunkSections[i], startSectionNumber, i + 1, total, language, expandModel, level);
+            const ci = chunkInstruction(i);
+            html = await expandTextChunkStructured(chunks[i], chunkSections[i], startSectionNumber, i + 1, total, language, expandModel, level, ci ? { customInstruction: ci } : undefined);
             ok = true;
             break;
           } catch (err) {
@@ -1114,7 +1175,7 @@ export function useGeneration({
     };
 
     const mm: MindmapState = {
-      title: 'Notes', subtitle: `Files • ${level} pipeline`, nodes: [], errorNodeId: null, complete: false, addBusy: false,
+      title: 'Notes', subtitle: `Files • ${level} pipeline`, nodes: [], errorNodeId: null, awaitingApproval: false, complete: false, addBusy: false,
     };
     const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
 
@@ -1159,6 +1220,12 @@ export function useGeneration({
     sections.forEach((s, i) => controller.registerGroup(mm.nodes[i].groupId, (instruction, existingHtml) =>
       expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep', { existingHtml, customInstruction: instruction })));
 
+    // Pause for review / per-section instructions before expanding.
+    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return true; }
+
+    const refineFor = (i: number): RefinementOptions | undefined =>
+      mm.nodes[i]?.instruction ? { customInstruction: mm.nodes[i].instruction } : undefined;
+
     const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
     let stoppedEarly = false;
     for (let i = 0; i < sections.length; i++) {
@@ -1175,7 +1242,7 @@ export function useGeneration({
         for (let attempt = 1; attempt <= 2; attempt++) {
           if (isResettingRef.current) { setMindmap(null); return true; }
           try {
-            html = await expandFilesSection(fileParts, sections[i], i + 1, allHeadings, language, expandModel, level);
+            html = await expandFilesSection(fileParts, sections[i], i + 1, allHeadings, language, expandModel, level, refineFor(i));
             ok = true;
             break;
           } catch (err) {
@@ -1314,7 +1381,7 @@ export function useGeneration({
       : level === 'detailed' ? 'Detailed pipeline' : 'Medium pipeline';
 
     // Local mutable mind map; re-clone into state on every change to re-render.
-    const mm: MindmapState = { title: topic, subtitle, nodes: [], errorNodeId: null, complete: false, addBusy: false };
+    const mm: MindmapState = { title: topic, subtitle, nodes: [], errorNodeId: null, awaitingApproval: false, complete: false, addBusy: false };
     const syncMm = () => setMindmap({
       ...mm,
       nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
@@ -1372,9 +1439,12 @@ export function useGeneration({
     );
     pushLive();
 
+    // A section's user-attached review instruction feeds its FIRST expansion.
+    const refineFor = (i: number): RefinementOptions | undefined =>
+      mm.nodes[i]?.instruction ? { customInstruction: mm.nodes[i].instruction } : undefined;
     const expandOne = (i: number) => level === 'deep'
-      ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, DEEP_PRO_MODEL)
-      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium' | 'detailed');
+      ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, DEEP_PRO_MODEL, refineFor(i))
+      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium' | 'detailed', refineFor(i));
     // Clicking a node (done/error/never-attempted) always regenerates via Pro
     // at max depth, one strength level above whatever the automatic pass
     // used — carrying the existing draft + any typed instruction as a
@@ -1392,6 +1462,9 @@ export function useGeneration({
     // generate/deepen on demand while the map is open.
     sections.forEach((_, i) => controller.registerGroup(mm.nodes[i].groupId, (instruction, existingHtml) => deepenOne(i, instruction, existingHtml)));
     if (hasCompletenessPass) controller.registerGroup('extra', runCompleteness);
+
+    // Pause for the user to review the plan / attach per-section instructions.
+    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return; }
 
     const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
     let stoppedEarly = false;
@@ -1674,8 +1747,9 @@ export function useGeneration({
     setTranslateResumeState(null);
     setTranscriptProgress(null);
     setNotesProgress(null);
-    // Unblock a pipeline paused on a Retry/Skip/Finish prompt or waiting on
-    // the Done button, then hide the map.
+    // Unblock a pipeline paused on the approval gate, a Retry/Skip/Finish
+    // prompt, or the Done button, then hide the map.
+    handleMindmapApprove();
     if (mindmapActionRef.current) resolveMindmapAction('skip');
     mindmapControllerRef.current?.resolveDone();
     mindmapControllerRef.current = null;
@@ -1733,6 +1807,8 @@ export function useGeneration({
     handleGenerateTranscript,
     mindmap,
     resolveMindmapAction,
+    handleMindmapApprove,
+    handleMindmapSetNodeInstruction,
     handleMindmapAddMore,
     handleMindmapNodeClick,
     handleMindmapDone,

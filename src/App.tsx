@@ -137,6 +137,7 @@ const App: React.FC = () => {
     handleTranscriptFileUpload, handleGenerateTranscript,
     youtubeUrl, setYoutubeUrl,
     mindmap, resolveMindmapAction, handleMindmapAddMore, handleMindmapNodeClick, handleMindmapDone,
+    handleMindmapApprove, handleMindmapSetNodeInstruction,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml });
 
   const {
@@ -632,6 +633,8 @@ const App: React.FC = () => {
             onSkip={() => resolveMindmapAction('skip')}
             onFinish={() => resolveMindmapAction('finish')}
             onNodeClick={handleMindmapNodeClick}
+            onSetNodeInstruction={handleMindmapSetNodeInstruction}
+            onApprove={handleMindmapApprove}
             onAddMore={handleMindmapAddMore}
             onDone={handleMindmapDone}
           />

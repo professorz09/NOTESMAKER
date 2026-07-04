@@ -28,6 +28,10 @@ export interface MindmapNode {
   // same call; clicking a 'done' node re-runs its group at higher depth,
   // clicking an 'error' node retries it.
   groupId: string;
+  // Optional per-section instruction the user attaches during the review
+  // (approval) step, before generation starts — it's fed into this section's
+  // first expansion so the initial draft already follows the guidance.
+  instruction?: string;
 }
 
 export interface MindmapState {
@@ -36,6 +40,10 @@ export interface MindmapState {
   nodes: MindmapNode[];
   // When set, the pipeline is paused on this node waiting for Retry/Skip/Finish.
   errorNodeId: string | null;
+  // True while the pipeline is paused after building the outline, waiting for
+  // the user to review/instruct and press "Approve & Generate". No expensive
+  // expansion has run yet at this point.
+  awaitingApproval: boolean;
   // True once the main generation pass has finished (whether or not some
   // sections were skipped) — the overlay shows a "Done" button instead of
   // auto-closing, and the "add a point" field stays usable either way.
