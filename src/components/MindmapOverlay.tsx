@@ -296,18 +296,24 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Approve & Generate lives at the end of the scroll flow (not a
+                separate sticky footer) so the whole plan + this button scroll
+                together as one. */}
+            {awaiting && (
+              <button
+                onClick={onApprove}
+                className="w-full mt-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-900/25"
+              >
+                <Sparkles className="w-4 h-4" /> Approve &amp; Generate
+              </button>
+            )}
           </div>
         </div>
 
+        {!awaiting && (
         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700">
-          {awaiting ? (
-            <button
-              onClick={onApprove}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-900/25"
-            >
-              <Sparkles className="w-4 h-4" /> Approve &amp; Generate
-            </button>
-          ) : mindmap.complete ? (
+          {mindmap.complete ? (
             <button
               onClick={onDone}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/20"
@@ -322,6 +328,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
             </p>
           )}
         </div>
+        )}
       </div>
     </div>
   );
