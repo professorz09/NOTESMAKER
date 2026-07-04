@@ -56,15 +56,13 @@ export const generateTextTitle = async (
 
   const prompt = `
     Role: Expert academic note-writer.
-    Task: Below is the BEGINNING of a piece of source material. From it, infer the overall subject and produce ONLY:
-      1. A single main title as <h1> — a clean, descriptive title of the whole material. NO number.
-      2. Immediately after it, one overview box: <div class="key-point"><strong>Overview:</strong> a 2-4 line at-a-glance summary.</div>
+    Task: Below is the BEGINNING of a piece of source material. From it, infer the overall subject and produce ONLY a single main title as <h1> — a clean, descriptive title of the whole material. NO number, nothing else.
 
     Language: ${language}
     Source start:
     """${firstChunk.slice(0, 6000)}"""
 
-    Output: Return ONLY the raw HTML for the <h1> and the overview div. No markdown, no code fences.
+    Output: Return ONLY the raw HTML for the <h1>. No markdown, no code fences.
   `;
 
   const response = await ai.models.generateContent({ model: modelName, contents: prompt, config: NOTES_GEN_CONFIG });
@@ -162,13 +160,11 @@ export const generateFilesTitle = async (
 
   const prompt = `
     Role: Expert academic note-writer.
-    Task: Analyze the attached file(s) and produce ONLY:
-      1. A single main title as <h1> — a clean, descriptive title of the whole material. NO number.
-      2. Immediately after it, one overview box: <div class="key-point"><strong>Overview:</strong> a 2-4 line at-a-glance summary of what these files cover.</div>
+    Task: Analyze the attached file(s) and produce ONLY a single main title as <h1> — a clean, descriptive title of the whole material. NO number, nothing else.
 
     Language: ${language}
 
-    Output: Return ONLY the raw HTML for the <h1> and the overview div. No markdown, no code fences.
+    Output: Return ONLY the raw HTML for the <h1>. No markdown, no code fences.
   `;
 
   const parts: any[] = files.map(f => ({ inlineData: { data: f.data, mimeType: f.mimeType } }));

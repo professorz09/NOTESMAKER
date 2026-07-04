@@ -44,7 +44,6 @@ export interface TopicOutlineSection {
 
 export interface TopicOutline {
   title: string;
-  overview: string;
   sections: TopicOutlineSection[];
 }
 
@@ -54,14 +53,13 @@ export interface DeepOutline extends TopicOutline {
   focusAreas: string[];
 }
 
-/** Tolerantly extract title/overview/sections from a model response. */
+/** Tolerantly extract title/sections from a model response. */
 function parseOutlineJson(raw: string): TopicOutline | null {
   const sections = parseOutlineSectionsJson(raw);
   if (!sections.length) return null;
   const obj = parseOutlineJsonObject(raw) || {};
   return {
     title: String(obj.title || '').trim(),
-    overview: String(obj.overview || '').trim(),
     sections,
   };
 }
@@ -97,7 +95,6 @@ export const generateTopicOutline = async (
     Output STRICT JSON ONLY (no markdown, no code fences, no commentary), exactly this shape:
     {
       "title": "a clean, descriptive title for the whole topic (no numbering)",
-      "overview": "a 2-4 line at-a-glance summary of what the notes cover",
       "sections": [
         { "heading": "specific main-section title", "subheadings": ["specific sub-point", "..."] }
       ]
@@ -144,7 +141,7 @@ export const expandTopicSection = async (
 
   const prompt = `
     Role: Senior Subject-Matter Expert & Textbook Author.
-    Task: Write the FULL, detailed content for ONE section of a larger set of study notes on "${topic}". Write ONLY this section — do NOT repeat the document title, the overview, or any other section's content.
+    Task: Write the FULL, detailed content for ONE section of a larger set of study notes on "${topic}". Write ONLY this section — do NOT repeat the document title or any other section's content.
 
     Language: ${language}
 
@@ -202,7 +199,6 @@ export const generateDeepOutline = async (
     Output STRICT JSON ONLY (no markdown, no code fences, no commentary):
     {
       "title": "clean descriptive title of the whole topic (no numbering)",
-      "overview": "3-5 line at-a-glance summary",
       "focusAreas": ["the sub-topics/aspects that deserve the deepest treatment"],
       "sections": [
         { "heading": "specific sub-topic title", "subheadings": ["specific sub-sub-topic", "..."] }
@@ -253,7 +249,7 @@ export const expandDeepSection = async (
 
   const prompt = `
     Role: Subject expert & textbook author.
-    Task: Write the FULL, detailed content for ONE sub-topic of the larger notes on "${topic}". Write ONLY this section — never repeat the document title, overview, or other sections.
+    Task: Write the FULL, detailed content for ONE sub-topic of the larger notes on "${topic}". Write ONLY this section — never repeat the document title or other sections.
     ${isFocus ? 'This is a HIGH-FOCUS area of the topic — go especially deep here with extra examples, mechanisms and nuance.' : ''}
 
     Language: ${language}

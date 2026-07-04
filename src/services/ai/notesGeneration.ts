@@ -66,7 +66,7 @@ export const generateFormattedNotes = async (
        - Use extensive bullet points for readability.
        - Highlight key terms, dates, and authors using <strong>.
     3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the text.
-    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the text. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    4. **Visual Explanation (Diagram):** ONLY IF the text describes a genuinely complex process, relationship, or framework that a diagram would clarify, include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> (clean, readable, responsive — use viewBox, no border). If nothing in the text warrants one, skip it entirely.
     5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
@@ -156,7 +156,7 @@ export const generateFileNotes = async (
        - Use extensive bullet points for readability.
        - Highlight key terms, dates, and authors using <strong>.
     3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the files.
-    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the files. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    4. **Visual Explanation (Diagram):** ONLY IF the files describe a genuinely complex process, relationship, or framework that a diagram would clarify, include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> (clean, readable, responsive — use viewBox, no border). If nothing in the text warrants one, skip it entirely.
     5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
@@ -169,8 +169,7 @@ export const generateFileNotes = async (
     **ABSOLUTE COMPLETENESS RULE (highest priority):** This is NOT a summary. Do NOT shorten, compress, skip or merge points. Capture EVERY concept, fact, date, number, name, definition, example, table and diagram present in the files, and expand each one. The output must be at least as detailed as the source — never a condensed version. It is far better to be too long than to leave anything out.
 
     **STUDY-NOTES FORMAT:**
-    - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary of the material.</div>
-    - Then the deep numbered body — as long and detailed as the material allows.
+    - Organize the notes in whatever way best suits the content — decide yourself whether to open with an intro, how to order sections, and how to close. No fixed template is imposed.
     - Do NOT add a "Takeaways", "Quick Revision", "Summary" or "Conclusion" section — keep it pure detailed content.
     - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 

@@ -78,7 +78,7 @@ export function chunkTranscript(text: string, maxWords = 5500): string[] {
 
 /**
  * Step 1 — read the opening of the lecture and produce just the document
- * title (<h1>, no number) plus a short overview box. Small, fast call.
+ * title (<h1>, no number). Small, fast call.
  */
 export const generateTranscriptTitle = async (
   firstChunk: string,
@@ -89,16 +89,13 @@ export const generateTranscriptTitle = async (
 
   const prompt = `
     Role: Expert academic note-writer.
-    Task: Below is the BEGINNING of a spoken class/lecture transcript. From it, infer the overall subject and produce ONLY:
-      1. A single main title as <h1> — a clean, descriptive title of the whole class topic. NO number, NO "Part 1".
-      2. Immediately after it, one overview box:
-         <div class="key-point"><strong>Overview:</strong> a 2–4 line at-a-glance summary of what this class covers.</div>
+    Task: Below is the BEGINNING of a spoken class/lecture transcript. From it, infer the overall subject and produce ONLY a single main title as <h1> — a clean, descriptive title of the whole class topic. NO number, NO "Part 1", nothing else.
 
     Language: ${language}
     Transcript start:
     """${firstChunk.slice(0, 6000)}"""
 
-    Output: Return ONLY the raw HTML for the <h1> and the overview div. No markdown, no code fences, nothing else.
+    Output: Return ONLY the raw HTML for the <h1>. No markdown, no code fences, nothing else.
   `;
 
   const response = await ai.models.generateContent({

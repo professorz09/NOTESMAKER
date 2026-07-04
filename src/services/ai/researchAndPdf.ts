@@ -27,7 +27,7 @@ export const generateResearchPaper = async (
     3. **Historical Background / Context (h2):** Origins, evolution, timeline. Use <strong> for key dates and names.
     4. **Core Subject Sections (h2/h3):** 3-5 detailed thematic or structural sections breaking down every important dimension of the topic.
     5. **Key Data / Statistics / Facts (Table):** MUST include one detailed HTML <table> with <caption>. Choose the format that best fits this specific topic.
-    6. **Visual Diagram (SVG):** MUST include ONE highly detailed SVG diagram inside a <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    6. **Visual Diagram (SVG):** ONLY IF the topic has a genuinely complex process, structure, or relationship a diagram would clarify, include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> (clean, readable, responsive — use viewBox, no border). If nothing warrants one, skip it entirely.
     7. **Key Takeaways (h2):** 5-8 bullet points summarizing the most important aspects of the topic.
 
     **Output:** Return ONLY raw HTML. No markdown. Use <h1>, <h2>, <h3>, <ul>, <li>, <table>, <strong>, <p>, <svg> etc.

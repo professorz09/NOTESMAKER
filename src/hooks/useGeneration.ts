@@ -1433,10 +1433,7 @@ export function useGeneration({
     }));
     syncMm();
 
-    parts.push(
-      `<h1>${escapeHtml(outline.title || topic)}</h1>` +
-      (outline.overview ? `<div class="key-point"><strong>Overview:</strong> ${escapeHtml(outline.overview)}</div>` : '')
-    );
+    parts.push(`<h1>${escapeHtml(outline.title || topic)}</h1>`);
     pushLive();
 
     // A section's user-attached review instruction feeds its FIRST expansion.
