@@ -169,7 +169,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
         aria-hidden={!sidebarOpen && typeof window !== 'undefined' && window.innerWidth < 1024}
       >
-        <SidebarHeader setSidebarOpen={setSidebarOpen} />
+        <SidebarHeader />
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           <SidebarModeTabs mode={mode} setMode={setMode} />

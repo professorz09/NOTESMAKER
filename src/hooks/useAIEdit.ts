@@ -93,13 +93,16 @@ export function useAIEdit({
             const bottomBar = document.createElement('div');
             bottomBar.className = 'table-extend-bar no-print';
             bottomBar.contentEditable = 'false';
-            bottomBar.style.cssText = 'display:flex;justify-content:center;margin-top:4px;margin-bottom:12px;';
+            // Left-aligned and pulled tight to the table so it reads as a tab
+            // hanging off the table's bottom-left, not a floating orphan. A
+            // larger bottom margin keeps it clear of whatever follows.
+            bottomBar.style.cssText = 'display:flex;justify-content:flex-start;margin-top:0;margin-bottom:22px;';
             const extendBtn = document.createElement('span');
             extendBtn.contentEditable = 'false';
             extendBtn.className = 'ai-edit-trigger table-extend-btn no-print';
             extendBtn.innerHTML = '➕ Extend Table';
             extendBtn.title = 'Add rows or columns';
-            extendBtn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;font-size:12px;color:#15803d;cursor:pointer;font-weight:600;';
+            extendBtn.style.cssText = 'display:inline-flex;align-items:center;white-space:nowrap;gap:5px;padding:3px 12px;background:#f0fdf4;border:1px dashed #86efac;border-top:none;border-radius:0 0 8px 8px;font-size:11px;color:#15803d;cursor:pointer;font-weight:600;';
             bottomBar.appendChild(extendBtn);
             el.insertAdjacentElement('afterend', bottomBar);
           }
