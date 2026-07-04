@@ -33,7 +33,14 @@ function corsHeaders(echoOrigin?: string) {
     "Access-Control-Allow-Origin": origin,
     "Vary": "Origin",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "*",
+    // Per the Fetch/CORS spec, a bare "*" wildcard never matches the
+    // "Authorization" header (every browser enforces this) — it must be
+    // listed literally. Every call to this proxy sends "Authorization:
+    // Bearer <supabase-jwt>", so without it the preflight check fails
+    // client-side and requests throw "TypeError: Failed to fetch" with no
+    // server-visible trace (the OPTIONS request itself still returns 200 —
+    // only the browser's own preflight validation rejects the POST).
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, *",
     "Access-Control-Max-Age": "86400",
   };
 }
