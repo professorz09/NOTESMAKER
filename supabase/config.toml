@@ -1,7 +1,19 @@
 project_id = "dmjjkjdgdxclujorfsmm"
 
+# verify_jwt = false on both functions below is intentional, not an oversight.
+# With verify_jwt = true, Supabase's own platform gateway validates the JWT
+# BEFORE the function code runs, and on rejection (expired/invalid/edge-case
+# token) returns 401 WITHOUT any CORS headers — since that response never
+# reaches our own corsHeaders() logic at all. The browser then reports a bare
+# "TypeError: Failed to fetch" instead of a readable error, indistinguishable
+# from a network failure. Both functions already implement their own auth
+# gate (validate the Authorization bearer token via userClient.auth.getUser()
+# and return a proper JSON error WITH CORS headers on every path, including
+# auth failures), so disabling the platform gate is safe and lets every
+# request — valid or invalid — reach code that behaves correctly under CORS.
+
 [functions.gemini-proxy]
-verify_jwt = true
+verify_jwt = false
 
 [functions.supadata-proxy]
-verify_jwt = true
+verify_jwt = false
