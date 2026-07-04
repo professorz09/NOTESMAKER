@@ -101,10 +101,18 @@ export async function exportContentAsPdfDirect(content: string, opts: DirectPdfE
   styleTag.textContent = buildContentStyleRules('.pdf-export-content', Math.max(fontSize, 10), lineHeight);
   document.head.appendChild(styleTag);
 
+  // Off-screen HOST that hides the whole rig from the user. Crucially, the
+  // off-screen shift lives on this PARENT, never on the node we rasterize:
+  // html-to-image copies the captured node's own position/offset into the
+  // SVG it renders, so a `left:-99999px` on the captured node itself paints a
+  // blank page. The captured `viewport` therefore stays at offset 0.
+  const offscreen = document.createElement('div');
+  offscreen.style.cssText = 'position:fixed;left:-99999px;top:0;z-index:-1;';
+
   // Fixed-size clipping viewport (what gets captured) containing the full,
   // naturally-tall content wrapper (what gets measured + shifted per page).
   const viewport = document.createElement('div');
-  viewport.style.cssText = `position:fixed;left:-99999px;top:0;width:${CONTENT_WIDTH_PX}px;height:${PAGE_HEIGHT_PX}px;overflow:hidden;background:#ffffff;`;
+  viewport.style.cssText = `position:relative;width:${CONTENT_WIDTH_PX}px;height:${PAGE_HEIGHT_PX}px;overflow:hidden;background:#ffffff;`;
 
   const wrapper = document.createElement('div');
   wrapper.className = 'pdf-export-content';
@@ -112,7 +120,8 @@ export async function exportContentAsPdfDirect(content: string, opts: DirectPdfE
   wrapper.innerHTML = content;
 
   viewport.appendChild(wrapper);
-  document.body.appendChild(viewport);
+  offscreen.appendChild(viewport);
+  document.body.appendChild(offscreen);
 
   try {
     await waitForAssets(wrapper);
@@ -164,7 +173,7 @@ export async function exportContentAsPdfDirect(content: string, opts: DirectPdfE
 
     doc.save(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
   } finally {
-    document.body.removeChild(viewport);
+    document.body.removeChild(offscreen);
     document.head.removeChild(styleTag);
   }
 }
