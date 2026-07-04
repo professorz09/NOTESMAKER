@@ -1,12 +1,7 @@
 import React from 'react';
-import { PanelLeftClose } from 'lucide-react';
 
-interface SidebarHeaderProps {
-  setSidebarOpen: (open: boolean) => void;
-}
-
-export const SidebarHeader: React.FC<SidebarHeaderProps> = ({ setSidebarOpen }) => (
-  <div className="flex-shrink-0 px-4 py-3.5 flex items-center justify-between border-b border-white/6">
+export const SidebarHeader: React.FC = () => (
+  <div className="flex-shrink-0 px-4 py-3.5 flex items-center border-b border-white/6">
     <div className="flex items-center gap-3">
       <div className="relative flex-shrink-0">
         <div
@@ -52,12 +47,5 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({ setSidebarOpen }) 
         </p>
       </div>
     </div>
-
-    <button
-      onClick={() => setSidebarOpen(false)}
-      className="p-1.5 rounded-lg text-slate-600 hover:text-white hover:bg-white/8 transition-all flex-shrink-0"
-    >
-      <PanelLeftClose className="w-4 h-4" />
-    </button>
   </div>
 );

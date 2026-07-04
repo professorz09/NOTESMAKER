@@ -36,7 +36,7 @@ export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
     {/* Subject Type */}
     <div className="space-y-2">
       <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
-        <BookOpen className="w-3 h-3" /> विषय / Subject
+        <BookOpen className="w-3 h-3" /> Subject
       </label>
       <div className="grid grid-cols-2 gap-2">
         <button
@@ -52,7 +52,7 @@ export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
             <GraduationCap className={`w-3.5 h-3.5 ${upscSubject === 'gs' ? 'text-blue-300' : 'text-slate-500'}`} />
           </div>
           <div>
-            <p className={`text-[10px] font-bold leading-none mb-0.5 ${upscSubject === 'gs' ? 'text-white' : 'text-slate-400'}`}>सामान्य अध्ययन</p>
+            <p className={`text-[10px] font-bold leading-none mb-0.5 ${upscSubject === 'gs' ? 'text-white' : 'text-slate-400'}`}>General Studies</p>
             <p className={`text-[9px] leading-tight ${upscSubject === 'gs' ? 'text-slate-400' : 'text-slate-600'}`}>GS Paper</p>
           </div>
         </button>
@@ -69,14 +69,14 @@ export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
             <BookText className={`w-3.5 h-3.5 ${upscSubject === 'hindi_literature' ? 'text-orange-300' : 'text-slate-500'}`} />
           </div>
           <div>
-            <p className={`text-[10px] font-bold leading-none mb-0.5 ${upscSubject === 'hindi_literature' ? 'text-white' : 'text-slate-400'}`}>हिंदी साहित्य</p>
+            <p className={`text-[10px] font-bold leading-none mb-0.5 ${upscSubject === 'hindi_literature' ? 'text-white' : 'text-slate-400'}`}>Hindi Literature</p>
             <p className={`text-[9px] leading-tight ${upscSubject === 'hindi_literature' ? 'text-slate-400' : 'text-slate-600'}`}>Optional Paper</p>
           </div>
         </button>
       </div>
       {upscSubject === 'hindi_literature' && (
         <p className="text-[9px] text-orange-400/70 px-1 leading-relaxed">
-          📚 UPSC पाठ्यक्रम अनुसार — कबीर, तुलसी, प्रेमचंद, निराला, महादेवी आदि
+          📚 As per UPSC syllabus — Kabir, Tulsi, Premchand, Nirala, Mahadevi, etc.
         </p>
       )}
     </div>

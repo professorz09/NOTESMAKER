@@ -39,7 +39,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
         >
           <ArrowRight className="w-4 h-4" />
-          अगला प्रश्न बनाएं — Next Question
+          Next Question
         </button>
       </div>
     );
@@ -51,7 +51,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <ArrowRight className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-            अगला प्रश्न — Next Question Settings
+            Next Question Settings
           </h4>
           <button
             onClick={() => setOpen(false)}
@@ -64,7 +64,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
         {/* Subject Selector */}
         <div className="space-y-2">
           <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
-            विषय / Subject
+            Subject
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -77,7 +77,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
               }`}
             >
               <GraduationCap className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>सामान्य अध्ययन (GS)</span>
+              <span>General Studies (GS)</span>
             </button>
             <button
               type="button"
@@ -89,7 +89,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
               }`}
             >
               <BookText className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>हिंदी साहित्य</span>
+              <span>Hindi Literature</span>
             </button>
           </div>
         </div>
@@ -97,13 +97,13 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
         {/* Custom Question */}
         <div className="space-y-2">
           <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
-            प्रश्न <span className="text-slate-400 dark:text-slate-500 normal-case font-medium">(खाली छोड़ें = AI खुद बना देगा)</span>
+            Question <span className="text-slate-400 dark:text-slate-500 normal-case font-medium">(leave empty = AI will create one)</span>
           </label>
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             rows={2}
-            placeholder="यहाँ अगला प्रश्न लिखें… (AI शुद्ध हिंदी में सुधार करेगा)"
+            placeholder="Type the next question here… (AI will refine it into proper Hindi)"
             className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none resize-none"
           />
         </div>
@@ -167,7 +167,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
         >
           <ArrowRight className="w-4 h-4" />
-          अगला प्रश्न Generate करें
+          Generate Next Question
         </button>
       </div>
     </div>

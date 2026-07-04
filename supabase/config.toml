@@ -2,3 +2,6 @@ project_id = "dmjjkjdgdxclujorfsmm"
 
 [functions.gemini-proxy]
 verify_jwt = true
+
+[functions.supadata-proxy]
+verify_jwt = true

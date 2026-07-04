@@ -16,6 +16,7 @@ interface EditorCanvasProps {
   handleEditorKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   handleEditorPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
   mode: 'topic' | 'text' | 'file' | 'transcript';
+  onGetStarted?: () => void;
   // UPSC next question flow
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';
   upscAnswerStyle: UPSCAnswerStyle;
@@ -36,6 +37,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   handleEditorKeyDown,
   handleEditorPaste,
   mode,
+  onGetStarted,
   outputStyle,
   upscAnswerStyle,
   upscSubject,
@@ -51,7 +53,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}
       >
         {!showContent ? (
-          <EmptyState />
+          <EmptyState onGetStarted={onGetStarted} />
         ) : (
           <div
             className={`min-h-[267mm] outline-none ${isEditing ? 'cursor-text' : ''}`}

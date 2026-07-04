@@ -33,6 +33,8 @@ interface SidebarProps {
   setWordLimit: (limit: number) => void;
   detailLevel: DetailLevel;
   setDetailLevel: (level: DetailLevel) => void;
+  groundingEnabled: boolean;
+  setGroundingEnabled: (v: boolean) => void;
   notesProgress: { current: number; total: number; label: string } | null;
   topicInput: string;
   setTopicInput: (input: string) => void;
@@ -87,7 +89,9 @@ interface SidebarProps {
   setTranscriptInput: (v: string) => void;
   handleTranscriptFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleGenerateTranscript: () => void;
-  transcriptProgress: { current: number; total: number; step: 'structure' | 'detail' } | null;
+  transcriptProgress: { current: number; total: number; step: 'fetch' | 'structure' | 'detail'; note?: string } | null;
+  youtubeUrl: string;
+  setYoutubeUrl: (v: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -99,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   tableInstruction, setTableInstruction,
   wordLimit, setWordLimit,
   detailLevel, setDetailLevel,
+  groundingEnabled, setGroundingEnabled,
   notesProgress,
   topicInput, setTopicInput,
   textInput, setTextInput,
@@ -115,6 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
   onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
   transcriptInput, setTranscriptInput, handleTranscriptFileUpload, handleGenerateTranscript, transcriptProgress,
+  youtubeUrl, setYoutubeUrl,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
@@ -163,7 +169,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
         aria-hidden={!sidebarOpen && typeof window !== 'undefined' && window.innerWidth < 1024}
       >
-        <SidebarHeader setSidebarOpen={setSidebarOpen} />
+        <SidebarHeader />
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           <SidebarModeTabs mode={mode} setMode={setMode} />
@@ -185,6 +191,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             setTranscriptInput={setTranscriptInput}
             handleTranscriptFileUpload={handleTranscriptFileUpload}
             transcriptProgress={transcriptProgress}
+            youtubeUrl={youtubeUrl}
+            setYoutubeUrl={setYoutubeUrl}
           />
 
           {notesProgress && (
@@ -217,8 +225,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           )}
 
-          {mode !== 'transcript' && outputStyle === 'notes' && (
-            <SidebarDetailLevel detailLevel={detailLevel} setDetailLevel={setDetailLevel} mode={mode} />
+          {(mode === 'transcript' || outputStyle === 'notes') && (
+            <SidebarDetailLevel
+              detailLevel={detailLevel} setDetailLevel={setDetailLevel} mode={mode}
+              groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled}
+            />
           )}
 
           <SidebarLanguageModel

@@ -207,6 +207,18 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
   const handleLineHeightIncrease = useCallback(() => setLineHeight(p => Math.min(+(p + 0.1).toFixed(1), 2.5)), []);
   const handleLineHeightDecrease = useCallback(() => setLineHeight(p => Math.max(+(p - 0.1).toFixed(1), 1.2)), []);
 
+  // Toolbar text-formatting buttons (Bold/Italic/Underline) — a touch-friendly
+  // equivalent of the native Ctrl+B/I/U shortcuts, for mobile users who have
+  // no keyboard. execCommand still applies to the current selection inside
+  // the contentEditable editor even though the call is deprecated for
+  // authoring page-level UI; it's the same primitive the paste/font-size
+  // handlers above already rely on.
+  const execFormat = useCallback((command: 'bold' | 'italic' | 'underline') => {
+    editorRef.current?.focus();
+    document.execCommand(command);
+    handleEditorInput();
+  }, [handleEditorInput]);
+
   return {
     generatedHtml,
     setGeneratedHtml,
@@ -228,5 +240,6 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     handleZoomOut,
     handleLineHeightIncrease,
     handleLineHeightDecrease,
+    execFormat,
   };
 }

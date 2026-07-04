@@ -93,13 +93,19 @@ export function useAIEdit({
             const bottomBar = document.createElement('div');
             bottomBar.className = 'table-extend-bar no-print';
             bottomBar.contentEditable = 'false';
-            bottomBar.style.cssText = 'display:flex;justify-content:center;margin-top:4px;margin-bottom:12px;';
+            // Left-aligned, tight under the table, with clear space before the
+            // next block so it reads as belonging to the table above it.
+            bottomBar.style.cssText = 'display:flex;justify-content:flex-start;margin-top:6px;margin-bottom:22px;';
             const extendBtn = document.createElement('span');
             extendBtn.contentEditable = 'false';
             extendBtn.className = 'ai-edit-trigger table-extend-btn no-print';
-            extendBtn.innerHTML = '➕ Extend Table';
+            // Solid indigo pill matching the app's other edit affordances — a
+            // dashed box read as an unfinished drop zone.
+            extendBtn.innerHTML = '<span style="font-size:14px;line-height:1;font-weight:700">+</span> Extend Table';
             extendBtn.title = 'Add rows or columns';
-            extendBtn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;font-size:12px;color:#15803d;cursor:pointer;font-weight:600;';
+            extendBtn.style.cssText = 'display:inline-flex;align-items:center;white-space:nowrap;gap:6px;padding:6px 14px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;font-size:12px;color:#4f46e5;cursor:pointer;font-weight:600;box-shadow:0 1px 2px rgba(79,70,229,0.08);transition:background .15s,border-color .15s;';
+            extendBtn.onmouseenter = () => { extendBtn.style.background = '#e0e7ff'; extendBtn.style.borderColor = '#a5b4fc'; };
+            extendBtn.onmouseleave = () => { extendBtn.style.background = '#eef2ff'; extendBtn.style.borderColor = '#c7d2fe'; };
             bottomBar.appendChild(extendBtn);
             el.insertAdjacentElement('afterend', bottomBar);
           }

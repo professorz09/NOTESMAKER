@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Upload, X, Mic } from 'lucide-react';
+import { FileText, Upload, X, Youtube } from 'lucide-react';
 
 interface SidebarInputSectionProps {
   mode: 'topic' | 'text' | 'file' | 'transcript';
@@ -17,13 +17,15 @@ interface SidebarInputSectionProps {
   transcriptInput: string;
   setTranscriptInput: (v: string) => void;
   handleTranscriptFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  transcriptProgress: { current: number; total: number; step: 'structure' | 'detail' } | null;
+  transcriptProgress: { current: number; total: number; step: 'fetch' | 'structure' | 'detail'; note?: string } | null;
+  youtubeUrl: string;
+  setYoutubeUrl: (v: string) => void;
 }
 
 const LABELS: Record<string, string> = {
   topic: 'Your Topic',
-  text: 'Paste Raw Notes',
-  file: 'Upload Files',
+  text: 'Text / Files',
+  file: 'Text / Files',
   transcript: 'Class Transcript',
 };
 
@@ -36,6 +38,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
   handleGenerate,
   transcriptInput, setTranscriptInput,
   handleTranscriptFileUpload, transcriptProgress,
+  youtubeUrl, setYoutubeUrl,
 }) => (
   <div className="space-y-2">
     <label className="block text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
@@ -71,67 +74,27 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
             )}
           </div>
         )
-      ) : mode === 'text' ? (
-        <textarea
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-          placeholder="Paste your rough notes or content here..."
-          rows={5}
-          className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
-        />
-      ) : mode === 'transcript' ? (
-        <div className="space-y-2.5">
-          <div className="rounded-lg bg-indigo-500/8 border border-indigo-500/15 px-3 py-2">
-            <p className="text-[10px] text-indigo-300/90 leading-relaxed">
-              <Mic className="w-3 h-3 inline -mt-0.5 mr-1" />
-              पूरी class (3–4 घंटे तक) की transcript डालें। AI इसे अपने‑आप हिस्सों में बाँटकर step‑by‑step detailed, structured notes बनाएगा — कुछ भी miss नहीं होगा। बस paste करें और <strong>Generate Notes</strong> दबाएं।
-            </p>
-          </div>
-          <textarea
-            value={transcriptInput}
-            onChange={(e) => setTranscriptInput(e.target.value)}
-            placeholder="यहाँ पूरी class transcript paste करें..."
-            rows={7}
-            className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
-          />
-          <label className="block relative cursor-pointer">
-            <input type="file" accept=".txt,text/plain" onChange={handleTranscriptFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-indigo-500/25 hover:border-indigo-500/50 hover:bg-indigo-500/6 transition-all">
-              <Upload className="w-3.5 h-3.5 text-indigo-400/80" />
-              <p className="text-[11px] text-slate-400">या .txt transcript file upload करें</p>
-            </div>
-          </label>
-          {transcriptInput.trim() && (
-            <p className="text-[10px] text-slate-600 px-0.5">
-              ~{(transcriptInput.trim().match(/\S+/g) || []).length.toLocaleString('en-IN')} words
-            </p>
-          )}
-          {transcriptProgress && (
-            <div className="space-y-1.5 pt-0.5">
-              <div className="w-full bg-white/8 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="h-1.5 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${transcriptProgress.step === 'structure' ? 6 : Math.round((transcriptProgress.current / transcriptProgress.total) * 100)}%`,
-                    background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
-                  }}
-                />
-              </div>
-              <p className="text-[10px] text-indigo-300/90">
-                {transcriptProgress.step === 'structure'
-                  ? 'Step 1/2 — structure बन रहा है…'
-                  : `Step 2/2 — detailed notes (भाग ${transcriptProgress.current}/${transcriptProgress.total})`}
-              </p>
-            </div>
-          )}
-        </div>
-      ) : (
+      ) : mode === 'text' || mode === 'file' ? (
         <div className="space-y-3">
+          <textarea
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder="Paste your rough notes or content here..."
+            rows={5}
+            className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
+          />
+
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-white/8" />
+            <span className="text-[9px] text-slate-600 uppercase tracking-widest">and / or</span>
+            <div className="h-px flex-1 bg-white/8" />
+          </div>
+
           <label className="block relative cursor-pointer">
             <input type="file" multiple accept=".pdf,.txt,image/*" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            <div className="flex flex-col items-center gap-3 py-8 px-4 rounded-xl border-2 border-dashed border-white/10 hover:border-blue-500/40 hover:bg-blue-500/4 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Upload className="w-5 h-5 text-blue-400" />
+            <div className="flex flex-col items-center gap-2 py-6 px-4 rounded-xl border-2 border-dashed border-white/10 hover:border-blue-500/40 hover:bg-blue-500/4 transition-all">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <Upload className="w-4.5 h-4.5 text-blue-400" />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-slate-300">Drop files or click to upload</p>
@@ -150,6 +113,72 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {/* YouTube / video link */}
+          <div className="flex items-center gap-2 bg-white/4 border border-white/8 rounded-xl px-3 py-2 focus-within:border-red-500/50 transition-all">
+            <Youtube className="w-4 h-4 text-red-400/90 flex-shrink-0" />
+            <input
+              type="url"
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              placeholder="Paste YouTube video link…"
+              className="flex-1 bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none min-w-0"
+            />
+            {youtubeUrl.trim() && (
+              <button type="button" onClick={() => setYoutubeUrl('')} className="text-slate-600 hover:text-red-400 flex-shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-white/8" />
+            <span className="text-[9px] text-slate-600 uppercase tracking-widest">or transcript</span>
+            <div className="h-px flex-1 bg-white/8" />
+          </div>
+
+          <textarea
+            value={transcriptInput}
+            onChange={(e) => setTranscriptInput(e.target.value)}
+            placeholder="Paste the full class transcript here (up to 3–4 hours)..."
+            rows={6}
+            className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
+          />
+          <label className="block relative cursor-pointer">
+            <input type="file" accept=".txt,text/plain" onChange={handleTranscriptFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-indigo-500/25 hover:border-indigo-500/50 hover:bg-indigo-500/6 transition-all">
+              <Upload className="w-3.5 h-3.5 text-indigo-400/80" />
+              <p className="text-[11px] text-slate-400">or upload a .txt transcript file</p>
+            </div>
+          </label>
+          {transcriptInput.trim() && (
+            <p className="text-[10px] text-slate-600 px-0.5">
+              ~{(transcriptInput.trim().match(/\S+/g) || []).length.toLocaleString('en-IN')} words
+            </p>
+          )}
+          {transcriptProgress && (
+            <div className="space-y-1.5 pt-0.5">
+              <div className="w-full bg-white/8 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-1.5 rounded-full transition-all duration-500 ${transcriptProgress.step === 'fetch' ? 'animate-pulse' : ''}`}
+                  style={{
+                    width: `${transcriptProgress.step === 'fetch' ? 20 : transcriptProgress.step === 'structure' ? 6 : Math.round((transcriptProgress.current / transcriptProgress.total) * 100)}%`,
+                    background: transcriptProgress.step === 'fetch'
+                      ? 'linear-gradient(90deg, #ef4444, #f97316)'
+                      : 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+                  }}
+                />
+              </div>
+              <p className="text-[10px] text-indigo-300/90">
+                {transcriptProgress.step === 'fetch'
+                  ? (transcriptProgress.note || 'Fetching transcript from YouTube…')
+                  : transcriptProgress.step === 'structure'
+                    ? 'Step 1/2 — building structure…'
+                    : `Step 2/2 — detailed notes (part ${transcriptProgress.current}/${transcriptProgress.total})`}
+              </p>
             </div>
           )}
         </div>

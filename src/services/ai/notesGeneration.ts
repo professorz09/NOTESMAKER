@@ -1,13 +1,20 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG, RESEARCH_GEN_CONFIG } from './client';
 
-type DetailLevel = 'normal' | 'medium' | 'detailed';
+type DetailLevel = 'normal' | 'medium' | 'detailed' | 'deep';
+
+// Leave the label inside <div class="key-point"> for the model to pick fresh
+// each time (Key Concept / Definition / Formula / Rule / …) instead of
+// hard-coding one word — a formula box and a date box shouldn't both be
+// forced to say the same literal "Key Concept:".
+const KEY_POINT_RULE =
+  '<div class="key-point"><strong>[a short label that actually fits this box\'s content — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time]:</strong> …</div>';
 
 // A depth hint appended to the study-notes prompt so the Normal/Medium/Detailed
 // selector visibly changes the output for pasted-text and file notes (which
 // stay single-pass — the source is already provided, so it's about how far to
 // expand each point, not about discovering more of the topic).
 const detailHint = (level: DetailLevel): string => {
-  if (level === 'detailed') return `
+  if (level === 'detailed' || level === 'deep') return `
 
     **DETAIL LEVEL — MAXIMUM:** Expand every single point to its fullest — add background, mechanism, multiple examples, related facts and exceptions for each. Treat this as the most exhaustive possible version of these notes; never trade depth for brevity.`;
   if (level === 'medium') return `
@@ -89,7 +96,7 @@ export const generateFormattedNotes = async (
     3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence, not 2–3 words.
     4. **Completeness:** Do NOT drop any topic from the input. If the input is brief, expand each point with accurate supporting detail and context.
     5. **Density:** No conversational filler or padding — maximum facts per line.
-    6. **Formatting:** Use <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, and <div class="note-box">…</div> for important extra facts/exceptions.
+    6. **Formatting:** Use <strong> for key terms/dates/figures, ${KEY_POINT_RULE} for vital definitions or rules, and <div class="note-box">…</div> for important extra facts/exceptions.
     7. **Visuals:** Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border, use viewBox) and/or a well-chosen <table> wherever it genuinely aids understanding.
 
     **Output:** Return ONLY raw HTML. No markdown, no code fences.
@@ -180,7 +187,7 @@ export const generateFileNotes = async (
     3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence.
     4. **Completeness:** Do NOT skip any section, table, figure or important detail present in the files. Capture all of it.
     5. **Density:** No filler or padding — maximum facts per line.
-    6. **Formatting:** Use <strong> for key terms/dates/figures, <div class="key-point"><strong>Key Concept:</strong> …</div> for vital definitions, and <div class="note-box">…</div> for important extra facts/exceptions.
+    6. **Formatting:** Use <strong> for key terms/dates/figures, ${KEY_POINT_RULE} for vital definitions or rules, and <div class="note-box">…</div> for important extra facts/exceptions.
     7. **Visuals:** Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border, use viewBox) and/or a well-chosen <table> wherever it genuinely aids understanding.
 
     **Output:** Return ONLY raw HTML. No markdown, no code fences.

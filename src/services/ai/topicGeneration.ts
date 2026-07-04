@@ -39,7 +39,7 @@ export const generateTopicContent = async (
     3. **Be concrete:** Include real data — dates, years, numbers, percentages, names, article/section numbers, examples — wherever they exist. Prefer specifics over vague statements.
     4. **Mandatory examples:** EVERY major sub-section (h3/h4) must include at least one concrete, real-world example, case, or illustration — never leave an explanation abstract when a real example would make it click.
     5. **Density:** "More facts, fewer filler words." Pack maximum information; avoid generic intros like "It is important to note that…".
-    6. **Key Concepts:** Wrap vital definitions / must-remember points in: <div class="key-point"><strong>Key Concept:</strong> ...text...</div>
+    6. **Key Concepts:** Wrap vital definitions / must-remember points / rules / formulas in: <div class="key-point"><strong>[a short label that fits what THIS box actually holds — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time, not the same word every time]:</strong> ...text...</div>
     7. **Notes / Extra facts:** Use <div class="note-box">...text...</div> for important extra facts, exceptions, or exam-relevant trivia.
     8. **Bold key terms:** Wrap every important term, name, date and figure in <strong>.
 
