@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Check, RotateCw, SkipForward, FastForward, Loader2, AlertTriangle, Circle, Minus, Sparkles, Plus, PartyPopper, Wand2, X } from 'lucide-react';
 import type { MindmapState, MindmapNode, MindmapNodeStatus } from '../types';
 
@@ -40,7 +40,8 @@ const NodeRow: React.FC<{
   onSkip: () => void;
   onFinish: () => void;
   onNodeClick: (nodeId: string, instruction?: string) => void;
-}> = ({ node, onRetry, onSkip, onFinish, onNodeClick }) => {
+  innerRef?: React.Ref<HTMLDivElement>;
+}> = ({ node, onRetry, onSkip, onFinish, onNodeClick, innerRef }) => {
   const meta = STATUS_META[node.status];
   const clickable = node.status === 'done' || node.status === 'skipped';
   const hint = CLICKABLE_HINT[node.status];
@@ -52,17 +53,21 @@ const NodeRow: React.FC<{
     onNodeClick(node.id, instruction.trim() || undefined);
     closeImprove();
   };
+  const openImprove = clickable && !improveOpen ? () => setImproveOpen(true) : undefined;
 
   return (
-    <div className="relative pl-6">
+    <div ref={innerRef} className="relative pl-6 scroll-mt-2">
       {/* connector from the spine to this node */}
       <span className="absolute left-0 top-[18px] w-6 h-px bg-slate-200 dark:bg-slate-700" />
       <span className={`absolute left-[-4px] top-[13px] w-2.5 h-2.5 rounded-full border-2 bg-white dark:bg-slate-900 ${meta.dot} ${node.status === 'active' ? 'border-indigo-400' : node.status === 'done' ? 'border-emerald-400' : node.status === 'error' ? 'border-red-400' : 'border-slate-300 dark:border-slate-600'}`} />
 
       <div
-        onClick={clickable && !improveOpen ? () => setImproveOpen(true) : undefined}
+        onClick={openImprove}
+        role={openImprove ? 'button' : undefined}
+        tabIndex={openImprove ? 0 : undefined}
+        onKeyDown={openImprove ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setImproveOpen(true); } } : undefined}
         title={hint}
-        className={`rounded-xl border bg-white dark:bg-slate-800/80 px-3 py-2 transition-all ${meta.ring} ${node.status === 'active' ? 'scale-[1.01]' : ''} ${clickable && !improveOpen ? 'cursor-pointer hover:border-indigo-400 hover:shadow-[0_0_0_3px_rgba(99,102,241,0.12)] active:scale-[0.99]' : ''}`}
+        className={`rounded-xl border bg-white dark:bg-slate-800/80 px-3 py-2 transition-all ${meta.ring} ${node.status === 'active' ? 'scale-[1.01]' : ''} ${clickable && !improveOpen ? 'cursor-pointer hover:border-indigo-400 hover:shadow-[0_0_0_3px_rgba(99,102,241,0.12)] active:scale-[0.99] focus-visible:outline-none focus-visible:border-indigo-400 focus-visible:shadow-[0_0_0_3px_rgba(99,102,241,0.25)]' : ''}`}
       >
         <div className="flex items-center gap-2">
           <StatusIcon status={node.status} />
@@ -160,6 +165,17 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
   const settled = mindmap.nodes.filter((n) => n.status === 'done' || n.status === 'skipped').length;
   const pct = Math.round((settled / total) * 100);
 
+  // Keep the node currently being worked on (or the one paused on an error)
+  // in view. On a Deep-level map with many sections the active node scrolls
+  // below the fold, so the user loses sight of live progress without this.
+  const activeNodeId = mindmap.nodes.find((n) => n.status === 'active')?.id ?? mindmap.errorNodeId;
+  const activeNodeRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (activeNodeId && activeNodeRef.current) {
+      activeNodeRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [activeNodeId]);
+
   const submitAdd = () => {
     const text = addText.trim();
     if (!text || mindmap.addBusy) return;
@@ -204,14 +220,22 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
               </div>
             ) : (
               mindmap.nodes.map((node) => (
-                <NodeRow key={node.id} node={node} onRetry={onRetry} onSkip={onSkip} onFinish={onFinish} onNodeClick={onNodeClick} />
+                <NodeRow
+                  key={node.id}
+                  node={node}
+                  innerRef={node.id === activeNodeId ? activeNodeRef : undefined}
+                  onRetry={onRetry}
+                  onSkip={onSkip}
+                  onFinish={onFinish}
+                  onNodeClick={onNodeClick}
+                />
               ))
             )}
           </div>
         </div>
 
         {/* Add a point — usable any time the map is open */}
-        <div className="px-4 sm:px-5 pt-1 pb-3 border-t border-slate-200 dark:border-slate-700 pt-3">
+        <div className="px-4 sm:px-5 pt-3 pb-3 border-t border-slate-200 dark:border-slate-700">
           <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5 px-0.5">
             एक और point जोड़ें
           </label>
