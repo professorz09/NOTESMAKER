@@ -15,10 +15,6 @@ const EXPLAIN_RULE =
 const FORMAT_CHOICE =
   'Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or a simple clean SVG diagram in <div class="flowchart-container"> (no border, use viewBox). Use any of these ONLY because it genuinely aids understanding here, never to fill a quota: do not force a table or a diagram where clear writing reads better, and do not omit one where it truly clarifies. You decide, based on the content.';
 
-// Optional emphasis boxes — available, not mandatory. The label is left for
-// the model to fit (Definition / Formula / Rule / …) rather than hard-coded.
-const EMPHASIS_NOTE =
-  'You MAY highlight a vital definition/rule/formula/must-remember fact in <div class="key-point"><strong>[a short label that fits, e.g. Definition / Key Concept / Formula / Rule — vary it, don\'t default to one word]:</strong> …</div>, and an important extra fact/exception/example in <div class="note-box">…</div>. These are optional tools — use them only where they help.';
 
 // ---------------------------------------------------------------------------
 // Leveled topic-notes pipeline (Normal / Medium / Detailed).
@@ -48,7 +44,6 @@ export interface TopicOutlineSection {
 
 export interface TopicOutline {
   title: string;
-  overview: string;
   sections: TopicOutlineSection[];
 }
 
@@ -58,14 +53,13 @@ export interface DeepOutline extends TopicOutline {
   focusAreas: string[];
 }
 
-/** Tolerantly extract title/overview/sections from a model response. */
+/** Tolerantly extract title/sections from a model response. */
 function parseOutlineJson(raw: string): TopicOutline | null {
   const sections = parseOutlineSectionsJson(raw);
   if (!sections.length) return null;
   const obj = parseOutlineJsonObject(raw) || {};
   return {
     title: String(obj.title || '').trim(),
-    overview: String(obj.overview || '').trim(),
     sections,
   };
 }
@@ -101,7 +95,6 @@ export const generateTopicOutline = async (
     Output STRICT JSON ONLY (no markdown, no code fences, no commentary), exactly this shape:
     {
       "title": "a clean, descriptive title for the whole topic (no numbering)",
-      "overview": "a 2-4 line at-a-glance summary of what the notes cover",
       "sections": [
         { "heading": "specific main-section title", "subheadings": ["specific sub-point", "..."] }
       ]
@@ -148,7 +141,7 @@ export const expandTopicSection = async (
 
   const prompt = `
     Role: Senior Subject-Matter Expert & Textbook Author.
-    Task: Write the FULL, detailed content for ONE section of a larger set of study notes on "${topic}". Write ONLY this section — do NOT repeat the document title, the overview, or any other section's content.
+    Task: Write the FULL, detailed content for ONE section of a larger set of study notes on "${topic}". Write ONLY this section — do NOT repeat the document title or any other section's content.
 
     Language: ${language}
 
@@ -165,7 +158,6 @@ export const expandTopicSection = async (
     - State each concept simply first, then develop it with concrete facts — real dates, numbers, names, article/section numbers — and at least one real example ("e.g., …") per sub-section. <strong> every key term, name, date and figure.
     - When you use bullets, each <li> is a full, informative sentence — never 2-3 words.
     - ${FORMAT_CHOICE}
-    - ${EMPHASIS_NOTE}
     - Never output an empty or one-line heading. No filler — but every point must be genuinely explained, not compressed into a keyword.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
@@ -207,7 +199,6 @@ export const generateDeepOutline = async (
     Output STRICT JSON ONLY (no markdown, no code fences, no commentary):
     {
       "title": "clean descriptive title of the whole topic (no numbering)",
-      "overview": "3-5 line at-a-glance summary",
       "focusAreas": ["the sub-topics/aspects that deserve the deepest treatment"],
       "sections": [
         { "heading": "specific sub-topic title", "subheadings": ["specific sub-sub-topic", "..."] }
@@ -258,7 +249,7 @@ export const expandDeepSection = async (
 
   const prompt = `
     Role: Subject expert & textbook author.
-    Task: Write the FULL, detailed content for ONE sub-topic of the larger notes on "${topic}". Write ONLY this section — never repeat the document title, overview, or other sections.
+    Task: Write the FULL, detailed content for ONE sub-topic of the larger notes on "${topic}". Write ONLY this section — never repeat the document title or other sections.
     ${isFocus ? 'This is a HIGH-FOCUS area of the topic — go especially deep here with extra examples, mechanisms and nuance.' : ''}
 
     Language: ${language}
@@ -273,7 +264,6 @@ export const expandDeepSection = async (
     - ${EXPLAIN_RULE}
     - State each point simply, then develop it in depth with concrete real facts (dates, numbers, names, articles) and at least one real example per sub-section. <strong> every key term, date and figure; full-sentence <li> bullets only.
     - ${FORMAT_CHOICE}
-    - ${EMPHASIS_NOTE}
     - No empty or one-line headings. No filler — but nothing compressed into a bare keyword either; explain it.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
@@ -313,7 +303,7 @@ export const generateAdditionalTopicAspects = async (
     RULES:
     - Number new sections starting from <h2>${startSectionNumber}. …</h2> and continue (${startSectionNumber + 1}, …). Use <h3>/<h4> sub-sections with real depth and examples.
     - ${EXPLAIN_RULE}
-    - Same style as the rest of the notes: full-sentence <li> bullets, <strong> key terms. ${FORMAT_CHOICE} ${EMPHASIS_NOTE}
+    - Same style as the rest of the notes: full-sentence <li> bullets, <strong> key terms. ${FORMAT_CHOICE}
     - If, after honest review, nothing important is missing, output NOTHING at all (an empty response).
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML (or empty). No markdown, no code fences, no apology text.

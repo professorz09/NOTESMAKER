@@ -175,7 +175,7 @@ Use <h3> sub-headings only where they genuinely help, not to look structured.
 
 ━━━ STEP 4 — SUPPORTING ELEMENTS (only if they add value)
 • <div class="note-box"> for a tight set of key facts/quotes that support but don't repeat the body
-• <div class="key-point"> for the ONE core definition that anchors the answer
+• <div class="key-point"> for the ONE core definition that anchors the answer (no label, or name the actual term — never "Key Concept")
 • <table> only if comparative/timeline data is genuinely clearer than prose
 
 ━━━ STEP 5 — CONCLUSION (the outro — make it land)
@@ -240,7 +240,7 @@ EVIDENCE: Match to subject — every example must be real and correct, verified 
 • Policy/Governance → real data, actual scheme outcomes, real committee findings, genuine international comparisons
 • Literature → exact textual evidence, real critical perspectives, accurate historical context of the work
 • Economy → real figures, real indices, real policy impact assessments with correct years
-Use <strong> for key terms, names, data. Use <div class="key-point"> for the central analytical claim.
+Use <strong> for key terms, names, data. Use <div class="key-point"> for the central analytical claim (no label, or name the actual term — never "Key Concept").
 
 TONE: Precise. Confident. Intellectual. Avoid both blind support and blind criticism.
 

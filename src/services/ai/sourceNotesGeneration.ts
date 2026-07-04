@@ -16,11 +16,6 @@ import { buildRefinementDirective, type RefinementOptions } from './refinement';
 
 export type SourceSection = OutlineSection;
 
-// The label inside <div class="key-point"> is left for the model to choose
-// (Key Concept / Definition / Formula / Rule / …) instead of one fixed word.
-const KEY_POINT_RULE =
-  '<div class="key-point"><strong>[a short label that actually fits this box\'s content — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time]:</strong> …</div> for vital definitions or rules, and <div class="note-box">…</div> for important extra facts/examples/exceptions.';
-
 // --- Pasted text -----------------------------------------------------------
 
 export const outlineTextChunk = async (
@@ -61,15 +56,13 @@ export const generateTextTitle = async (
 
   const prompt = `
     Role: Expert academic note-writer.
-    Task: Below is the BEGINNING of a piece of source material. From it, infer the overall subject and produce ONLY:
-      1. A single main title as <h1> — a clean, descriptive title of the whole material. NO number.
-      2. Immediately after it, one overview box: <div class="key-point"><strong>Overview:</strong> a 2-4 line at-a-glance summary.</div>
+    Task: Below is the BEGINNING of a piece of source material. From it, infer the overall subject and produce ONLY a single main title as <h1> — a clean, descriptive title of the whole material. NO number, nothing else.
 
     Language: ${language}
     Source start:
     """${firstChunk.slice(0, 6000)}"""
 
-    Output: Return ONLY the raw HTML for the <h1> and the overview div. No markdown, no code fences.
+    Output: Return ONLY the raw HTML for the <h1>. No markdown, no code fences.
   `;
 
   const response = await ai.models.generateContent({ model: modelName, contents: prompt, config: NOTES_GEN_CONFIG });
@@ -118,7 +111,7 @@ export const expandTextChunkStructured = async (
     FORMAT:
     - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
     - Explain every point in depth — never dispose of a sub-point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
-    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. Optionally, ${KEY_POINT_RULE}
+    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide.
     - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML. No markdown, no code fences.
@@ -167,13 +160,11 @@ export const generateFilesTitle = async (
 
   const prompt = `
     Role: Expert academic note-writer.
-    Task: Analyze the attached file(s) and produce ONLY:
-      1. A single main title as <h1> — a clean, descriptive title of the whole material. NO number.
-      2. Immediately after it, one overview box: <div class="key-point"><strong>Overview:</strong> a 2-4 line at-a-glance summary of what these files cover.</div>
+    Task: Analyze the attached file(s) and produce ONLY a single main title as <h1> — a clean, descriptive title of the whole material. NO number, nothing else.
 
     Language: ${language}
 
-    Output: Return ONLY the raw HTML for the <h1> and the overview div. No markdown, no code fences.
+    Output: Return ONLY the raw HTML for the <h1>. No markdown, no code fences.
   `;
 
   const parts: any[] = files.map(f => ({ inlineData: { data: f.data, mimeType: f.mimeType } }));
@@ -225,7 +216,7 @@ export const expandFilesSection = async (
     FORMAT:
     - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then <h3>${sectionNumber}.1 …</h3> sub-sections, <h4> for a further level where needed.
     - Explain every point in depth — never dispose of a point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
-    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. Optionally, ${KEY_POINT_RULE}
+    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide.
     - Never output an empty or one-line heading. No filler.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.

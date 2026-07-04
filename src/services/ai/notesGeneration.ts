@@ -2,13 +2,6 @@ import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFI
 
 type DetailLevel = 'normal' | 'medium' | 'detailed' | 'deep';
 
-// Leave the label inside <div class="key-point"> for the model to pick fresh
-// each time (Key Concept / Definition / Formula / Rule / …) instead of
-// hard-coding one word — a formula box and a date box shouldn't both be
-// forced to say the same literal "Key Concept:".
-const KEY_POINT_RULE =
-  '<div class="key-point"><strong>[a short label that actually fits this box\'s content — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time]:</strong> …</div>';
-
 // A depth hint appended to the study-notes prompt so the Normal/Medium/Detailed
 // selector visibly changes the output for pasted-text and file notes (which
 // stay single-pass — the source is already provided, so it's about how far to
@@ -73,7 +66,7 @@ export const generateFormattedNotes = async (
        - Use extensive bullet points for readability.
        - Highlight key terms, dates, and authors using <strong>.
     3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the text.
-    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the text. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    4. **Visual Explanation (Diagram):** ONLY IF the text describes a genuinely complex process, relationship, or framework that a diagram would clarify, include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> (clean, readable, responsive — use viewBox, no border). If nothing in the text warrants one, skip it entirely.
     5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
@@ -96,7 +89,7 @@ export const generateFormattedNotes = async (
     3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence, not 2–3 words.
     4. **Completeness:** Do NOT drop any topic from the input. If the input is brief, expand each point with accurate supporting detail and context.
     5. **Density:** No conversational filler or padding — maximum facts per line.
-    6. **Formatting:** Use <strong> for key terms/dates/figures, ${KEY_POINT_RULE} for vital definitions or rules, and <div class="note-box">…</div> for important extra facts/exceptions.
+    6. **Formatting:** Use <strong> for key terms/dates/figures, and <div class="note-box">…</div> sparingly for a genuinely noteworthy exception/aside.
     7. **Visuals:** Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border, use viewBox) and/or a well-chosen <table> wherever it genuinely aids understanding.
 
     **Output:** Return ONLY raw HTML. No markdown, no code fences.
@@ -163,7 +156,7 @@ export const generateFileNotes = async (
        - Use extensive bullet points for readability.
        - Highlight key terms, dates, and authors using <strong>.
     3. **Data & Evidence (Tables):** Include at least one detailed HTML <table> presenting relevant data, statistics, or comparisons from the files.
-    4. **Visual Explanation (Diagram):** Include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> to visually explain a complex process, relationship, or framework from the files. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    4. **Visual Explanation (Diagram):** ONLY IF the files describe a genuinely complex process, relationship, or framework that a diagram would clarify, include ONE highly detailed SVG diagram inside a <div class="flowchart-container"> (clean, readable, responsive — use viewBox, no border). If nothing in the text warrants one, skip it entirely.
     5. **Conclusion:** Summarize the findings, impact, and future scope.
 
     **Output:** Return ONLY raw HTML. Do not wrap in markdown blocks.
@@ -176,8 +169,7 @@ export const generateFileNotes = async (
     **ABSOLUTE COMPLETENESS RULE (highest priority):** This is NOT a summary. Do NOT shorten, compress, skip or merge points. Capture EVERY concept, fact, date, number, name, definition, example, table and diagram present in the files, and expand each one. The output must be at least as detailed as the source — never a condensed version. It is far better to be too long than to leave anything out.
 
     **STUDY-NOTES FORMAT:**
-    - Begin with <div class="key-point"><strong>Overview:</strong> 2–4 line at-a-glance summary of the material.</div>
-    - Then the deep numbered body — as long and detailed as the material allows.
+    - Organize the notes in whatever way best suits the content — decide yourself whether to open with an intro, how to order sections, and how to close. No fixed template is imposed.
     - Do NOT add a "Takeaways", "Quick Revision", "Summary" or "Conclusion" section — keep it pure detailed content.
     - Teaching style: state each concept simply first, then go deep with details and a short concrete example ("e.g., …").
 
@@ -187,7 +179,7 @@ export const generateFileNotes = async (
     3. **Bullets:** Break explanations into clear <ul><li> points; each bullet is a full, informative sentence.
     4. **Completeness:** Do NOT skip any section, table, figure or important detail present in the files. Capture all of it.
     5. **Density:** No filler or padding — maximum facts per line.
-    6. **Formatting:** Use <strong> for key terms/dates/figures, ${KEY_POINT_RULE} for vital definitions or rules, and <div class="note-box">…</div> for important extra facts/exceptions.
+    6. **Formatting:** Use <strong> for key terms/dates/figures, and <div class="note-box">…</div> sparingly for a genuinely noteworthy exception/aside.
     7. **Visuals:** Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border, use viewBox) and/or a well-chosen <table> wherever it genuinely aids understanding.
 
     **Output:** Return ONLY raw HTML. No markdown, no code fences.
