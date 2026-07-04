@@ -2,13 +2,23 @@ import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFI
 import { parseOutlineSectionsJson, parseOutlineJsonObject } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
 
-// Shared formatting rule text used by every expand-a-section prompt below.
-// The label inside <div class="key-point"> is deliberately left for the
-// model to choose (Key Concept / Definition / Formula / Rule / Warning /
-// …) instead of being hard-coded to one literal phrase — a formula and a
-// historical date box shouldn't both be forced to say "Key Concept:".
-const FORMATTING_RULE =
-  '<div class="key-point"><strong>[a short label that actually fits this box\'s content, e.g. Key Concept / Definition / Formula / Rule — pick freshly each time, don\'t default to the same word]:</strong> …</div> for a vital definition or rule, and <div class="note-box">…</div> for an important extra fact/exception/example.';
+// Shared guidance used by every expand-a-section prompt below. The guiding
+// principle is: EXPLAIN the material well, and let the model choose whatever
+// presentation fits — never force a table / diagram / box just to tick it off.
+
+// Explanation depth — the single most important rule. Stops the model from
+// disposing of a sub-point in one passing line.
+const EXPLAIN_RULE =
+  'Explain every point properly and in depth — the reader is preparing for a serious competitive exam (UPSC) and must actually understand and remember it, not just skim keywords. Develop EACH sub-point into a real explanation: several full sentences, or multiple substantive bullets that each carry a complete idea (what it is, why it matters, how it works, its effect/significance). NEVER dispose of a sub-point in a single passing line or a bare label.';
+
+// Presentation is the model\'s choice — flexible, not a checklist.
+const FORMAT_CHOICE =
+  'Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or a simple clean SVG diagram in <div class="flowchart-container"> (no border, use viewBox). Use any of these ONLY because it genuinely aids understanding here, never to fill a quota: do not force a table or a diagram where clear writing reads better, and do not omit one where it truly clarifies. You decide, based on the content.';
+
+// Optional emphasis boxes — available, not mandatory. The label is left for
+// the model to fit (Definition / Formula / Rule / …) rather than hard-coded.
+const EMPHASIS_NOTE =
+  'You MAY highlight a vital definition/rule/formula/must-remember fact in <div class="key-point"><strong>[a short label that fits, e.g. Definition / Key Concept / Formula / Rule — vary it, don\'t default to one word]:</strong> …</div>, and an important extra fact/exception/example in <div class="note-box">…</div>. These are optional tools — use them only where they help.';
 
 // ---------------------------------------------------------------------------
 // Leveled topic-notes pipeline (Normal / Medium / Detailed).
@@ -127,10 +137,10 @@ export const expandTopicSection = async (
   const ai = createAIClient();
 
   const subGuidance = section.subheadings.length
-    ? `Cover these sub-points, each as its own <h3>${sectionNumber}.k …</h3> sub-section (go into <h4> where a sub-point itself has parts):\n${section.subheadings.map((s, i) => `${sectionNumber}.${i + 1} ${s}`).join('\n')}`
+    ? `Cover these sub-points, each as its own <h3>${sectionNumber}.k …</h3> sub-section, and EXPLAIN each one fully — do not just restate the heading and move on (go into <h4> where a sub-point itself has parts):\n${section.subheadings.map((s, i) => `${sectionNumber}.${i + 1} ${s}`).join('\n')}`
     : (level === 'detailed'
-      ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it.'
-      : 'Break this section into 2-4 logical <h3> sub-sections where it helps.');
+      ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained.'
+      : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
 
   const depth = level === 'detailed'
     ? 'Go MAXIMALLY deep: every sub-section must have real explanation, mechanism, and at least one concrete real-world example. Aim for a thorough, textbook-grade treatment of this section — do not stop early.'
@@ -149,14 +159,14 @@ export const expandTopicSection = async (
 
     ${depth}
 
-    FORMATTING RULES:
+    RULES:
     - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then the sub-sections as <h3>${sectionNumber}.1 …</h3>, <h3>${sectionNumber}.2 …</h3>, etc. Use <h4> for a further level where needed.
-    - State each concept simply first, then explain in depth with concrete facts — real dates, numbers, names, article/section numbers — and at least one real example ("e.g., …") per sub-section.
-    - Use <ul><li> for points; each bullet is a full, informative sentence (never 2-3 words).
-    - <strong> for every key term, name, date and figure.
-    - ${FORMATTING_RULE}
-    - Add a <table> if this section compares things or lists data. Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border, use viewBox) ONLY if a process/hierarchy/timeline here genuinely benefits from it.
-    - Never output an empty or one-line heading. No filler, maximum facts per line.
+    - ${EXPLAIN_RULE}
+    - State each concept simply first, then develop it with concrete facts — real dates, numbers, names, article/section numbers — and at least one real example ("e.g., …") per sub-section. <strong> every key term, name, date and figure.
+    - When you use bullets, each <li> is a full, informative sentence — never 2-3 words.
+    - ${FORMAT_CHOICE}
+    - ${EMPHASIS_NOTE}
+    - Never output an empty or one-line heading. No filler — but every point must be genuinely explained, not compressed into a keyword.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
@@ -243,8 +253,8 @@ export const expandDeepSection = async (
     f && (section.heading.toLowerCase().includes(f.toLowerCase()) || f.toLowerCase().includes(section.heading.toLowerCase())));
 
   const subGuidance = section.subheadings.length
-    ? `Cover EACH of these sub-sub-topics as its own <h3>${sectionNumber}.k …</h3>, and expand its main points into full explanation:\n${section.subheadings.map((s, i) => `${sectionNumber}.${i + 1} ${s}`).join('\n')}`
-    : 'Break this section into 3-5 logical <h3> sub-sections that fully cover it.';
+    ? `Cover EACH of these sub-sub-topics as its own <h3>${sectionNumber}.k …</h3>, and expand its main points into full, in-depth explanation — never leave a sub-sub-topic as just a heading with a single line under it:\n${section.subheadings.map((s, i) => `${sectionNumber}.${i + 1} ${s}`).join('\n')}`
+    : 'Break this section into 3-5 logical <h3> sub-sections that fully cover it, each explained in depth.';
 
   const prompt = `
     Role: Subject expert & textbook author.
@@ -260,10 +270,11 @@ export const expandDeepSection = async (
 
     RULES:
     - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then <h3>${sectionNumber}.1 …</h3>, <h3>${sectionNumber}.2 …</h3>, using <h4> for a further level where needed.
-    - State each point simply, then explain it in depth with concrete real facts (dates, numbers, names, articles) and at least one real example per sub-section.
-    - <ul><li> full-sentence bullets, <strong> for key terms/dates/figures, ${FORMATTING_RULE}
-    - Add a <table> if this section compares or lists data; add ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox) only if a process/hierarchy/timeline genuinely benefits.
-    - No empty or one-line headings. No filler.
+    - ${EXPLAIN_RULE}
+    - State each point simply, then develop it in depth with concrete real facts (dates, numbers, names, articles) and at least one real example per sub-section. <strong> every key term, date and figure; full-sentence <li> bullets only.
+    - ${FORMAT_CHOICE}
+    - ${EMPHASIS_NOTE}
+    - No empty or one-line headings. No filler — but nothing compressed into a bare keyword either; explain it.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
@@ -301,7 +312,8 @@ export const generateAdditionalTopicAspects = async (
 
     RULES:
     - Number new sections starting from <h2>${startSectionNumber}. …</h2> and continue (${startSectionNumber + 1}, …). Use <h3>/<h4> sub-sections with real depth and examples.
-    - Same formatting as the rest of the notes: <ul><li> full-sentence bullets, <strong> key terms, <div class="key-point"> / <div class="note-box">, a <table> or one SVG in <div class="flowchart-container"> where it genuinely helps.
+    - ${EXPLAIN_RULE}
+    - Same style as the rest of the notes: full-sentence <li> bullets, <strong> key terms. ${FORMAT_CHOICE} ${EMPHASIS_NOTE}
     - If, after honest review, nothing important is missing, output NOTHING at all (an empty response).
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML (or empty). No markdown, no code fences, no apology text.

@@ -211,8 +211,10 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
           </div>
         </div>
 
-        {/* branches (left-spine tree) */}
-        <div className="px-4 sm:px-5 py-3 max-h-[46vh] overflow-y-auto scrollbar-thin">
+        {/* branches (left-spine tree) — the "add a point" row lives on the
+            same spine as the last node, so it reads as part of the map
+            rather than a separate bar stuck to the bottom. */}
+        <div className="px-4 sm:px-5 py-3 max-h-[52vh] overflow-y-auto scrollbar-thin">
           <div className="relative ml-2 pl-0 space-y-2 border-l-2 border-slate-200 dark:border-slate-700">
             {mindmap.nodes.length === 0 ? (
               <div className="pl-6 py-3 flex items-center gap-2 text-slate-500 text-sm">
@@ -231,36 +233,36 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                 />
               ))
             )}
-          </div>
-        </div>
 
-        {/* Add a point — usable any time the map is open */}
-        <div className="px-4 sm:px-5 pt-3 pb-3 border-t border-slate-200 dark:border-slate-700">
-          <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5 px-0.5">
-            Add another point
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={addText}
-              onChange={(e) => setAddText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitAdd(); } }}
-              placeholder="e.g. another topic/heading to add…"
-              disabled={mindmap.addBusy}
-              className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500/60 disabled:opacity-60 transition-all"
-            />
-            <button
-              onClick={submitAdd}
-              disabled={mindmap.addBusy || !addText.trim()}
-              className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 min-h-[42px] rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all flex-shrink-0"
-            >
-              {mindmap.addBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              <span className="hidden xs:inline">Add</span>
-            </button>
+            {/* Add-a-point node — same card background as the real nodes so
+                it reads as part of the map; a dashed border + dashed dot are
+                the only cue that it's an "add" affordance. */}
+            <div className="relative pl-6">
+              <span className="absolute left-0 top-[22px] w-6 h-px bg-slate-200 dark:bg-slate-700" />
+              <span className="absolute left-[-5px] top-[16px] w-3 h-3 rounded-full border-2 border-dashed border-indigo-400 bg-white dark:bg-slate-900" />
+              <div className="rounded-xl border border-dashed border-indigo-300/70 dark:border-indigo-600/50 bg-white dark:bg-slate-800/80 px-2.5 py-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={addText}
+                    onChange={(e) => setAddText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitAdd(); } }}
+                    placeholder="Add another topic / heading…"
+                    disabled={mindmap.addBusy}
+                    className="flex-1 min-w-0 bg-transparent border-none px-1 py-1 text-[13px] font-semibold text-slate-700 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none disabled:opacity-60"
+                  />
+                  <button
+                    onClick={submitAdd}
+                    disabled={mindmap.addBusy || !addText.trim()}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 min-h-[36px] rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all flex-shrink-0"
+                  >
+                    {mindmap.addBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    <span className="hidden xs:inline">Add</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-400 mt-1.5 px-0.5">
-            This generates into the notes below as you go — you can add more even after generation finishes.
-          </p>
         </div>
 
         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700">
