@@ -15,11 +15,6 @@ const EXPLAIN_RULE =
 const FORMAT_CHOICE =
   'Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or a simple clean SVG diagram in <div class="flowchart-container"> (no border, use viewBox). Use any of these ONLY because it genuinely aids understanding here, never to fill a quota: do not force a table or a diagram where clear writing reads better, and do not omit one where it truly clarifies. You decide, based on the content.';
 
-// Emphasis boxes are RARE, not a per-section habit. <strong> inline already
-// covers ordinary important terms — a box is only for the one truly pivotal
-// fact a section can't do without, and never wears a generic template label.
-const EMPHASIS_NOTE =
-  'Emphasis boxes are rare, not routine — most sections need ZERO of them, since <strong> inline already marks ordinary key terms/dates/figures. Only when ONE specific definition, rule or formula in this section is so critical the reader must memorize it verbatim, wrap just that in <div class="key-point">…</div> — and never label it "Key Concept" (that phrase is a generic tic; either drop the label entirely or name the actual thing, e.g. the term, article number, or formula name). A genuinely surprising exception or aside can go in <div class="note-box">…</div>, same rarity — not one per section.';
 
 // ---------------------------------------------------------------------------
 // Leveled topic-notes pipeline (Normal / Medium / Detailed).
@@ -166,7 +161,6 @@ export const expandTopicSection = async (
     - State each concept simply first, then develop it with concrete facts — real dates, numbers, names, article/section numbers — and at least one real example ("e.g., …") per sub-section. <strong> every key term, name, date and figure.
     - When you use bullets, each <li> is a full, informative sentence — never 2-3 words.
     - ${FORMAT_CHOICE}
-    - ${EMPHASIS_NOTE}
     - Never output an empty or one-line heading. No filler — but every point must be genuinely explained, not compressed into a keyword.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
@@ -274,7 +268,6 @@ export const expandDeepSection = async (
     - ${EXPLAIN_RULE}
     - State each point simply, then develop it in depth with concrete real facts (dates, numbers, names, articles) and at least one real example per sub-section. <strong> every key term, date and figure; full-sentence <li> bullets only.
     - ${FORMAT_CHOICE}
-    - ${EMPHASIS_NOTE}
     - No empty or one-line headings. No filler — but nothing compressed into a bare keyword either; explain it.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
@@ -314,7 +307,7 @@ export const generateAdditionalTopicAspects = async (
     RULES:
     - Number new sections starting from <h2>${startSectionNumber}. …</h2> and continue (${startSectionNumber + 1}, …). Use <h3>/<h4> sub-sections with real depth and examples.
     - ${EXPLAIN_RULE}
-    - Same style as the rest of the notes: full-sentence <li> bullets, <strong> key terms. ${FORMAT_CHOICE} ${EMPHASIS_NOTE}
+    - Same style as the rest of the notes: full-sentence <li> bullets, <strong> key terms. ${FORMAT_CHOICE}
     - If, after honest review, nothing important is missing, output NOTHING at all (an empty response).
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML (or empty). No markdown, no code fences, no apology text.

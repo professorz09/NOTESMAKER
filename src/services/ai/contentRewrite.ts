@@ -19,7 +19,7 @@ export const rewriteContent = async (
       1. **OBEY THE INSTRUCTION:** If the user asks to make it "short", make it very concise. If they ask for "detailed and structured", add comprehensive details, bullet points, and subheadings. If they ask to just "rewrite" or "rephrase", keep the same length and meaning but change the wording. DO EXACTLY WHAT IS ASKED.
       2. **Structure:** If the instruction implies a new structure (e.g., table, list, paragraphs), use it. Otherwise, maintain the original structure.
       3. **Tone:** Professional and academic, unless the instruction specifies a different tone.
-      4. **Formatting:** Use <strong> for key terms. Only if a single definition is truly pivotal, wrap it in <div class="key-point"> — rare, not routine, and never labelled "Key Concept" (skip the label or name the actual thing).
+      4. **Formatting:** Use <strong> for key terms.
 
       Return ONLY the HTML.
     `;
@@ -131,7 +131,7 @@ export const generateNextContent = async (
        - If the last point was 1.2.1, continue with 1.2.2, 1.2.3, etc.
        - If the current section is finished, move to the next logical sub-heading (e.g., from 1.2 to 1.3).
     4. **High Density:** Maintain a professional, academic, high-fact-density tone.
-    5. **Formatting:** Use <strong> for key terms. <div class="key-point">/<div class="note-box"> are rare exceptions for one truly pivotal fact, not a routine habit — never label a key-point box "Key Concept".
+    5. **Formatting:** Use <strong> for key terms. <div class="note-box"> is a rare exception for one genuinely noteworthy fact, not a routine habit.
     6. **Table (Optional):** If a section being added has structured/comparative data, include ONE appropriately-formatted table.
     7. **Diagram (Optional):** If the new content has a clear visual structure, add ONE SVG inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
 
@@ -168,7 +168,7 @@ export const generateDetailedNextTopic = async (
     2. **Numbering:** Detect the last MAJOR heading number (e.g., 1.0 or 2.0) and start this as the next major section (e.g., 2.0 or 3.0).
     3. **Structure:** Use <h1> or <h2> for the new topic title, followed by detailed sub-sections (2.1, 2.1.1, etc.).
     4. **Depth:** Provide comprehensive coverage of this new topic.
-    5. **Visual Aids:** <div class="key-point">/<div class="note-box"> are rare exceptions for one truly pivotal fact, not routine — never label a key-point box "Key Concept".
+    5. **Visual Aids:** <div class="note-box"> is a rare exception for one genuinely noteworthy fact, not routine.
     6. **Table (Optional):** If the topic benefits from structured data, include ONE appropriate table with <caption>.
     7. **Diagram (Optional):** If the topic has a clear visual structure, include ONE SVG inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     8. **Tone:** Professional academic tone.
