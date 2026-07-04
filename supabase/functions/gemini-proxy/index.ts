@@ -456,14 +456,19 @@ function corsHeaders(echoOrigin?: string) {
     "Access-Control-Allow-Origin": origin,
     "Vary": "Origin",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    // The @google/genai SDK ships additional headers (x-goog-api-client,
-    // x-goog-user-agent, etc.) that the browser includes in preflight
-    // requests. Listing them explicitly is brittle — the SDK adds new
-    // ones across versions and any miss → preflight blocks → "Failed
-    // to fetch" with no useful client-side diagnostic. Wildcard is the
-    // safe call here because we still gate on Origin + Authorization
-    // for the actual POST.
-    "Access-Control-Allow-Headers": "*",
+    // Per the Fetch/CORS spec, a wildcard "*" here NEVER matches the
+    // "Authorization" header (every browser enforces this) — it must always
+    // be listed literally. Every call to this proxy sends "Authorization:
+    // Bearer <supabase-jwt>" (see client.ts's fetch interceptor), so without
+    // listing it explicitly the preflight check fails client-side and every
+    // request throws "TypeError: Failed to fetch" with no server-visible
+    // trace at all (the OPTIONS request itself still returns 200 — only the
+    // browser's own preflight validation rejects the follow-up POST).
+    // Explicitly list every header the @google/genai SDK or our interceptor
+    // actually sets, plus a trailing "*" as a defensive fallback for any
+    // future SDK header — but never rely on "*" alone to cover Authorization.
+    "Access-Control-Allow-Headers":
+      "authorization, apikey, content-type, x-client-info, x-goog-api-client, x-goog-api-key, x-goog-upload-status, x-goog-upload-url, *",
     "Access-Control-Max-Age": "86400"
   };
 }
