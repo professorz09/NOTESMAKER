@@ -29,9 +29,9 @@ const StatusIcon: React.FC<{ status: MindmapNodeStatus }> = ({ status }) => {
 };
 
 const CLICKABLE_HINT: Partial<Record<MindmapNodeStatus, string>> = {
-  done: 'draft को (optionally किसी instruction के साथ) improve करने के लिए click करें',
-  error: 'दुबारा try करने के लिए click करें',
-  skipped: 'अभी generate करने के लिए click करें',
+  done: 'Click to improve this draft (optionally with an instruction)',
+  error: 'Click to try again',
+  skipped: 'Click to generate now',
 };
 
 const NodeRow: React.FC<{
@@ -101,14 +101,14 @@ const NodeRow: React.FC<{
         {improveOpen && (
           <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
             <label className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wide mb-1.5">
-              <Wand2 className="w-3 h-3" /> Optional — कैसे improve करना है?
+              <Wand2 className="w-3 h-3" /> Optional — how should it be improved?
             </label>
             <textarea
               autoFocus
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitImprove(); } if (e.key === 'Escape') closeImprove(); }}
-              placeholder="जैसे: एक real example जोड़ो, table बनाओ, आसान भाषा में समझाओ… (खाली छोड़ने पर सीधे गहराई में दुबारा बनेगा)"
+              placeholder="e.g. add a real example, make a table, explain more simply… (leave empty to just regenerate in more depth)"
               rows={2}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500/60 resize-none transition-all"
             />
@@ -145,7 +145,7 @@ const NodeRow: React.FC<{
             </button>
             <button
               onClick={onFinish}
-              title="जो notes बन चुके हैं उन्हीं के साथ अभी समाप्त करें"
+              title="Finish now with the notes already generated"
               className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[38px] flex-1 rounded-lg text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40 active:scale-95 transition-all"
             >
               <FastForward className="w-3.5 h-3.5" /> Finish
@@ -216,7 +216,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
           <div className="relative ml-2 pl-0 space-y-2 border-l-2 border-slate-200 dark:border-slate-700">
             {mindmap.nodes.length === 0 ? (
               <div className="pl-6 py-3 flex items-center gap-2 text-slate-500 text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" /> Topic का structure बन रहा है…
+                <Loader2 className="w-4 h-4 animate-spin" /> Building the structure…
               </div>
             ) : (
               mindmap.nodes.map((node) => (
@@ -237,7 +237,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
         {/* Add a point — usable any time the map is open */}
         <div className="px-4 sm:px-5 pt-3 pb-3 border-t border-slate-200 dark:border-slate-700">
           <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5 px-0.5">
-            एक और point जोड़ें
+            Add another point
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -245,7 +245,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
               value={addText}
               onChange={(e) => setAddText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitAdd(); } }}
-              placeholder="जैसे: कोई और topic/heading जो add करना है…"
+              placeholder="e.g. another topic/heading to add…"
               disabled={mindmap.addBusy}
               className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500/60 disabled:opacity-60 transition-all"
             />
@@ -259,7 +259,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
             </button>
           </div>
           <p className="text-[10px] text-slate-400 mt-1.5 px-0.5">
-            यह नीचे notes में साथ-साथ generate होता रहेगा — generation पूरा होने के बाद भी जोड़ सकते हैं।
+            This generates into the notes below as you go — you can add more even after generation finishes.
           </p>
         </div>
 
@@ -269,13 +269,13 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
               onClick={onDone}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/20"
             >
-              <PartyPopper className="w-4 h-4" /> पूरा हुआ — Notes देखें (Done)
+              <PartyPopper className="w-4 h-4" /> Done — View Notes
             </button>
           ) : (
             <p className="text-center text-[10px] text-slate-400">
               {mindmap.errorNodeId
-                ? '⚠️ एक भाग में समस्या — Retry, Skip या Finish चुनें'
-                : 'Notes नीचे live बन रहे हैं • generation पूरा होते ही Done बटन दिखेगा'}
+                ? '⚠️ A section ran into a problem — choose Retry, Skip or Finish'
+                : 'Notes are being written live below • the Done button appears once generation finishes'}
             </p>
           )}
         </div>

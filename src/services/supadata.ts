@@ -51,7 +51,7 @@ export interface FetchTranscriptOptions {
  */
 export async function fetchVideoTranscript(url: string, opts: FetchTranscriptOptions = {}): Promise<string> {
   const { lang, onStatus, signal } = opts;
-  onStatus?.('Transcript माँगी जा रही है…');
+  onStatus?.('Requesting transcript…');
   const started = await callProxy({ action: 'start', url: url.trim(), lang });
 
   if (started.status === 'completed' && started.content) {
@@ -61,7 +61,7 @@ export async function fetchVideoTranscript(url: string, opts: FetchTranscriptOpt
   const jobId = started.jobId;
   if (!jobId) {
     if (started.content) return String(started.content);
-    throw new Error('Supadata से transcript नहीं मिली (कोई job नहीं)।');
+    throw new Error('No transcript returned from Supadata (no job).');
   }
 
   // Poll the job. Native-caption jobs usually finish in seconds even for long
@@ -69,18 +69,18 @@ export async function fetchVideoTranscript(url: string, opts: FetchTranscriptOpt
   const MAX_POLLS = 100;
   const INTERVAL_MS = 3000;
   for (let i = 0; i < MAX_POLLS; i++) {
-    if (signal?.aborted) throw new Error('रद्द कर दिया गया।');
+    if (signal?.aborted) throw new Error('Cancelled.');
     await new Promise((r) => setTimeout(r, INTERVAL_MS));
-    onStatus?.(`Transcript तैयार हो रही है… (${i + 1})`);
+    onStatus?.(`Preparing transcript… (${i + 1})`);
     const polled = await callProxy({ action: 'poll', jobId });
     if (polled.status === 'completed') {
-      if (!polled.content) throw new Error('Transcript खाली मिली।');
+      if (!polled.content) throw new Error('Transcript came back empty.');
       return String(polled.content);
     }
     if (polled.status === 'failed') {
-      throw new Error(polled.error || 'Supadata transcript job विफल रहा।');
+      throw new Error(polled.error || 'Supadata transcript job failed.');
     }
     // queued / active → keep polling
   }
-  throw new Error('Transcript बहुत देर तक तैयार नहीं हुई — बाद में पुनः प्रयास करें।');
+  throw new Error('Transcript took too long to prepare — please try again later.');
 }

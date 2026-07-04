@@ -41,7 +41,7 @@ export const SidebarPdfTools: React.FC<SidebarPdfToolsProps> = ({
             <input type="file" accept=".pdf" onChange={handleTranslatePdfUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
             <div className="flex flex-col items-center gap-1 py-3 rounded-lg border border-dashed border-orange-500/25 hover:border-orange-500/50 hover:bg-orange-500/8 transition-all h-full justify-center">
               <Upload className="w-3.5 h-3.5 text-orange-400/70" />
-              <p className="text-[9px] text-slate-500 text-center leading-tight">PDF upload करें</p>
+              <p className="text-[9px] text-slate-500 text-center leading-tight">Upload PDF</p>
             </div>
           </label>
         ) : (
@@ -63,7 +63,7 @@ export const SidebarPdfTools: React.FC<SidebarPdfToolsProps> = ({
               {isGenerating && translateProgress ? (
                 <><div className="w-2.5 h-2.5 border-2 border-white/40 border-t-white rounded-full animate-spin flex-shrink-0" />{translateProgress.current}/{translateProgress.total}</>
               ) : (
-                <><Languages className="w-3 h-3" />{translateResumeState?.pdfName === translatePdfFile?.name ? 'शुरू से' : 'अनुवाद'}</>
+                <><Languages className="w-3 h-3" />{translateResumeState?.pdfName === translatePdfFile?.name ? 'Restart' : 'Translate'}</>
               )}
             </button>
           </div>
@@ -76,14 +76,14 @@ export const SidebarPdfTools: React.FC<SidebarPdfToolsProps> = ({
           <div className="w-5 h-5 rounded-md bg-rose-500/15 flex items-center justify-center flex-shrink-0">
             <GraduationCap className="w-3 h-3 text-rose-400" />
           </div>
-          <p className="text-[10px] font-bold text-rose-300 leading-tight">उत्तर विश्लेषण</p>
+          <p className="text-[10px] font-bold text-rose-300 leading-tight">Answer Analysis</p>
         </div>
         {!answerPdfFile ? (
           <label className="flex-1 relative cursor-pointer block">
             <input type="file" accept=".pdf" onChange={handleAnswerPdfUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={isGenerating} />
             <div className="flex flex-col items-center gap-1 py-3 rounded-lg border border-dashed border-rose-500/25 hover:border-rose-500/50 hover:bg-rose-500/8 transition-all h-full justify-center">
               <Upload className="w-3.5 h-3.5 text-rose-400/70" />
-              <p className="text-[9px] text-slate-500 text-center leading-tight">उत्तर PDF<br/>upload करें</p>
+              <p className="text-[9px] text-slate-500 text-center leading-tight">Upload answer<br/>PDF</p>
             </div>
           </label>
         ) : (
@@ -103,7 +103,7 @@ export const SidebarPdfTools: React.FC<SidebarPdfToolsProps> = ({
               style={{ background: 'linear-gradient(135deg, #e11d48 0%, #9f1239 100%)' }}
             >
               {answerAnalyzing ? (
-                <><div className="w-2.5 h-2.5 border-2 border-white/40 border-t-white rounded-full animate-spin flex-shrink-0" />विश्लेषण...</>
+                <><div className="w-2.5 h-2.5 border-2 border-white/40 border-t-white rounded-full animate-spin flex-shrink-0" />Analysing...</>
               ) : (
                 <><Sparkles className="w-3 h-3" />Analyse</>
               )}
@@ -117,16 +117,16 @@ export const SidebarPdfTools: React.FC<SidebarPdfToolsProps> = ({
     {translateResumeState && translateResumeState.pdfName === translatePdfFile?.name && !isGenerating && (
       <div className="rounded-xl border border-orange-500/30 bg-orange-500/8 p-2.5 space-y-1.5">
         <p className="text-[10px] text-orange-300 text-center">
-          पृष्ठ {translateResumeState.startPage}/{translateResumeState.total} पर रुका है
+          Paused at page {translateResumeState.startPage}/{translateResumeState.total}
         </p>
         <button type="button" onClick={handleResumePdf}
           className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold text-white active:scale-[0.98] transition-all"
           style={{ background: 'linear-gradient(135deg, #ea580c 0%, #b45309 100%)' }}>
           <Languages className="w-3 h-3" />
-          पृष्ठ {translateResumeState.startPage} से जारी रखें
+          Resume from page {translateResumeState.startPage}
         </button>
         <button type="button" onClick={() => setTranslateResumeState(null)} className="w-full text-[10px] text-slate-600 hover:text-slate-400 transition-colors">
-          नई शुरुआत करें
+          Start over
         </button>
       </div>
     )}
@@ -139,9 +139,9 @@ export const SidebarPdfTools: React.FC<SidebarPdfToolsProps> = ({
             style={{ width: `${Math.round((translateProgress.current / translateProgress.total) * 100)}%`, background: 'linear-gradient(90deg, #ea580c, #dc2626)' }} />
         </div>
         <div className="flex justify-between items-center">
-          <p className="text-[10px] text-slate-500">{Math.round((translateProgress.current / translateProgress.total) * 100)}% पूर्ण</p>
+          <p className="text-[10px] text-slate-500">{Math.round((translateProgress.current / translateProgress.total) * 100)}% done</p>
           {translateProgress.secondsLeft != null && translateProgress.secondsLeft > 0 && (
-            <p className="text-[10px] text-orange-500/80">~{translateProgress.secondsLeft >= 60 ? `${Math.ceil(translateProgress.secondsLeft / 60)} मिनट` : `${translateProgress.secondsLeft}s`} बाकी</p>
+            <p className="text-[10px] text-orange-500/80">~{translateProgress.secondsLeft >= 60 ? `${Math.ceil(translateProgress.secondsLeft / 60)} min` : `${translateProgress.secondsLeft}s`} left</p>
           )}
         </div>
       </div>

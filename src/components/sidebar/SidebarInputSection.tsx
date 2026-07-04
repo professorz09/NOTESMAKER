@@ -125,7 +125,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
               type="url"
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
-              placeholder="YouTube video link paste करें…"
+              placeholder="Paste YouTube video link…"
               className="flex-1 bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none min-w-0"
             />
             {youtubeUrl.trim() && (
@@ -136,14 +136,14 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <div className="h-px flex-1 bg-white/8" />
-            <span className="text-[9px] text-slate-600 uppercase tracking-widest">या transcript</span>
+            <span className="text-[9px] text-slate-600 uppercase tracking-widest">or transcript</span>
             <div className="h-px flex-1 bg-white/8" />
           </div>
 
           <textarea
             value={transcriptInput}
             onChange={(e) => setTranscriptInput(e.target.value)}
-            placeholder="यहाँ पूरी class transcript paste करें (3–4 घंटे तक)..."
+            placeholder="Paste the full class transcript here (up to 3–4 hours)..."
             rows={6}
             className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
           />
@@ -151,7 +151,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
             <input type="file" accept=".txt,text/plain" onChange={handleTranscriptFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
             <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-indigo-500/25 hover:border-indigo-500/50 hover:bg-indigo-500/6 transition-all">
               <Upload className="w-3.5 h-3.5 text-indigo-400/80" />
-              <p className="text-[11px] text-slate-400">या .txt transcript file upload करें</p>
+              <p className="text-[11px] text-slate-400">or upload a .txt transcript file</p>
             </div>
           </label>
           {transcriptInput.trim() && (
@@ -174,10 +174,10 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
               </div>
               <p className="text-[10px] text-indigo-300/90">
                 {transcriptProgress.step === 'fetch'
-                  ? (transcriptProgress.note || 'YouTube से transcript लाई जा रही है…')
+                  ? (transcriptProgress.note || 'Fetching transcript from YouTube…')
                   : transcriptProgress.step === 'structure'
-                    ? 'Step 1/2 — structure बन रहा है…'
-                    : `Step 2/2 — detailed notes (भाग ${transcriptProgress.current}/${transcriptProgress.total})`}
+                    ? 'Step 1/2 — building structure…'
+                    : `Step 2/2 — detailed notes (part ${transcriptProgress.current}/${transcriptProgress.total})`}
               </p>
             </div>
           )}

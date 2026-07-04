@@ -127,7 +127,7 @@ function createMindmapController(
       console.error('Add-more point failed:', err);
       const node = mm.nodes.find(n => n.id === nodeId);
       if (node) node.status = 'error';
-      toast.error('यह point generate नहीं हुआ — नोड पर दुबारा click करें।');
+      toast.error('This point could not be generated — click the node to try again.');
     } finally {
       mm.addBusy = false;
       syncMm();
@@ -169,7 +169,7 @@ function createMindmapController(
         const n = mm.nodes.find(x => x.id === id);
         if (n) n.status = prevStatus;
       });
-      toast.error('यह भाग update नहीं हुआ — दुबारा कोशिश करें।');
+      toast.error('This section could not be updated — please try again.');
     } finally {
       syncMm();
     }
@@ -258,7 +258,7 @@ export function useGeneration({
     entries: { heading: string; subheadings: string[]; partIndex: number; nodeIds: string[] }[],
   ) => {
     if (!groundingEnabled || isResettingRef.current || !entries.length) return;
-    setNotesProgress({ current: entries.length, total: entries.length, label: '🌐 latest जानकारी के लिए grounding scan हो रहा है…' });
+    setNotesProgress({ current: entries.length, total: entries.length, label: '🌐 Scanning for latest info (grounding)…' });
     try {
       const additions = await scanSectionsForGroundingAdditions(
         contextTitle,
@@ -274,7 +274,7 @@ export function useGeneration({
       }
       pushLive(true);
       syncMm();
-      toast.success(`🌐 ${additions.length} भाग में latest जानकारी जोड़ी गई।`);
+      toast.success(`🌐 Latest info added to ${additions.length} section(s).`);
     } catch (err) {
       console.error('Grounding pass failed (notes are still complete without it):', err);
     }
@@ -395,7 +395,7 @@ export function useGeneration({
       if (failedPage != null) {
         parts.push(
           `<div style="border:1.5px dashed #f97316;border-radius:10px;padding:14px 18px;margin:20px 0;color:#f97316;font-size:13px;background:rgba(249,115,22,0.06)">` +
-          `⚠️ पृष्ठ ${failedPage} translate नहीं हुआ। नीचे "पृष्ठ ${failedPage} से जारी रखें" बटन दबाएं।` +
+          `⚠️ Page ${failedPage} could not be translated. Press the "Resume from page ${failedPage}" button below.` +
           `</div>`
         );
       }
@@ -442,7 +442,7 @@ export function useGeneration({
                 pageHtmlParts,
               });
               pushLive(pageNum);
-              toast.warning(`पृष्ठ ${pageNum} translate नहीं हुआ — "जारी रखें" बटन दबाएं`);
+              toast.warning(`Page ${pageNum} could not be translated — press the "Resume" button`);
             }
             return;
           }
@@ -452,7 +452,7 @@ export function useGeneration({
 
       if (!succeeded) return;
 
-      if (i < total - 1) pageHtml += `<div class="pdf-page-divider"><span class="pdf-page-num">पृष्ठ ${pageNum}</span></div>`;
+      if (i < total - 1) pageHtml += `<div class="pdf-page-divider"><span class="pdf-page-num">Page ${pageNum}</span></div>`;
       pageHtmlParts.push(pageHtml);
       pageTimes.push(Date.now() - pageStart);
       pushLive();
@@ -460,7 +460,7 @@ export function useGeneration({
 
     setTranslateResumeState(null);
     if (window.innerWidth < 1024) setSidebarOpen(false);
-    toast.success(`PDF अनुवाद पूर्ण! सभी ${total} पृष्ठ translate हुए।`);
+    toast.success(`PDF translation complete! All ${total} pages translated.`);
   };
 
   const handleTranslatePdf = async () => {
@@ -526,7 +526,7 @@ export function useGeneration({
         let w = getAttr('w');
         let h = getAttr('h');
         const altMatch = attrs.match(/data-alt="([^"]*)"/i);
-        const rawAlt = altMatch ? altMatch[1] : 'चित्र';
+        const rawAlt = altMatch ? altMatch[1] : 'image';
         const alt = rawAlt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
         if (x === null || y === null || w === null || h === null) return '';
@@ -609,7 +609,7 @@ export function useGeneration({
     reader.onload = (event) => {
       const text = (event.target?.result as string) || '';
       setTranscriptInput(prev => (prev.trim() ? prev + '\n\n' + text : text));
-      toast.success(`"${file.name}" loaded — Generate Notes दबाएं।`);
+      toast.success(`"${file.name}" loaded — press Generate Notes.`);
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -627,11 +627,11 @@ export function useGeneration({
     // No pasted text but a video link is present → fetch its transcript first.
     if (!text && url) {
       if (!looksLikeVideoUrl(url)) {
-        toast.warning('कृपया सही YouTube/video link डालें।');
+        toast.warning('Please enter a valid YouTube/video link.');
         return;
       }
       setStatus(GenerationStatus.GENERATING_CHAPTER);
-      setTranscriptProgress({ current: 0, total: 1, step: 'fetch', note: 'Transcript माँगी जा रही है…' });
+      setTranscriptProgress({ current: 0, total: 1, step: 'fetch', note: 'Fetching transcript…' });
       try {
         const fetched = await fetchVideoTranscript(url, {
           lang: language === 'Hindi' ? 'hi' : 'en',
@@ -640,13 +640,13 @@ export function useGeneration({
           signal: { get aborted() { return isResettingRef.current; } },
         });
         text = (fetched || '').trim();
-        if (!text) throw new Error('Transcript खाली मिली।');
+        if (!text) throw new Error('Transcript came back empty.');
         setTranscriptInput(text);
-        toast.success('Transcript मिल गई — notes बन रहे हैं…');
+        toast.success('Transcript fetched — building notes…');
       } catch (err: any) {
         if (!isResettingRef.current) {
           console.error(err);
-          toast.error(`Transcript नहीं मिली: ${err?.message || 'पुनः प्रयास करें।'}`);
+          toast.error(`Could not fetch transcript: ${err?.message || 'please try again.'}`);
         }
         setStatus(GenerationStatus.IDLE);
         setTranscriptProgress(null);
@@ -655,7 +655,7 @@ export function useGeneration({
     }
 
     if (!text) {
-      toast.warning('कृपया transcript paste करें, .txt upload करें, या YouTube link डालें।');
+      toast.warning('Please paste a transcript, upload a .txt, or enter a YouTube link.');
       setStatus(GenerationStatus.IDLE);
       return;
     }
@@ -668,11 +668,11 @@ export function useGeneration({
         const built = await runLeveledTranscriptPipeline(text, detailLevel);
         if (!built) await runSimpleTranscriptPipeline(text); // structure step failed → fall back
       }
-      if (!isResettingRef.current) toast.success('Transcript notes तैयार!');
+      if (!isResettingRef.current) toast.success('Transcript notes ready!');
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
-        toast.error(`Transcript notes failed: ${error.message || 'पुनः प्रयास करें।'}`);
+        toast.error(`Transcript notes failed: ${error.message || 'please try again.'}`);
       }
     } finally {
       if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
@@ -727,7 +727,7 @@ export function useGeneration({
       }
 
       if (!ok || !chunkHtml) {
-        parts.push(`<div class="note-box">⚠️ इस भाग (${i + 1}/${total}) के notes generate नहीं हुए — बाकी notes नीचे जारी हैं। इस भाग के लिए दुबारा प्रयास करें।</div>`);
+        parts.push(`<div class="note-box">⚠️ Notes for this part (${i + 1}/${total}) could not be generated — the rest continue below. Please retry this part.</div>`);
         pushLive();
         continue;
       }
@@ -786,19 +786,19 @@ export function useGeneration({
     mindmapControllerRef.current = controller;
 
     // Phase 1 — build the skeleton of the whole video (outline every segment).
-    setNotesProgress({ current: 0, total, label: 'पूरे video का ढांचा बन रहा है…' });
+    setNotesProgress({ current: 0, total, label: 'Building the whole video structure…' });
     syncMm();
     const chunkSections: TranscriptSection[][] = [];
     const chunkRange: { start: number; end: number }[] = [];
     let anyRealOutline = false;
     for (let i = 0; i < total; i++) {
       if (isResettingRef.current) { setMindmap(null); return true; }
-      setNotesProgress({ current: i + 1, total, label: `ढांचा बन रहा है (भाग ${i + 1}/${total})` });
+      setNotesProgress({ current: i + 1, total, label: `Building structure (part ${i + 1}/${total})` });
       let secs: TranscriptSection[] = [];
       try { secs = await outlineTranscriptChunk(chunks[i], i + 1, total, language, outlineModel); }
       catch (err) { console.error(`Transcript outline chunk ${i + 1} failed:`, err); }
       if (secs.length) anyRealOutline = true;
-      else secs = [{ heading: `भाग ${i + 1}`, subheadings: [] }];
+      else secs = [{ heading: `Part ${i + 1}`, subheadings: [] }];
       const before = mm.nodes.length;
       const groupId = `c${i}`;
       secs.forEach((s, j) => mm.nodes.push({
@@ -857,7 +857,7 @@ export function useGeneration({
       for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
       mm.errorNodeId = null;
       syncMm();
-      setNotesProgress({ current: i + 1, total, label: `detailed notes बन रहे हैं (भाग ${i + 1}/${total})` });
+      setNotesProgress({ current: i + 1, total, label: `Writing detailed notes (part ${i + 1}/${total})` });
 
       let html = '';
       let skipped = false;
@@ -881,7 +881,7 @@ export function useGeneration({
         for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'error';
         mm.errorNodeId = mm.nodes[range.start].id;
         syncMm();
-        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry, Skip या Finish चुनें` });
+        setNotesProgress({ current: i + 1, total, label: `Part ${i + 1} ran into a problem — choose Retry, Skip or Finish` });
         const action = await waitForMindmapAction();
         if (isResettingRef.current) { setMindmap(null); return true; }
         mm.errorNodeId = null;
@@ -913,7 +913,7 @@ export function useGeneration({
 
 
     await runGroundingPass(mm.title, mm, syncMm, parts, pushLive, chunkSections.map((secs, i) => ({
-      heading: secs.map(s => s.heading).join('; ') || `भाग ${i + 1}`,
+      heading: secs.map(s => s.heading).join('; ') || `Part ${i + 1}`,
       subheadings: secs.flatMap(s => s.subheadings),
       partIndex: chunkPartIndex[i],
       nodeIds: mm.nodes.slice(chunkRange[i].start, chunkRange[i].end).map(n => n.id),
@@ -961,19 +961,19 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
-    setNotesProgress({ current: 0, total, label: 'पूरे content का ढांचा बन रहा है…' });
+    setNotesProgress({ current: 0, total, label: 'Building the whole content structure…' });
     syncMm();
     const chunkSections: TranscriptSection[][] = [];
     const chunkRange: { start: number; end: number }[] = [];
     let anyRealOutline = false;
     for (let i = 0; i < total; i++) {
       if (isResettingRef.current) { setMindmap(null); return true; }
-      setNotesProgress({ current: i + 1, total, label: `ढांचा बन रहा है (भाग ${i + 1}/${total})` });
+      setNotesProgress({ current: i + 1, total, label: `Building structure (part ${i + 1}/${total})` });
       let secs: TranscriptSection[] = [];
       try { secs = await outlineTextChunk(chunks[i], i + 1, total, language, outlineModel); }
       catch (err) { console.error(`Text outline chunk ${i + 1} failed:`, err); }
       if (secs.length) anyRealOutline = true;
-      else secs = [{ heading: `भाग ${i + 1}`, subheadings: [] }];
+      else secs = [{ heading: `Part ${i + 1}`, subheadings: [] }];
       const before = mm.nodes.length;
       const groupId = `c${i}`;
       secs.forEach((s, j) => mm.nodes.push({
@@ -1023,7 +1023,7 @@ export function useGeneration({
       for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
       mm.errorNodeId = null;
       syncMm();
-      setNotesProgress({ current: i + 1, total, label: `detailed notes बन रहे हैं (भाग ${i + 1}/${total})` });
+      setNotesProgress({ current: i + 1, total, label: `Writing detailed notes (part ${i + 1}/${total})` });
 
       let html = '';
       let skipped = false;
@@ -1045,7 +1045,7 @@ export function useGeneration({
         for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'error';
         mm.errorNodeId = mm.nodes[range.start].id;
         syncMm();
-        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry, Skip या Finish चुनें` });
+        setNotesProgress({ current: i + 1, total, label: `Part ${i + 1} ran into a problem — choose Retry, Skip or Finish` });
         const action = await waitForMindmapAction();
         if (isResettingRef.current) { setMindmap(null); return true; }
         mm.errorNodeId = null;
@@ -1075,7 +1075,7 @@ export function useGeneration({
 
 
     await runGroundingPass(mm.title, mm, syncMm, parts, pushLive, chunkSections.map((secs, i) => ({
-      heading: secs.map(s => s.heading).join('; ') || `भाग ${i + 1}`,
+      heading: secs.map(s => s.heading).join('; ') || `Part ${i + 1}`,
       subheadings: secs.flatMap(s => s.subheadings),
       partIndex: chunkPartIndex[i],
       nodeIds: mm.nodes.slice(chunkRange[i].start, chunkRange[i].end).map(n => n.id),
@@ -1123,7 +1123,7 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
-    setNotesProgress({ current: 0, total: 1, label: 'Files का ढांचा बन रहा है…' });
+    setNotesProgress({ current: 0, total: 1, label: 'Building the files structure…' });
     syncMm();
 
     let sections: TranscriptSection[] = [];
@@ -1166,7 +1166,7 @@ export function useGeneration({
       mm.nodes[i].status = 'active';
       mm.errorNodeId = null;
       syncMm();
-      setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1}/${total}: ${sections[i].heading}` });
+      setNotesProgress({ current: i + 1, total, label: `Part ${i + 1}/${total}: ${sections[i].heading}` });
 
       let html = '';
       let skipped = false;
@@ -1188,7 +1188,7 @@ export function useGeneration({
         mm.nodes[i].status = 'error';
         mm.errorNodeId = mm.nodes[i].id;
         syncMm();
-        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry, Skip या Finish चुनें` });
+        setNotesProgress({ current: i + 1, total, label: `Part ${i + 1} ran into a problem — choose Retry, Skip or Finish` });
         const action = await waitForMindmapAction();
         if (isResettingRef.current) { setMindmap(null); return true; }
         mm.errorNodeId = null;
@@ -1276,7 +1276,7 @@ export function useGeneration({
 
   const wrapUPSCBlock = (question: string, answerHtml: string, subject: UPSCSubject) => {
     const tagClass = subject === 'hindi_literature' ? 'upsc-subject-tag upsc-subject-hl' : 'upsc-subject-tag upsc-subject-gs';
-    const tagLabel = subject === 'hindi_literature' ? 'हिंदी साहित्य' : 'सामान्य अध्ययन';
+    const tagLabel = subject === 'hindi_literature' ? 'Hindi Literature' : 'General Studies';
     return `<section class="upsc-qa-block"><div class="upsc-question-header"><span class="${tagClass}">${tagLabel}</span><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
   };
 
@@ -1327,7 +1327,7 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
-    setNotesProgress({ current: 0, total: 1, label: 'Structure तैयार हो रहा है…' });
+    setNotesProgress({ current: 0, total: 1, label: 'Preparing structure…' });
     syncMm();
 
     let outline = null as Awaited<ReturnType<typeof generateTopicOutline>> | Awaited<ReturnType<typeof generateDeepOutline>>;
@@ -1400,7 +1400,7 @@ export function useGeneration({
       mm.nodes[i].status = 'active';
       mm.errorNodeId = null;
       syncMm();
-      setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1}/${total}: ${sections[i].heading}` });
+      setNotesProgress({ current: i + 1, total, label: `Part ${i + 1}/${total}: ${sections[i].heading}` });
 
       let html = '';
       let skipped = false;
@@ -1421,7 +1421,7 @@ export function useGeneration({
         mm.nodes[i].status = 'error';
         mm.errorNodeId = mm.nodes[i].id;
         syncMm();
-        setNotesProgress({ current: i + 1, total, label: `भाग ${i + 1} में समस्या — Retry, Skip या Finish चुनें` });
+        setNotesProgress({ current: i + 1, total, label: `Part ${i + 1} ran into a problem — choose Retry, Skip or Finish` });
         const action = await waitForMindmapAction();
         if (isResettingRef.current) { setMindmap(null); return; }
         mm.errorNodeId = null;
@@ -1454,10 +1454,10 @@ export function useGeneration({
     // skipped if the user chose to finish early (the node stays clickable).
     if (hasCompletenessPass) {
       const extraId = 'extra';
-      mm.nodes.push({ id: extraId, label: 'बचे हुए ज़रूरी बिंदु', status: stoppedEarly ? 'skipped' : 'active', children: [], groupId: extraId });
+      mm.nodes.push({ id: extraId, label: 'Remaining key points', status: stoppedEarly ? 'skipped' : 'active', children: [], groupId: extraId });
       syncMm();
       if (!stoppedEarly && !isResettingRef.current) {
-        setNotesProgress({ current: total, total, label: 'बचे हुए ज़रूरी बिंदु जोड़े जा रहे हैं…' });
+        setNotesProgress({ current: total, total, label: 'Adding remaining key points…' });
         try {
           const extra = await runCompleteness();
           const node = mm.nodes[mm.nodes.length - 1];
@@ -1539,7 +1539,7 @@ export function useGeneration({
           // Medium/Detailed → multi-step outline+expand pipeline (manages its
           // own live state); nothing more to finishGeneration here.
           await runLeveledTopicPipeline(topicInput.trim(), detailLevel);
-          if (!isResettingRef.current) toast.success('Detailed notes तैयार!');
+          if (!isResettingRef.current) toast.success('Detailed notes ready!');
           return;
         }
         else result = await generateTopicContent(topicInput, language, aiModel);
@@ -1555,7 +1555,7 @@ export function useGeneration({
           if (docStyle === 'notes' && detailLevel !== 'normal') {
             const built = await runLeveledFilePipeline(files, detailLevel);
             if (!built) result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
-            else { if (!isResettingRef.current) toast.success('Detailed notes तैयार!'); return; }
+            else { if (!isResettingRef.current) toast.success('Detailed notes ready!'); return; }
           } else {
             result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
           }
@@ -1563,7 +1563,7 @@ export function useGeneration({
           if (docStyle === 'notes' && detailLevel !== 'normal') {
             const built = await runLeveledTextPipeline(textInput.trim(), detailLevel);
             if (!built) result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
-            else { if (!isResettingRef.current) toast.success('Detailed notes तैयार!'); return; }
+            else { if (!isResettingRef.current) toast.success('Detailed notes ready!'); return; }
           } else {
             result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
           }
@@ -1594,7 +1594,7 @@ export function useGeneration({
     const currentQuestion = topicInput.trim();
     const typed = customQuestion?.trim() || '';
     if (!typed && !currentQuestion) {
-      toast.warning('कृपया प्रश्न दर्ज करें।');
+      toast.warning('Please enter a question.');
       return;
     }
     const useStyle = styleOverride ?? upscAnswerStyle;
@@ -1608,7 +1608,7 @@ export function useGeneration({
       if (!nextQuestion) {
         nextQuestion = await generateNextUPSCQuestion(currentQuestion, language, 'gemini-3.1-flash-lite', useSubject);
         if (!nextQuestion) {
-          toast.error('अगला प्रश्न generate नहीं हुआ। पुनः प्रयास करें।');
+          toast.error('Could not generate the next question. Please try again.');
           return;
         }
       } else if (language === 'Hindi' || useSubject === 'hindi_literature') {
@@ -1627,7 +1627,7 @@ export function useGeneration({
         ? existing + '\n<hr class="upsc-qa-divider" />\n' + newBlock
         : newBlock;
       finishGeneration(combined);
-      toast.success('अगला UPSC प्रश्न तैयार है!');
+      toast.success('Next UPSC question is ready!');
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);

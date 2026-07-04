@@ -11,16 +11,16 @@ interface SidebarDetailLevelProps {
 }
 
 const LEVELS: { id: DetailLevel; label: string; desc: string }[] = [
-  { id: 'normal',   label: 'Normal',   desc: 'तेज़ • एक बार में' },
-  { id: 'medium',   label: 'Medium',   desc: '2 steps • गहरा' },
-  { id: 'detailed', label: 'Detailed', desc: 'पूरा topic • विस्तृत' },
-  { id: 'deep',     label: 'Deep',     desc: 'Pro • सबसे गहरा' },
+  { id: 'normal',   label: 'Normal',   desc: 'Fast • single pass' },
+  { id: 'medium',   label: 'Medium',   desc: '2 steps • deeper' },
+  { id: 'detailed', label: 'Detailed', desc: 'Full topic • detailed' },
+  { id: 'deep',     label: 'Deep',     desc: 'Pro • deepest' },
 ];
 
 const HELP: Record<Exclude<DetailLevel, 'normal'>, string> = {
-  medium: 'AI पहले structure बनाएगा, फिर हर मुख्य heading को depth में expand करेगा।',
-  detailed: 'AI पहले पूरा structure बनाएगा, फिर हर heading + sub-heading को गहराई में लिखेगा, और अंत में बचे बिंदु जोड़ेगा।',
-  deep: 'सबसे बड़ी pipeline: Gemini 3 Pro topic→subtopics→sub-subtopics का analysis + structure बनाता है, फिर हर हिस्से को भी Pro से गहराई में expand करता है, और अंत में बचे बिंदु जोड़ता है। generation के समय screen पर live mindmap दिखेगा।',
+  medium: 'AI first builds the structure, then expands each main heading in depth.',
+  detailed: 'AI first builds the full structure, then writes each heading + sub-heading in depth, and finally adds any remaining points.',
+  deep: 'The biggest pipeline: Gemini 3 Pro analyses topic → subtopics → sub-subtopics and builds the structure, then expands every part in depth with Pro, and finally adds any remaining points. A live mind map is shown on screen during generation.',
 };
 
 export const SidebarDetailLevel: React.FC<SidebarDetailLevelProps> = ({
@@ -56,15 +56,15 @@ export const SidebarDetailLevel: React.FC<SidebarDetailLevelProps> = ({
     {mode === 'transcript' && (
       <p className="text-[9.5px] text-slate-600 leading-relaxed px-0.5">
         {detailLevel === 'normal'
-          ? 'Normal: video को हिस्सों में बाँटकर सीधे detailed notes।'
-          : 'AI पहले पूरे video का ढांचा (सभी topics + sub-points) बनाता है, screen पर live mindmap दिखता है, फिर हर हिस्से को structure के अनुसार ' + (detailLevel === 'deep' ? 'सबसे गहराई में (sub-points तक)' : detailLevel === 'detailed' ? 'गहराई में' : 'अच्छे से') + ' expand करता है।'}
+          ? 'Normal: the video is split into parts and turned straight into detailed notes.'
+          : 'AI first builds the whole video\'s structure (all topics + sub-points), shows a live mind map on screen, then expands each part ' + (detailLevel === 'deep' ? 'to the deepest level (down to sub-points)' : detailLevel === 'detailed' ? 'in depth' : 'well') + ' as per the structure.'}
       </p>
     )}
     {(mode === 'text' || mode === 'file') && (
       <p className="text-[9.5px] text-slate-600 leading-relaxed px-0.5">
         {detailLevel === 'normal'
-          ? 'Normal: पेस्ट किया text या upload की गई files सीधे detailed notes में बदल जाएँगी।'
-          : `AI पहले पूरे content (text/files) का ढांचा बनाता है, screen पर live mindmap दिखता है, फिर हर हिस्से को ${detailLevel === 'deep' ? 'सबसे गहराई में' : detailLevel === 'detailed' ? 'गहराई में' : 'अच्छे से'} expand करता है — कुछ भी miss नहीं होता।`}
+          ? 'Normal: pasted text or uploaded files are turned straight into detailed notes.'
+          : `AI first builds the structure of all your content (text/files), shows a live mind map on screen, then expands each part ${detailLevel === 'deep' ? 'to the deepest level' : detailLevel === 'detailed' ? 'in depth' : 'well'} — nothing is missed.`}
       </p>
     )}
 
@@ -88,7 +88,7 @@ export const SidebarDetailLevel: React.FC<SidebarDetailLevelProps> = ({
         <div className="flex-1 min-w-0 text-left">
           <p className={`text-[11.5px] font-bold leading-tight ${groundingEnabled ? 'text-sky-300' : 'text-slate-300'}`}>Google Grounding</p>
           <p className="text-[9.5px] text-slate-500 leading-tight mt-0.5">
-            generation पूरा होने के बाद, हर heading को scan करके जहाँ latest/current जानकारी चाहिए वहीं live search से जोड़ता है — बाकी को छोड़ देता है
+            After generation, scans every heading and adds live-search info only where latest/current data is needed — everything else is left untouched
           </p>
         </div>
         <div className={`w-9 h-5 rounded-full flex-shrink-0 relative transition-colors ${groundingEnabled ? 'bg-sky-500' : 'bg-white/15'}`}>
