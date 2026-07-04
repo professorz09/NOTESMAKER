@@ -156,13 +156,11 @@ export const generateNotesFromTranscriptChunk = async (
     - ${isFirst ? 'Do NOT add a document <h1> title — it has already been created; start directly with the first <h2> section.' : 'Do NOT repeat the document title or any overview — just continue with the next <h2> sections.'}
     - Do NOT add a "Summary", "Conclusion", "Takeaways" or "Revision" section — keep it pure detailed content.
 
-    **DEPTH & FORMATTING:**
-    1. Every heading is followed by real explanation — never an empty or one-line heading. Say what it is, why it matters, how it works, with the concrete facts from the transcript.
-    2. Break explanations into <ul><li> points; each bullet is a full, informative sentence — never 2–3 words.
-    3. Use <strong> for key terms / dates / figures / names.
-    4. Use ${KEY_POINT_RULE}
-    5. Add a <table> whenever the segment compares things, lists categories, or presents data.
-    6. Add ONE clean SVG diagram inside <div class="flowchart-container"> (no border on the SVG, use viewBox) whenever the segment describes a process, hierarchy, timeline or relationship that a visual would clarify. Keep it readable and responsive.
+    **DEPTH & PRESENTATION:**
+    1. Explain every point properly and in depth — the reader must actually understand and remember it. Every heading is followed by real explanation (what it is, why it matters, how it works, with the concrete facts from the transcript); never an empty or one-line heading, and never dispose of a point in a single passing line.
+    2. When you use bullets, each <li> is a full, informative sentence — never 2–3 words. Use <strong> for key terms / dates / figures / names.
+    3. Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG diagram in <div class="flowchart-container"> (no border, use viewBox). Use any of these only because it genuinely aids understanding here, never to fill a quota; you decide based on the content.
+    4. Optionally, ${KEY_POINT_RULE}
 
     **Output:** Return ONLY raw HTML. No markdown, no code fences.
   `;
@@ -272,8 +270,8 @@ export const expandTranscriptChunkStructured = async (
 
     FORMAT:
     - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
-    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, ${KEY_POINT_RULE}
-    - Add a <table> where the segment compares or lists data; add ONE clean SVG inside <div class="flowchart-container"> (no border, use viewBox) where a process/hierarchy/timeline is described.
+    - Explain every point in depth — never dispose of a sub-point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
+    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. Optionally, ${KEY_POINT_RULE}
     - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML. No markdown, no code fences.

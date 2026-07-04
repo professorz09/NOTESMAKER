@@ -117,8 +117,8 @@ export const expandTextChunkStructured = async (
 
     FORMAT:
     - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
-    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, ${KEY_POINT_RULE}
-    - Add a <table> where the segment compares or lists data; add ONE clean SVG inside <div class="flowchart-container"> (no border, use viewBox) where a process/hierarchy/timeline is described.
+    - Explain every point in depth — never dispose of a sub-point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
+    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. Optionally, ${KEY_POINT_RULE}
     - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML. No markdown, no code fences.
@@ -196,10 +196,10 @@ export const expandFilesSection = async (
   const ai = createAIClient();
 
   const subGuidance = section.subheadings.length
-    ? `Cover these sub-points, each as its own <h3>${sectionNumber}.k …</h3> sub-section (go into <h4> where a sub-point itself has parts):\n${section.subheadings.map((s, i) => `${sectionNumber}.${i + 1} ${s}`).join('\n')}`
+    ? `Cover these sub-points, each as its own <h3>${sectionNumber}.k …</h3> sub-section, and EXPLAIN each one fully — do not just restate the heading in a line (go into <h4> where a sub-point itself has parts):\n${section.subheadings.map((s, i) => `${sectionNumber}.${i + 1} ${s}`).join('\n')}`
     : (level === 'deep' || level === 'detailed'
-      ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it.'
-      : 'Break this section into 2-4 logical <h3> sub-sections where it helps.');
+      ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained.'
+      : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
 
   const depth = level === 'deep'
     ? 'Go MAXIMALLY deep: every sub-section must have real explanation, mechanism, and every fact/date/number/name/example present in the files. Miss nothing.'
@@ -224,8 +224,8 @@ export const expandFilesSection = async (
 
     FORMAT:
     - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then <h3>${sectionNumber}.1 …</h3> sub-sections, <h4> for a further level where needed.
-    - Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures, ${KEY_POINT_RULE}
-    - Add a <table> where the section compares or lists data from the files; add ONE clean SVG inside <div class="flowchart-container"> (no border, use viewBox) where a process/hierarchy/timeline is described.
+    - Explain every point in depth — never dispose of a point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
+    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. Optionally, ${KEY_POINT_RULE}
     - Never output an empty or one-line heading. No filler.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
