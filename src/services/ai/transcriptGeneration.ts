@@ -2,12 +2,9 @@ import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFI
 import { parseOutlineSectionsJson, type OutlineSection } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
 
-// The label inside <div class="key-point"> is left for the model to choose
-// (Key Concept / Definition / Formula / Rule / Warning / …) rather than
-// hard-coded, so a formula box and a historical-date box don't both get
-// forced to say the same literal word.
+// Rare, not routine — <strong> inline already covers ordinary key terms.
 const KEY_POINT_RULE =
-  '<div class="key-point"><strong>[a short label that actually fits this box\'s content — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time]:</strong> …</div> for vital definitions or rules, and <div class="note-box">…</div> for important extra facts, exceptions or examples the teacher stressed.';
+  'Emphasis boxes are rare: most sections need ZERO <div class="key-point">. Only the single most pivotal definition/rule/formula the teacher stressed earns one, and it never carries a generic label like "Key Concept" — skip the label or name the actual thing. A genuinely noteworthy exception/aside can go in <div class="note-box">…</div>, same rarity.';
 
 // ---------------------------------------------------------------------------
 // Class-transcript → detailed notes pipeline.
@@ -160,7 +157,7 @@ export const generateNotesFromTranscriptChunk = async (
     1. Explain every point properly and in depth — the reader must actually understand and remember it. Every heading is followed by real explanation (what it is, why it matters, how it works, with the concrete facts from the transcript); never an empty or one-line heading, and never dispose of a point in a single passing line.
     2. When you use bullets, each <li> is a full, informative sentence — never 2–3 words. Use <strong> for key terms / dates / figures / names.
     3. Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG diagram in <div class="flowchart-container"> (no border, use viewBox). Use any of these only because it genuinely aids understanding here, never to fill a quota; you decide based on the content.
-    4. Optionally, ${KEY_POINT_RULE}
+    4. ${KEY_POINT_RULE}
 
     **Output:** Return ONLY raw HTML. No markdown, no code fences.
   `;
@@ -271,7 +268,7 @@ export const expandTranscriptChunkStructured = async (
     FORMAT:
     - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
     - Explain every point in depth — never dispose of a sub-point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
-    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. Optionally, ${KEY_POINT_RULE}
+    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. ${KEY_POINT_RULE}
     - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML. No markdown, no code fences.

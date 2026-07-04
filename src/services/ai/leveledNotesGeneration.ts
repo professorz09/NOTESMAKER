@@ -15,10 +15,11 @@ const EXPLAIN_RULE =
 const FORMAT_CHOICE =
   'Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or a simple clean SVG diagram in <div class="flowchart-container"> (no border, use viewBox). Use any of these ONLY because it genuinely aids understanding here, never to fill a quota: do not force a table or a diagram where clear writing reads better, and do not omit one where it truly clarifies. You decide, based on the content.';
 
-// Optional emphasis boxes — available, not mandatory. The label is left for
-// the model to fit (Definition / Formula / Rule / …) rather than hard-coded.
+// Emphasis boxes are RARE, not a per-section habit. <strong> inline already
+// covers ordinary important terms — a box is only for the one truly pivotal
+// fact a section can't do without, and never wears a generic template label.
 const EMPHASIS_NOTE =
-  'You MAY highlight a vital definition/rule/formula/must-remember fact in <div class="key-point"><strong>[a short label that fits, e.g. Definition / Key Concept / Formula / Rule — vary it, don\'t default to one word]:</strong> …</div>, and an important extra fact/exception/example in <div class="note-box">…</div>. These are optional tools — use them only where they help.';
+  'Emphasis boxes are rare, not routine — most sections need ZERO of them, since <strong> inline already marks ordinary key terms/dates/figures. Only when ONE specific definition, rule or formula in this section is so critical the reader must memorize it verbatim, wrap just that in <div class="key-point">…</div> — and never label it "Key Concept" (that phrase is a generic tic; either drop the label entirely or name the actual thing, e.g. the term, article number, or formula name). A genuinely surprising exception or aside can go in <div class="note-box">…</div>, same rarity — not one per section.';
 
 // ---------------------------------------------------------------------------
 // Leveled topic-notes pipeline (Normal / Medium / Detailed).

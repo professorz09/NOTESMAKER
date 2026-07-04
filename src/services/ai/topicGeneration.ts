@@ -39,8 +39,8 @@ export const generateTopicContent = async (
     3. **Be concrete:** Include real data — dates, years, numbers, percentages, names, article/section numbers, examples — wherever they exist. Prefer specifics over vague statements.
     4. **Mandatory examples:** EVERY major sub-section (h3/h4) must include at least one concrete, real-world example, case, or illustration — never leave an explanation abstract when a real example would make it click.
     5. **Density:** "More facts, fewer filler words." Pack maximum information; avoid generic intros like "It is important to note that…".
-    6. **Key Concepts:** Wrap vital definitions / must-remember points / rules / formulas in: <div class="key-point"><strong>[a short label that fits what THIS box actually holds — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time, not the same word every time]:</strong> ...text...</div>
-    7. **Notes / Extra facts:** Use <div class="note-box">...text...</div> for important extra facts, exceptions, or exam-relevant trivia.
+    6. **Emphasis boxes are rare, not routine:** <strong> inline already marks ordinary key terms/dates/figures — most sections need ZERO extra boxes. Reserve <div class="key-point">...text...</div> for the rare, single most pivotal definition/rule/formula a section can't do without, and never label it "Key Concept" (that phrase is an overused tic) — either skip the label entirely or name the actual thing (e.g. the term, article number, formula name).
+    7. **Notes / Extra facts:** Use <div class="note-box">...text...</div> sparingly, only for a genuinely noteworthy exception or exam-relevant trivia — not a routine habit.
     8. **Bold key terms:** Wrap every important term, name, date and figure in <strong>.
 
     **TABLE FORMAT — AI selects the most appropriate type for this topic:**

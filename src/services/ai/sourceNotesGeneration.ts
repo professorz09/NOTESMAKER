@@ -16,10 +16,9 @@ import { buildRefinementDirective, type RefinementOptions } from './refinement';
 
 export type SourceSection = OutlineSection;
 
-// The label inside <div class="key-point"> is left for the model to choose
-// (Key Concept / Definition / Formula / Rule / …) instead of one fixed word.
+// Rare, not routine — <strong> inline already covers ordinary key terms.
 const KEY_POINT_RULE =
-  '<div class="key-point"><strong>[a short label that actually fits this box\'s content — Key Concept / Definition / Formula / Rule / whatever fits, chosen fresh each time]:</strong> …</div> for vital definitions or rules, and <div class="note-box">…</div> for important extra facts/examples/exceptions.';
+  'Emphasis boxes are rare: most sections need ZERO <div class="key-point">. Only the single most pivotal definition/rule/formula in a section earns one, and it never carries a generic label like "Key Concept" — skip the label or name the actual thing. A genuinely noteworthy exception/example can go in <div class="note-box">…</div>, same rarity.';
 
 // --- Pasted text -----------------------------------------------------------
 
@@ -118,7 +117,7 @@ export const expandTextChunkStructured = async (
     FORMAT:
     - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
     - Explain every point in depth — never dispose of a sub-point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
-    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. Optionally, ${KEY_POINT_RULE}
+    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. ${KEY_POINT_RULE}
     - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML. No markdown, no code fences.
@@ -225,7 +224,7 @@ export const expandFilesSection = async (
     FORMAT:
     - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then <h3>${sectionNumber}.1 …</h3> sub-sections, <h4> for a further level where needed.
     - Explain every point in depth — never dispose of a point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
-    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. Optionally, ${KEY_POINT_RULE}
+    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide. ${KEY_POINT_RULE}
     - Never output an empty or one-line heading. No filler.
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
