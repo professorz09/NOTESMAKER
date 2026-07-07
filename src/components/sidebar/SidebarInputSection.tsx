@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Upload, X, Youtube } from 'lucide-react';
+import { FileText, Upload, X, Youtube, Wand2 } from 'lucide-react';
 
 interface SidebarInputSectionProps {
   mode: 'topic' | 'text' | 'file' | 'transcript';
@@ -17,7 +17,10 @@ interface SidebarInputSectionProps {
   transcriptInput: string;
   setTranscriptInput: (v: string) => void;
   handleTranscriptFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  transcriptProgress: { current: number; total: number; step: 'fetch' | 'structure' | 'detail'; note?: string } | null;
+  transcriptProgress: { current: number; total: number; step: 'fetch' | 'restructure' | 'structure' | 'detail'; note?: string } | null;
+  handleRestructureDraft: () => void;
+  isRestructuringDraft: boolean;
+  isGenerating: boolean;
   youtubeUrl: string;
   setYoutubeUrl: (v: string) => void;
 }
@@ -38,6 +41,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
   handleGenerate,
   transcriptInput, setTranscriptInput,
   handleTranscriptFileUpload, transcriptProgress,
+  handleRestructureDraft, isRestructuringDraft, isGenerating,
   youtubeUrl, setYoutubeUrl,
 }) => (
   <div className="space-y-2">
@@ -159,6 +163,22 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
               ~{(transcriptInput.trim().match(/\S+/g) || []).length.toLocaleString('en-IN')} words
             </p>
           )}
+          {transcriptInput.trim() && !transcriptProgress && (
+            <button
+              type="button"
+              onClick={handleRestructureDraft}
+              disabled={isGenerating || isRestructuringDraft}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-indigo-300 bg-indigo-500/8 border border-indigo-500/20 hover:bg-indigo-500/15 hover:border-indigo-500/35 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              {isRestructuringDraft ? 'Restructuring draft…' : 'Restructure Draft'}
+            </button>
+          )}
+          {transcriptInput.trim() && !transcriptProgress && (
+            <p className="text-[9px] text-slate-600 px-0.5 leading-relaxed">
+              Optional — cleans up broken sentences/paragraphing in the pasted or fetched transcript (nothing is summarised or dropped) before you press "Start Notes Making".
+            </p>
+          )}
           {transcriptProgress && (
             <div className="space-y-1.5 pt-0.5">
               <div className="w-full bg-white/8 rounded-full h-1.5 overflow-hidden">
@@ -168,16 +188,20 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
                     width: `${transcriptProgress.step === 'fetch' ? 20 : transcriptProgress.step === 'structure' ? 6 : Math.round((transcriptProgress.current / transcriptProgress.total) * 100)}%`,
                     background: transcriptProgress.step === 'fetch'
                       ? 'linear-gradient(90deg, #ef4444, #f97316)'
-                      : 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+                      : transcriptProgress.step === 'restructure'
+                        ? 'linear-gradient(90deg, #6366f1, #a855f7)'
+                        : 'linear-gradient(90deg, #4f46e5, #7c3aed)',
                   }}
                 />
               </div>
               <p className="text-[10px] text-indigo-300/90">
                 {transcriptProgress.step === 'fetch'
                   ? (transcriptProgress.note || 'Fetching transcript from YouTube…')
-                  : transcriptProgress.step === 'structure'
-                    ? 'Step 1/2 — building structure…'
-                    : `Step 2/2 — detailed notes (part ${transcriptProgress.current}/${transcriptProgress.total})`}
+                  : transcriptProgress.step === 'restructure'
+                    ? `Restructuring draft (part ${transcriptProgress.current}/${transcriptProgress.total})…`
+                    : transcriptProgress.step === 'structure'
+                      ? 'Step 1/2 — building structure…'
+                      : `Step 2/2 — detailed notes (part ${transcriptProgress.current}/${transcriptProgress.total})`}
               </p>
             </div>
           )}

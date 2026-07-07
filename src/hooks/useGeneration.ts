@@ -13,6 +13,7 @@ import {
   analyzeAnswerPdf,
   generateOnePagerNotes,
   chunkTranscript,
+  restructureTranscriptChunk,
   generateTranscriptTitle,
   generateNotesFromTranscriptChunk,
   outlineTranscriptChunk,
@@ -334,7 +335,10 @@ export function useGeneration({
   // Class-transcript state
   const [transcriptInput, setTranscriptInput] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [transcriptProgress, setTranscriptProgress] = useState<{ current: number; total: number; step: 'fetch' | 'structure' | 'detail'; note?: string } | null>(null);
+  const [transcriptProgress, setTranscriptProgress] = useState<{ current: number; total: number; step: 'fetch' | 'restructure' | 'structure' | 'detail'; note?: string } | null>(null);
+  // True while the optional "Restructure Draft" pre-step is cleaning up the
+  // pasted/fetched transcript before the user presses "Start Notes Making".
+  const [isRestructuringDraft, setIsRestructuringDraft] = useState(false);
 
   // One Pager state
   const [onePagerTopicInput, setOnePagerTopicInput] = useState('');
@@ -648,6 +652,57 @@ export function useGeneration({
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  // Optional pre-step, run only if the user presses "Restructure Draft"
+  // before "Start Notes Making". A pasted/fetched transcript is often raw
+  // captions or a rough paste — broken sentences, missing punctuation,
+  // disjointed lines — and the notes pipeline chunks that same raw text
+  // again, so any structural mess in the draft compounds into patchy notes.
+  // This cleans the draft chunk by chunk (grammar/punctuation/paragraphing
+  // only — no summarising, nothing dropped) and writes the result back into
+  // the transcript box so the user can review it before generating notes.
+  const handleRestructureDraft = async () => {
+    const text = transcriptInput.trim();
+    if (!text) {
+      toast.warning('Please paste a transcript, upload a .txt, or fetch one from a video link first.');
+      return;
+    }
+    setIsRestructuringDraft(true);
+    const chunks = chunkTranscript(text, 4500);
+    const total = chunks.length;
+    const cleaned: string[] = new Array(total).fill('');
+    try {
+      for (let i = 0; i < total; i++) {
+        if (isResettingRef.current) return;
+        setTranscriptProgress({ current: i + 1, total, step: 'restructure' });
+        let ok = false;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            cleaned[i] = await restructureTranscriptChunk(chunks[i], i + 1, total, language, aiModel);
+            ok = true;
+            break;
+          } catch (err) {
+            console.error(`Draft restructure chunk ${i + 1} attempt ${attempt} failed:`, err);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
+          }
+        }
+        // A chunk that never comes back clean keeps its original text rather
+        // than being dropped — a rough chunk beats a missing one.
+        if (!ok || !cleaned[i].trim()) cleaned[i] = chunks[i];
+      }
+      if (isResettingRef.current) return;
+      setTranscriptInput(cleaned.join('\n\n'));
+      toast.success('Draft restructured — review it, then press "Start Notes Making".');
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        toast.error(`Draft restructuring failed: ${error.message || 'please try again.'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setIsRestructuringDraft(false);
+      setTranscriptProgress(null);
+    }
   };
 
   // Turn a (possibly multi-hour) class transcript into detailed notes.
@@ -1743,6 +1798,7 @@ export function useGeneration({
     setTranslateProgress(null);
     setTranslateResumeState(null);
     setTranscriptProgress(null);
+    setIsRestructuringDraft(false);
     setNotesProgress(null);
     // Unblock a pipeline paused on the approval gate, a Retry/Skip/Finish
     // prompt, or the Done button, then hide the map.
@@ -1801,6 +1857,8 @@ export function useGeneration({
     setYoutubeUrl,
     transcriptProgress,
     handleTranscriptFileUpload,
+    handleRestructureDraft,
+    isRestructuringDraft,
     handleGenerateTranscript,
     mindmap,
     resolveMindmapAction,
