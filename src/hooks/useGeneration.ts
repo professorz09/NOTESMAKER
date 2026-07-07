@@ -339,6 +339,11 @@ export function useGeneration({
   // True while the optional "Restructure Draft" pre-step is cleaning up the
   // pasted/fetched transcript before the user presses "Start Notes Making".
   const [isRestructuringDraft, setIsRestructuringDraft] = useState(false);
+  // Snapshot of the draft taken right before the last "Restructure Draft"
+  // run, so the user can instantly revert if the cleaned version looks off
+  // (e.g. a point reads thinner than they expected) instead of having to
+  // re-paste/re-fetch the original transcript.
+  const [draftBackup, setDraftBackup] = useState<string | null>(null);
 
   // One Pager state
   const [onePagerTopicInput, setOnePagerTopicInput] = useState('');
@@ -669,6 +674,7 @@ export function useGeneration({
       return;
     }
     setIsRestructuringDraft(true);
+    setDraftBackup(transcriptInput);
     const chunks = chunkTranscript(text, 4500);
     const total = chunks.length;
     const cleaned: string[] = new Array(total).fill('');
@@ -703,6 +709,16 @@ export function useGeneration({
       if (!isResettingRef.current) setIsRestructuringDraft(false);
       setTranscriptProgress(null);
     }
+  };
+
+  // Instantly revert to the draft exactly as it was before the last
+  // "Restructure Draft" run — the safety net in case the cleaned version
+  // ever looks thinner or off compared to the original.
+  const handleUndoRestructureDraft = () => {
+    if (draftBackup === null) return;
+    setTranscriptInput(draftBackup);
+    setDraftBackup(null);
+    toast.success('Reverted to the original draft.');
   };
 
   // Turn a (possibly multi-hour) class transcript into detailed notes.
@@ -1799,6 +1815,7 @@ export function useGeneration({
     setTranslateResumeState(null);
     setTranscriptProgress(null);
     setIsRestructuringDraft(false);
+    setDraftBackup(null);
     setNotesProgress(null);
     // Unblock a pipeline paused on the approval gate, a Retry/Skip/Finish
     // prompt, or the Done button, then hide the map.
@@ -1859,6 +1876,8 @@ export function useGeneration({
     handleTranscriptFileUpload,
     handleRestructureDraft,
     isRestructuringDraft,
+    draftBackup,
+    handleUndoRestructureDraft,
     handleGenerateTranscript,
     mindmap,
     resolveMindmapAction,

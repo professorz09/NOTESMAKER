@@ -91,6 +91,8 @@ interface SidebarProps {
   handleGenerateTranscript: () => void;
   handleRestructureDraft: () => void;
   isRestructuringDraft: boolean;
+  draftBackup: string | null;
+  handleUndoRestructureDraft: () => void;
   transcriptProgress: { current: number; total: number; step: 'fetch' | 'restructure' | 'structure' | 'detail'; note?: string } | null;
   youtubeUrl: string;
   setYoutubeUrl: (v: string) => void;
@@ -122,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
   onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
   transcriptInput, setTranscriptInput, handleTranscriptFileUpload, handleGenerateTranscript, transcriptProgress,
-  handleRestructureDraft, isRestructuringDraft,
+  handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
   youtubeUrl, setYoutubeUrl,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
@@ -196,6 +198,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             transcriptProgress={transcriptProgress}
             handleRestructureDraft={handleRestructureDraft}
             isRestructuringDraft={isRestructuringDraft}
+            draftBackup={draftBackup}
+            handleUndoRestructureDraft={handleUndoRestructureDraft}
             isGenerating={isGenerating}
             youtubeUrl={youtubeUrl}
             setYoutubeUrl={setYoutubeUrl}

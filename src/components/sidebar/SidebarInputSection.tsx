@@ -20,6 +20,8 @@ interface SidebarInputSectionProps {
   transcriptProgress: { current: number; total: number; step: 'fetch' | 'restructure' | 'structure' | 'detail'; note?: string } | null;
   handleRestructureDraft: () => void;
   isRestructuringDraft: boolean;
+  draftBackup: string | null;
+  handleUndoRestructureDraft: () => void;
   isGenerating: boolean;
   youtubeUrl: string;
   setYoutubeUrl: (v: string) => void;
@@ -41,7 +43,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
   handleGenerate,
   transcriptInput, setTranscriptInput,
   handleTranscriptFileUpload, transcriptProgress,
-  handleRestructureDraft, isRestructuringDraft, isGenerating,
+  handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft, isGenerating,
   youtubeUrl, setYoutubeUrl,
 }) => (
   <div className="space-y-2">
@@ -175,9 +177,21 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
             </button>
           )}
           {transcriptInput.trim() && !transcriptProgress && (
-            <p className="text-[9px] text-slate-600 px-0.5 leading-relaxed">
-              Optional — cleans up broken sentences/paragraphing in the pasted or fetched transcript (nothing is summarised or dropped) before you press "Start Notes Making".
-            </p>
+            <div className="flex items-start justify-between gap-2 px-0.5">
+              <p className="text-[9px] text-slate-600 leading-relaxed">
+                Optional — cleans up broken sentences/paragraphing in the pasted or fetched transcript (nothing is summarised or dropped) before you press "Start Notes Making".
+              </p>
+              {draftBackup !== null && !isRestructuringDraft && (
+                <button
+                  type="button"
+                  onClick={handleUndoRestructureDraft}
+                  disabled={isGenerating}
+                  className="text-[9px] font-semibold text-amber-400/90 hover:text-amber-300 underline underline-offset-2 flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Undo restructure
+                </button>
+              )}
+            </div>
           )}
           {transcriptProgress && (
             <div className="space-y-1.5 pt-0.5">

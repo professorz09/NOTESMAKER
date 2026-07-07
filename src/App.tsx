@@ -135,7 +135,7 @@ const App: React.FC = () => {
     onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
     transcriptInput, setTranscriptInput, transcriptProgress,
     handleTranscriptFileUpload, handleGenerateTranscript,
-    handleRestructureDraft, isRestructuringDraft,
+    handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
     youtubeUrl, setYoutubeUrl,
     mindmap, resolveMindmapAction, handleMindmapAddMore, handleMindmapNodeClick, handleMindmapDone,
     handleMindmapApprove, handleMindmapSetNodeInstruction,
@@ -622,6 +622,8 @@ const App: React.FC = () => {
         handleGenerateTranscript={handleGenerateTranscriptWithAutoSave}
         handleRestructureDraft={handleRestructureDraft}
         isRestructuringDraft={isRestructuringDraft}
+        draftBackup={draftBackup}
+        handleUndoRestructureDraft={handleUndoRestructureDraft}
         transcriptProgress={transcriptProgress}
         youtubeUrl={youtubeUrl}
         setYoutubeUrl={setYoutubeUrl}
