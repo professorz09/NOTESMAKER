@@ -10,6 +10,7 @@ import {
   PenTool,
   Printer,
   Download,
+  FileText,
   Moon,
   Sun,
   ListOrdered,
@@ -42,6 +43,8 @@ interface ToolbarProps {
   handleExportPDF: () => void;
   handleDownloadPdfDirect: () => void;
   isDownloadingPdf: boolean;
+  handleDownloadDocx: () => void;
+  isDownloadingDocx: boolean;
   handleAddTableOfContents: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
@@ -89,6 +92,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   isEditing, setIsEditing, execFormat,
   openSelectionRewriteModal, saveToStorage,
   handleExportPDF, handleDownloadPdfDirect, isDownloadingPdf,
+  handleDownloadDocx, isDownloadingDocx,
   handleAddTableOfContents,
   isDarkMode, toggleDarkMode,
 }) => {
@@ -257,6 +261,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           {!isDownloadingPdf && <Download className="w-3.5 h-3.5 flex-shrink-0" />}
           <span className="hidden sm:inline font-semibold">{isDownloadingPdf ? 'Preparing…' : 'Download'}</span>
+        </Button>
+
+        {/* Direct DOCX download — a real, editable Word document */}
+        <Button
+          variant="secondary"
+          onClick={handleDownloadDocx}
+          disabled={isDownloadingDocx}
+          isLoading={isDownloadingDocx}
+          className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl text-slate-600 dark:text-slate-300 !px-2 sm:!px-2.5 !py-1.5 text-xs gap-1"
+          title="Download as Word document (.docx)"
+        >
+          {!isDownloadingDocx && <FileText className="w-3.5 h-3.5 flex-shrink-0" />}
+          <span className="hidden sm:inline font-semibold">{isDownloadingDocx ? 'Preparing…' : 'DOCX'}</span>
         </Button>
       </div>
     </div>
