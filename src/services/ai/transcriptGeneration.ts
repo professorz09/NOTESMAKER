@@ -18,6 +18,19 @@ import { buildRefinementDirective, type RefinementOptions } from './refinement';
 //             dropped. Results are appended live, chunk by chunk.
 // ---------------------------------------------------------------------------
 
+// Last-resort split: pure word-count slicing, no punctuation required. Used
+// as a safety net so a chunk can never balloon past maxWords even when the
+// text has too little punctuation for the paragraph/sentence passes below to
+// find a break point (e.g. raw YouTube auto-captions, which often come back
+// as one continuous blob with no periods at all).
+function splitByWordCount(text: string, maxWords: number): string[] {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= maxWords) return [text];
+  const out: string[] = [];
+  for (let i = 0; i < words.length; i += maxWords) out.push(words.slice(i, i + maxWords).join(' '));
+  return out;
+}
+
 /**
  * Split a long transcript into word-bounded chunks, preferring paragraph and
  * then sentence boundaries (handles the Hindi danda "।" as a sentence end).
@@ -55,6 +68,10 @@ export function chunkTranscript(text: string, maxWords = 5500): string[] {
       let scw = 0;
       for (const s of sentences) {
         const sw = countWords(s);
+        // A single "sentence" that's ALREADY over budget (common when the
+        // text has too few/no [.!?।] marks to split on) must still be
+        // flushed on its own — otherwise it silently absorbs everything
+        // after it too, collapsing what should be many chunks into one.
         if (scw + sw > maxWords && sc.length) {
           chunks.push(sc.join(' '));
           sc = [];
@@ -62,6 +79,11 @@ export function chunkTranscript(text: string, maxWords = 5500): string[] {
         }
         sc.push(s);
         scw += sw;
+        if (sw > maxWords) {
+          chunks.push(sc.join(' '));
+          sc = [];
+          scw = 0;
+        }
       }
       if (sc.length) chunks.push(sc.join(' '));
       continue;
@@ -73,7 +95,12 @@ export function chunkTranscript(text: string, maxWords = 5500): string[] {
   }
   flush();
 
-  return chunks.length ? chunks : [clean];
+  const result = chunks.length ? chunks : [clean];
+  // Hard safety net: whatever the source punctuation looked like, no chunk
+  // handed to the AI may exceed maxWords — a chunk that's too big is exactly
+  // what causes the output-token cap to truncate mid-way and produce patchy,
+  // badly-structured notes on long/dense transcripts.
+  return result.flatMap(c => splitByWordCount(c, maxWords));
 }
 
 /**
@@ -112,8 +139,8 @@ export const restructureTranscriptChunk = async (
     - You may only remove pure spoken noise that carries zero information: stutters, filler ("umm", "so", "okay so"), exact word repetitions, greetings. Never remove something because it was said quickly, in passing, or as an aside — those are exactly the points that go missing later.
 
     **WHAT TO FIX:**
-    - Join fragments into complete, correctly punctuated sentences.
-    - Group the text into logical paragraphs by topic, in the order it was spoken — do not reorder distant topics or merge separate points into one run-on paragraph.
+    - Join fragments into complete sentences, each ending in proper punctuation (. ! ? or ।) — this matters mechanically, not just stylistically: the next step re-splits this text using that punctuation, so a long run without any full stop will not get split correctly.
+    - Group the text into logical paragraphs by topic, in the order it was spoken, and separate each paragraph from the next with a BLANK LINE (an empty line between paragraphs) — do not reorder distant topics or merge separate points into one run-on paragraph.
     - Fix obvious mis-splits/typos from captioning, but never change the meaning or substitute your own facts.
 
     **DO NOT:**
