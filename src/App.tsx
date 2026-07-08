@@ -399,6 +399,31 @@ const App: React.FC = () => {
     }
   }, [generatedHtml, isEditing, editorRef, getCleanHtml, fontSize, lineHeight]);
 
+  // Path 3: direct DOCX download — rebuilds the notes as a real, editable
+  // Word document (headings/lists/tables/formatting preserved, diagrams and
+  // images embedded) instead of the rasterized pages the PDF export makes.
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
+  const handleDownloadDocx = useCallback(async () => {
+    const content = getExportableContent();
+    if (content === null) {
+      toast.info('Nothing to export yet. Generate some content first.');
+      return;
+    }
+    setIsDownloadingDocx(true);
+    try {
+      const { exportContentAsDocx } = await import('./utils/docxExport');
+      const html = isEditing && editorRef.current ? getCleanHtml() : (generatedHtml || '');
+      const baseName = extractProjectName(html).replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'Notes';
+      await exportContentAsDocx(content, { fileName: baseName });
+      toast.success('DOCX downloaded!');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`DOCX download failed: ${err?.message || 'Please try again.'}`);
+    } finally {
+      setIsDownloadingDocx(false);
+    }
+  }, [generatedHtml, isEditing, editorRef, getCleanHtml]);
+
   // --- TABLE OF CONTENTS ---
   const handleAddTableOfContents = () => {
     if (!generatedHtml) return;
@@ -660,6 +685,8 @@ const App: React.FC = () => {
           handleExportPDF={handleExportPDF}
           handleDownloadPdfDirect={handleDownloadPdfDirect}
           isDownloadingPdf={isDownloadingPdf}
+          handleDownloadDocx={handleDownloadDocx}
+          isDownloadingDocx={isDownloadingDocx}
           handleAddTableOfContents={handleAddTableOfContents}
           isDarkMode={isDarkMode}
           toggleDarkMode={() => setIsDarkMode(d => !d)}
