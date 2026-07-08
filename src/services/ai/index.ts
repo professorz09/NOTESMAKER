@@ -4,7 +4,7 @@ export { generateTopicContent } from './topicGeneration';
 export { generateUPSCAnswer, generateNextUPSCQuestion, correctQuestionHindi } from './upscAnswerGeneration';
 export { generateSmartTable, extendTableRows } from './tableGeneration';
 export { generateFormattedNotes, generateFileNotes, generateOnePagerNotes } from './notesGeneration';
-export { chunkTranscript, generateTranscriptTitle, generateNotesFromTranscriptChunk, outlineTranscriptChunk, expandTranscriptChunkStructured } from './transcriptGeneration';
+export { chunkTranscript, restructureTranscriptChunk, generateTranscriptTitle, generateNotesFromTranscriptChunk, outlineTranscriptChunk, expandTranscriptChunkStructured } from './transcriptGeneration';
 export type { TranscriptSection } from './transcriptGeneration';
 export { generateTopicOutline, expandTopicSection, generateAdditionalTopicAspects, generateDeepOutline, expandDeepSection } from './leveledNotesGeneration';
 export type { DetailLevel, TopicOutline, TopicOutlineSection, DeepOutline } from './leveledNotesGeneration';

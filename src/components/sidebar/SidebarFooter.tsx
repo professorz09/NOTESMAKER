@@ -24,7 +24,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({
   const label = isGenerating
     ? 'Generating…'
     : mode === 'transcript'
-      ? 'Generate Notes'
+      ? 'Start Notes Making'
       : GENERATE_LABELS[outputStyle] ?? 'Generate Notes';
 
   return (

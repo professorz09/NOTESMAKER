@@ -77,6 +77,62 @@ export function chunkTranscript(text: string, maxWords = 5500): string[] {
 }
 
 /**
+ * Optional pre-step — clean up ONE chunk of the raw draft transcript before
+ * it ever reaches the notes pipeline. A pasted/fetched transcript is chunked
+ * purely to survive the output-token cap, so chunk boundaries land wherever
+ * the word count runs out — mid-sentence, mid-thought — and captions/pasted
+ * text are often already broken, run-together or unpunctuated. Feeding that
+ * straight into the notes pipeline is exactly why the resulting notes come
+ * out patchy: this pass fixes the prose (grammar, punctuation, paragraphing)
+ * WITHOUT summarising, shortening or dropping a single point — the pipeline
+ * step after this still has to find every fact, so nothing may be lost here.
+ */
+export const restructureTranscriptChunk = async (
+  chunkText: string,
+  part: number,
+  total: number,
+  language: string,
+  modelName: string = 'gemini-3.1-pro-preview',
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const prompt = `
+    Role: Meticulous transcript editor.
+    Task: Below is segment ${part} of ${total} of a raw spoken video/class transcript. It was mechanically split into segments purely to fit processing limits, and the raw text itself may be disjointed — broken sentences, missing punctuation, run-together words, stray line breaks — because it comes straight from captions or a rough paste, not because the speaker was disorganised.
+
+    Rewrite this segment as clean, smoothly-flowing, properly punctuated prose in the same language and essentially the same wording the speaker used. This is a CLEANUP pass, not a summary and not a notes pass.
+
+    Language: ${language}
+    Transcript segment:
+    """${chunkText}"""
+
+    **ABSOLUTE RULE — DO NOT LOSE ANY POINT:**
+    - Do NOT summarize, shorten, compress, paraphrase away detail, or drop ANY concept, fact, date, number, name, definition, example or aside. Every idea present must still be present, in full.
+    - It is far better to leave something slightly rough than to delete it. When in doubt, keep it.
+    - You may only remove pure spoken noise that carries zero information: stutters, filler ("umm", "so", "okay so"), exact word repetitions, greetings. Never remove something because it was said quickly, in passing, or as an aside — those are exactly the points that go missing later.
+
+    **WHAT TO FIX:**
+    - Join fragments into complete, correctly punctuated sentences.
+    - Group the text into logical paragraphs by topic, in the order it was spoken — do not reorder distant topics or merge separate points into one run-on paragraph.
+    - Fix obvious mis-splits/typos from captioning, but never change the meaning or substitute your own facts.
+
+    **DO NOT:**
+    - Do not add headings, numbering, HTML, markdown, bullet points, or any commentary/introduction/conclusion of your own.
+    - Do not add an opening or closing line — this is segment ${part} of ${total} of one continuous recording; just continue the cleaned text naturally.
+
+    Output: Return ONLY the cleaned plain-text prose for this segment. No markdown, no code fences, no HTML tags.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: NOTES_GEN_CONFIG,
+  });
+
+  return cleanHtmlOutput(response.text || '');
+};
+
+/**
  * Step 1 — read the opening of the lecture and produce just the document
  * title (<h1>, no number). Small, fast call.
  */
