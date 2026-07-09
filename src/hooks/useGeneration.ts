@@ -38,6 +38,7 @@ import {
 } from '../services/ai/index';
 import { GenerationStatus, type MindmapState } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
+import { mapWithConcurrency } from '../utils/concurrency';
 import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
 import { fetchVideoTranscript, looksLikeVideoUrl } from '../services/supadata';
@@ -95,6 +96,14 @@ function createMindmapController(
 ) {
   const groups = new Map<string, { partIndex: number; regenerate: RegenerateFn }>();
   let doneResolve: (() => void) | null = null;
+  // Set once the pipeline that owns this controller has torn down (Clear, or
+  // the user pressed Done and the overlay closed). An onAddMore/onNodeClick
+  // AI call that's still in flight at that moment must NOT touch state when
+  // it lands — its `finally` used to call syncMm(), which re-opened the
+  // already-closed mind map overlay with no working Done button.
+  let cancelled = false;
+  const cancel = () => { cancelled = true; };
+  const isDead = () => cancelled || isResettingRef.current;
 
   const registerGroup = (groupId: string, regenerate: RegenerateFn) => {
     groups.set(groupId, { partIndex: -1, regenerate });
@@ -106,7 +115,7 @@ function createMindmapController(
 
   const onAddMore = async (text: string) => {
     const heading = text.trim();
-    if (!heading || isResettingRef.current || mm.addBusy) return;
+    if (!heading || isDead() || mm.addBusy) return;
     mm.addBusy = true;
     const nodeId = `extra-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
     const sectionNumber = mm.nodes.length + 1;
@@ -117,7 +126,7 @@ function createMindmapController(
     syncMm();
     try {
       const html = await extraExpand(heading, sectionNumber, allHeadings);
-      if (isResettingRef.current) return;
+      if (isDead()) return;
       const idx = parts.length;
       parts.push(html);
       setGroupPartIndex(nodeId, idx);
@@ -126,17 +135,18 @@ function createMindmapController(
       if (node) node.status = 'done';
     } catch (err) {
       console.error('Add-more point failed:', err);
+      if (isDead()) return;
       const node = mm.nodes.find(n => n.id === nodeId);
       if (node) node.status = 'error';
       toast.error('This point could not be generated — click the node to try again.');
     } finally {
       mm.addBusy = false;
-      syncMm();
+      if (!isDead()) syncMm();
     }
   };
 
   const onNodeClick = async (nodeId: string, instruction?: string) => {
-    if (isResettingRef.current) return;
+    if (isDead()) return;
     const node = mm.nodes.find(n => n.id === nodeId);
     if (!node || node.status === 'active') return;
     const group = groups.get(node.groupId);
@@ -152,7 +162,7 @@ function createMindmapController(
     syncMm();
     try {
       const html = await group.regenerate(instruction, existingHtml);
-      if (isResettingRef.current) return;
+      if (isDead()) return;
       if (group.partIndex === -1) {
         group.partIndex = parts.length;
         parts.push(html);
@@ -166,13 +176,14 @@ function createMindmapController(
       });
     } catch (err) {
       console.error('Node regenerate failed:', err);
+      if (isDead()) return;
       groupNodeIds.forEach(id => {
         const n = mm.nodes.find(x => x.id === id);
         if (n) n.status = prevStatus;
       });
       toast.error('This section could not be updated — please try again.');
     } finally {
-      syncMm();
+      if (!isDead()) syncMm();
     }
   };
 
@@ -193,7 +204,7 @@ function createMindmapController(
     if (r) r();
   };
 
-  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, setNodeInstruction, markDone, waitForDone, resolveDone };
+  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, setNodeInstruction, markDone, waitForDone, resolveDone, cancel };
 }
 type MindmapController = ReturnType<typeof createMindmapController>;
 
@@ -534,10 +545,15 @@ export function useGeneration({
       const { numPages, pdf } = await loadPdf(translatePdfFile.data);
       const resumeFrom = translateResumeState.startPage;
       const prevParts = [...translateResumeState.pageHtmlParts];
+      // Normally the last successful page already carries its divider (the
+      // main loop appends one to every non-final page); this is only a
+      // defensive top-up — and it must use the SAME .pdf-page-divider markup
+      // the main loop uses, not a bare <hr> that no stylesheet knows about.
       if (prevParts.length > 0) {
         const last = prevParts[prevParts.length - 1];
-        if (!last.endsWith('<hr class="page-break" />')) {
-          prevParts[prevParts.length - 1] = last + '<hr class="page-break" />';
+        if (!last.includes('pdf-page-divider')) {
+          prevParts[prevParts.length - 1] = last +
+            `<div class="pdf-page-divider"><span class="pdf-page-num">Page ${resumeFrom - 1}</span></div>`;
         }
       }
       setTranslateProgress({ current: resumeFrom, total: numPages });
@@ -786,6 +802,7 @@ export function useGeneration({
       setNotesProgress(null);
       setMindmap(null);
       mindmapActionRef.current = null;
+      mindmapControllerRef.current?.cancel();
       mindmapControllerRef.current = null;
     }
   };
@@ -846,6 +863,69 @@ export function useGeneration({
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
+  // Phase 1 shared by the transcript & text leveled pipelines: outline every
+  // chunk with bounded parallelism (3 calls in flight) instead of strictly
+  // one-by-one — structure building was the longest serial stretch of the
+  // pipeline on multi-hour lectures. Each chunk gets one retry; a chunk that
+  // still comes back empty degrades to a "Part N" placeholder node exactly
+  // as before. Nodes are appended to the mind map strictly in chunk order
+  // (a chunk's nodes appear once every earlier chunk has landed) so section
+  // numbering, groupIds and chunkRange stay identical to the sequential path.
+  const outlineChunksParallel = async (
+    chunks: string[],
+    outlineOne: (chunk: string, part: number, total: number) => Promise<TranscriptSection[]>,
+    mm: MindmapState,
+    syncMm: () => void,
+    progressLabel: string,
+  ): Promise<{ chunkSections: TranscriptSection[][]; chunkRange: { start: number; end: number }[]; anyRealOutline: boolean }> => {
+    const total = chunks.length;
+    const chunkSections: TranscriptSection[][] = [];
+    const chunkRange: { start: number; end: number }[] = [];
+    const results: (TranscriptSection[] | null)[] = new Array(total).fill(null);
+    let anyRealOutline = false;
+    let completedCount = 0;
+    let appended = 0;
+    const appendReady = () => {
+      while (appended < total && results[appended]) {
+        const i = appended;
+        const secs = results[i]!;
+        const before = mm.nodes.length;
+        const groupId = `c${i}`;
+        secs.forEach((s, j) => mm.nodes.push({
+          id: `c${i}s${j}`,
+          label: s.heading,
+          status: 'pending',
+          children: s.subheadings.map((h, k) => ({ id: `c${i}s${j}l${k}`, label: h })),
+          groupId,
+        }));
+        chunkRange.push({ start: before, end: mm.nodes.length });
+        chunkSections.push(secs);
+        appended++;
+      }
+    };
+    await mapWithConcurrency(total, 3, async (i) => {
+      if (isResettingRef.current) return;
+      let secs: TranscriptSection[] = [];
+      for (let attempt = 1; attempt <= 2 && !secs.length; attempt++) {
+        try { secs = await outlineOne(chunks[i], i + 1, total); }
+        catch (err) {
+          console.error(`Outline chunk ${i + 1} attempt ${attempt} failed:`, err);
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+      if (secs.length) anyRealOutline = true;
+      else secs = [{ heading: `Part ${i + 1}`, subheadings: [] }];
+      results[i] = secs;
+      completedCount++;
+      if (isResettingRef.current) return;
+      setNotesProgress({ current: completedCount, total, label: `${progressLabel} (${completedCount}/${total})` });
+      appendReady();
+      syncMm();
+    });
+    appendReady();
+    return { chunkSections, chunkRange, anyRealOutline };
+  };
+
   // Medium/Detailed/Deep transcript path: build the full video's skeleton
   // (every topic + sub-point) as a live mind map, then expand each segment
   // into structured detailed notes from the transcript. Returns false if the
@@ -892,50 +972,33 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
+    // The title only needs the first chunk, so it runs in parallel with
+    // Phase 1 instead of being a serial round-trip of its own.
+    const titlePromise = generateTranscriptTitle(chunks[0], language, aiModel)
+      .catch(err => { console.error('Transcript title step failed:', err); return ''; });
+
     // Phase 1 — build the skeleton of the whole video (outline every segment).
     setNotesProgress({ current: 0, total, label: 'Building the whole video structure…' });
     syncMm();
-    const chunkSections: TranscriptSection[][] = [];
-    const chunkRange: { start: number; end: number }[] = [];
-    let anyRealOutline = false;
-    for (let i = 0; i < total; i++) {
-      if (isResettingRef.current) { setMindmap(null); return true; }
-      setNotesProgress({ current: i + 1, total, label: `Building structure (part ${i + 1}/${total})` });
-      let secs: TranscriptSection[] = [];
-      try { secs = await outlineTranscriptChunk(chunks[i], i + 1, total, language, outlineModel); }
-      catch (err) { console.error(`Transcript outline chunk ${i + 1} failed:`, err); }
-      if (secs.length) anyRealOutline = true;
-      else secs = [{ heading: `Part ${i + 1}`, subheadings: [] }];
-      const before = mm.nodes.length;
-      const groupId = `c${i}`;
-      secs.forEach((s, j) => mm.nodes.push({
-        id: `c${i}s${j}`,
-        label: s.heading,
-        status: 'pending',
-        children: s.subheadings.map((h, k) => ({ id: `c${i}s${j}l${k}`, label: h })),
-        groupId,
-      }));
-      chunkRange.push({ start: before, end: mm.nodes.length });
-      chunkSections.push(secs);
-      syncMm();
-    }
+    const { chunkSections, chunkRange, anyRealOutline } = await outlineChunksParallel(
+      chunks,
+      (chunk, part, tot) => outlineTranscriptChunk(chunk, part, tot, language, outlineModel),
+      mm, syncMm, 'Building structure',
+    );
+    if (isResettingRef.current) { setMindmap(null); return true; }
 
     // Structure step wholesale-failed (e.g. network) → let the caller fall
     // back to the simple per-chunk pipeline the user knows works.
     if (!anyRealOutline) { setMindmap(null); return false; }
 
-    // Title + overview.
-    try {
-      const titleHtml = sanitizeHtml(await generateTranscriptTitle(chunks[0], language, aiModel));
-      if (titleHtml) {
-        parts.push(titleHtml);
-        const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-        if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
-        syncMm();
-        pushLive();
-      }
-    } catch (err) {
-      console.error('Transcript title step failed:', err);
+    // Title + overview (fetched in parallel with Phase 1 above).
+    const titleHtml = sanitizeHtml(await titlePromise);
+    if (titleHtml) {
+      parts.push(titleHtml);
+      const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
+      syncMm();
+      pushLive();
     }
 
     // Section numbers are precomputed from the already-built outline (Phase
@@ -1082,43 +1145,28 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
+    // Title runs in parallel with Phase 1 — it only needs the first chunk.
+    const titlePromise = generateTextTitle(chunks[0], language, aiModel)
+      .catch(err => { console.error('Text title step failed:', err); return ''; });
+
     setNotesProgress({ current: 0, total, label: 'Building the whole content structure…' });
     syncMm();
-    const chunkSections: TranscriptSection[][] = [];
-    const chunkRange: { start: number; end: number }[] = [];
-    let anyRealOutline = false;
-    for (let i = 0; i < total; i++) {
-      if (isResettingRef.current) { setMindmap(null); return true; }
-      setNotesProgress({ current: i + 1, total, label: `Building structure (part ${i + 1}/${total})` });
-      let secs: TranscriptSection[] = [];
-      try { secs = await outlineTextChunk(chunks[i], i + 1, total, language, outlineModel); }
-      catch (err) { console.error(`Text outline chunk ${i + 1} failed:`, err); }
-      if (secs.length) anyRealOutline = true;
-      else secs = [{ heading: `Part ${i + 1}`, subheadings: [] }];
-      const before = mm.nodes.length;
-      const groupId = `c${i}`;
-      secs.forEach((s, j) => mm.nodes.push({
-        id: `c${i}s${j}`, label: s.heading, status: 'pending',
-        children: s.subheadings.map((h, k) => ({ id: `c${i}s${j}l${k}`, label: h })), groupId,
-      }));
-      chunkRange.push({ start: before, end: mm.nodes.length });
-      chunkSections.push(secs);
-      syncMm();
-    }
+    const { chunkSections, chunkRange, anyRealOutline } = await outlineChunksParallel(
+      chunks,
+      (chunk, part, tot) => outlineTextChunk(chunk, part, tot, language, outlineModel),
+      mm, syncMm, 'Building structure',
+    );
+    if (isResettingRef.current) { setMindmap(null); return true; }
 
     if (!anyRealOutline) { setMindmap(null); return false; }
 
-    try {
-      const titleHtml = sanitizeHtml(await generateTextTitle(chunks[0], language, aiModel));
-      if (titleHtml) {
-        parts.push(titleHtml);
-        const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-        if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
-        syncMm();
-        pushLive();
-      }
-    } catch (err) {
-      console.error('Text title step failed:', err);
+    const titleHtml = sanitizeHtml(await titlePromise);
+    if (titleHtml) {
+      parts.push(titleHtml);
+      const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
+      syncMm();
+      pushLive();
     }
 
     // Precompute section numbers from the already-built outline so every
@@ -1258,9 +1306,20 @@ export function useGeneration({
     setNotesProgress({ current: 0, total: 1, label: 'Building the files structure…' });
     syncMm();
 
+    // Title runs in parallel with the outline call — both only read the files.
+    const titlePromise = generateFilesTitle(fileParts, language, aiModel)
+      .catch(err => { console.error('File title step failed:', err); return ''; });
+
+    // One retry before giving up: a single transient failure here used to
+    // silently demote the whole run to the single-shot fallback path.
     let sections: TranscriptSection[] = [];
-    try { sections = await outlineFiles(fileParts, language, outlineModel); }
-    catch (err) { console.error('File outline failed:', err); }
+    for (let attempt = 1; attempt <= 2 && !sections.length; attempt++) {
+      try { sections = await outlineFiles(fileParts, language, outlineModel); }
+      catch (err) {
+        console.error(`File outline attempt ${attempt} failed:`, err);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
+      }
+    }
 
     if (!sections.length) { setMindmap(null); return false; }
 
@@ -1273,17 +1332,13 @@ export function useGeneration({
     }));
     syncMm();
 
-    try {
-      const titleHtml = sanitizeHtml(await generateFilesTitle(fileParts, language, aiModel));
-      if (titleHtml) {
-        parts.push(titleHtml);
-        const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-        if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
-        syncMm();
-        pushLive();
-      }
-    } catch (err) {
-      console.error('File title step failed:', err);
+    const titleHtml = sanitizeHtml(await titlePromise);
+    if (titleHtml) {
+      parts.push(titleHtml);
+      const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
+      syncMm();
+      pushLive();
     }
 
     // Register every node's regenerate closure up front so skipped/
@@ -1470,15 +1525,22 @@ export function useGeneration({
 
     let outline = null as Awaited<ReturnType<typeof generateTopicOutline>> | Awaited<ReturnType<typeof generateDeepOutline>>;
     let focusAreas: string[] = [];
-    try {
-      if (level === 'deep') {
-        const deep = await generateDeepOutline(topic, language, DEEP_PRO_MODEL);
-        if (deep) { outline = deep; focusAreas = deep.focusAreas || []; }
-      } else {
-        outline = await generateTopicOutline(topic, language, aiModel, level);
+    // One retry before giving up: a single transient failure here used to
+    // silently demote the whole run to the single-shot fallback.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        if (level === 'deep') {
+          const deep = await generateDeepOutline(topic, language, DEEP_PRO_MODEL);
+          if (deep) { outline = deep; focusAreas = deep.focusAreas || []; }
+        } else {
+          outline = await generateTopicOutline(topic, language, aiModel, level);
+        }
+      } catch (err) {
+        console.error(`Outline attempt ${attempt} failed:`, err);
       }
-    } catch (err) {
-      console.error('Outline step failed:', err);
+      if (outline && outline.sections.length) break;
+      outline = null;
+      if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
     }
 
     // Outline failed — don't lose the request; fall back to a single-shot.
@@ -1722,6 +1784,7 @@ export function useGeneration({
       setNotesProgress(null);
       setMindmap(null);
       mindmapActionRef.current = null;
+      mindmapControllerRef.current?.cancel();
       mindmapControllerRef.current = null;
     }
   };
@@ -1821,6 +1884,7 @@ export function useGeneration({
     // prompt, or the Done button, then hide the map.
     handleMindmapApprove();
     if (mindmapActionRef.current) resolveMindmapAction('skip');
+    mindmapControllerRef.current?.cancel();
     mindmapControllerRef.current?.resolveDone();
     mindmapControllerRef.current = null;
     setMindmap(null);
