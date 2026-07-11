@@ -138,7 +138,7 @@ const App: React.FC = () => {
     handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
     youtubeUrl, setYoutubeUrl,
     mindmap, resolveMindmapAction, handleMindmapAddMore, handleMindmapNodeClick, handleMindmapDone,
-    handleMindmapApprove, handleMindmapSetNodeInstruction,
+    handleMindmapApprove, handleMindmapRestructure, handleMindmapSetNodeInstruction,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml });
 
   const {
@@ -665,6 +665,7 @@ const App: React.FC = () => {
             onNodeClick={handleMindmapNodeClick}
             onSetNodeInstruction={handleMindmapSetNodeInstruction}
             onApprove={handleMindmapApprove}
+            onRestructure={handleMindmapRestructure}
             onAddMore={handleMindmapAddMore}
             onDone={handleMindmapDone}
           />

@@ -65,8 +65,11 @@ export async function fetchVideoTranscript(url: string, opts: FetchTranscriptOpt
   }
 
   // Poll the job. Native-caption jobs usually finish in seconds even for long
-  // videos, but allow generous time for very long recordings.
-  const MAX_POLLS = 100;
+  // videos, but a caption-less video now falls back to AI transcription
+  // (mode "auto" in the proxy), and generating a 3–4 hour recording can take
+  // a while — so the budget is ~20 minutes, not 5. The user can always
+  // Clear to abort (the signal check below sees it immediately).
+  const MAX_POLLS = 400;
   const INTERVAL_MS = 3000;
   for (let i = 0; i < MAX_POLLS; i++) {
     if (signal?.aborted) throw new Error('Cancelled.');

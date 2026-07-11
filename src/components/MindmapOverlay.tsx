@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, RotateCw, SkipForward, FastForward, Loader2, AlertTriangle, Circle, Minus, Sparkles, Plus, PartyPopper, Wand2, X } from 'lucide-react';
+import { Check, RotateCw, SkipForward, FastForward, Loader2, AlertTriangle, Circle, Minus, Sparkles, Plus, PartyPopper, Wand2, X, Shuffle } from 'lucide-react';
 import type { MindmapState, MindmapNode, MindmapNodeStatus } from '../types';
 
 interface MindmapOverlayProps {
@@ -10,6 +10,7 @@ interface MindmapOverlayProps {
   onNodeClick: (nodeId: string, instruction?: string) => void;
   onSetNodeInstruction: (nodeId: string, text: string) => void;
   onApprove: () => void;
+  onRestructure: () => void;
   onAddMore: (text: string) => void;
   onDone: () => void;
 }
@@ -180,7 +181,7 @@ const NodeRow: React.FC<{
 };
 
 export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
-  mindmap, onRetry, onSkip, onFinish, onNodeClick, onSetNodeInstruction, onApprove, onAddMore, onDone,
+  mindmap, onRetry, onSkip, onFinish, onNodeClick, onSetNodeInstruction, onApprove, onRestructure, onAddMore, onDone,
 }) => {
   const [addText, setAddText] = useState('');
   const awaiting = mindmap.awaitingApproval;
@@ -230,7 +231,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
           )}
           {awaiting && (
             <p className="mt-2 text-[10.5px] text-indigo-100 leading-snug">
-              Tap any topic to add an instruction for it (optional), add points below, then press <strong>Approve &amp; Generate</strong>.
+              Tap any topic to add an instruction for it (optional), add points below, then either <strong>Restructure</strong> the outline (better headings — no point is dropped) or press <strong>Approve &amp; Generate</strong>.
             </p>
           )}
         </div>
@@ -297,16 +298,30 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
               </div>
             </div>
 
-            {/* Approve & Generate lives at the end of the scroll flow (not a
-                separate sticky footer) so the whole plan + this button scroll
-                together as one. */}
+            {/* The two review actions live at the end of the scroll flow (not
+                a separate sticky footer) so the whole plan + buttons scroll
+                together as one. Restructure rewrites the outline (better
+                headings, nothing dropped) and returns to this same review
+                step; Approve starts the actual generation. */}
             {awaiting && (
-              <button
-                onClick={onApprove}
-                className="w-full mt-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-900/25"
-              >
-                <Sparkles className="w-4 h-4" /> Approve &amp; Generate
-              </button>
+              <div className="mt-1 space-y-1.5">
+                <button
+                  onClick={onRestructure}
+                  disabled={!!mindmap.restructuring}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/25 border border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {mindmap.restructuring
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Restructuring the outline… (no point is dropped)</>
+                    : <><Shuffle className="w-4 h-4" /> Restructure — better headings, every point kept</>}
+                </button>
+                <button
+                  onClick={onApprove}
+                  disabled={!!mindmap.restructuring}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-900/25 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Sparkles className="w-4 h-4" /> Approve &amp; Generate
+                </button>
+              </div>
             )}
           </div>
         </div>
