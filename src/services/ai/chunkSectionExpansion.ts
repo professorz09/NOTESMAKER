@@ -1,6 +1,7 @@
 import { createAIClient, cleanHtmlOutput, DETAILED_NOTES_CONFIG } from './client';
 import type { OutlineSection } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
+import { mapWithConcurrency } from '../../utils/concurrency';
 
 // ---------------------------------------------------------------------------
 // Per-SECTION expansion for the chunked leveled pipelines (transcript and
@@ -145,13 +146,18 @@ export const expandChunkSection = async (
     );
   }
 
-  const pieces: string[] = [];
-  for (let start = 0; start < subs.length; start += SUB_BATCH) {
-    const batch = subs.slice(start, start + SUB_BATCH);
-    pieces.push(await expandOnce(
-      kind, chunkText, section.heading, batch, sectionNumber, start, start === 0,
+  // Batches run in PARALLEL (bounded) — each batch's <h3> numbering is
+  // precomputed from its start index, so completion order doesn't matter;
+  // results land in their slots and are joined in outline order.
+  const starts: number[] = [];
+  for (let start = 0; start < subs.length; start += SUB_BATCH) starts.push(start);
+  const pieces: string[] = new Array(starts.length).fill('');
+  await mapWithConcurrency(starts.length, 3, async (b) => {
+    const start = starts[b];
+    pieces[b] = await expandOnce(
+      kind, chunkText, section.heading, subs.slice(start, start + SUB_BATCH), sectionNumber, start, start === 0,
       siblingHeadings, part, total, language, modelName, level, refine,
-    ));
-  }
+    );
+  });
   return pieces.join('\n');
 };
