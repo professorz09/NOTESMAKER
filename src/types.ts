@@ -44,6 +44,10 @@ export interface MindmapState {
   // the user to review/instruct and press "Approve & Generate". No expensive
   // expansion has run yet at this point.
   awaitingApproval: boolean;
+  // True while the optional "Restructure" pass (offered during the review
+  // step) is rewriting the outline — both review buttons are disabled until
+  // it lands and the nodes are rebuilt.
+  restructuring?: boolean;
   // True once the main generation pass has finished (whether or not some
   // sections were skipped) — the overlay shows a "Done" button instead of
   // auto-closing, and the "add a point" field stays usable either way.

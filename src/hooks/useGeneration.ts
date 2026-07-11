@@ -17,7 +17,9 @@ import {
   generateTranscriptTitle,
   generateNotesFromTranscriptChunk,
   outlineTranscriptChunk,
-  expandTranscriptChunkStructured,
+  expandChunkSection,
+  restructureOutlineChunks,
+  restructureOutlineSections,
   generateTopicOutline,
   expandTopicSection,
   generateAdditionalTopicAspects,
@@ -25,7 +27,6 @@ import {
   expandDeepSection,
   outlineTextChunk,
   generateTextTitle,
-  expandTextChunkStructured,
   outlineFiles,
   generateFilesTitle,
   expandFilesSection,
@@ -35,6 +36,7 @@ import {
   type RefinementOptions,
   type DetailLevel,
   type TranscriptSection,
+  type ChunkSourceKind,
 } from '../services/ai/index';
 import { GenerationStatus, type MindmapState } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -267,6 +269,11 @@ export function useGeneration({
     mindmapApproveRef.current = null;
     if (r) r();
   };
+  // "Restructure" action offered next to Approve during the review step —
+  // each pipeline registers its own outline-rewrite closure while its gate
+  // is open (cleared again when the gate resolves).
+  const mindmapRestructureRef = useRef<(() => Promise<void>) | null>(null);
+  const handleMindmapRestructure = () => { void mindmapRestructureRef.current?.(); };
   const handleMindmapAddMore = (text: string) => { mindmapControllerRef.current?.onAddMore(text); };
   const handleMindmapNodeClick = (nodeId: string, instruction?: string) => { mindmapControllerRef.current?.onNodeClick(nodeId, instruction); };
   const handleMindmapSetNodeInstruction = (nodeId: string, instruction: string) => { mindmapControllerRef.current?.setNodeInstruction(nodeId, instruction); };
@@ -275,14 +282,22 @@ export function useGeneration({
   // Shared review/approval gate. Every leveled pipeline calls this right after
   // its outline (nodes) is built and before any expensive expansion — the mind
   // map shows the plan, the user can attach a per-section instruction to any
-  // node, then presses "Approve & Generate" to proceed. Returns true if the
-  // user approved, false if the generation was reset (Clear) while waiting.
-  const runApprovalGate = async (mm: MindmapState, syncMm: () => void): Promise<boolean> => {
+  // node, optionally run the pipeline's "Restructure" pass (better headings,
+  // nothing dropped) any number of times, then presses "Approve & Generate".
+  // Returns true if the user approved, false if the generation was reset
+  // (Clear) while waiting.
+  const runApprovalGate = async (
+    mm: MindmapState,
+    syncMm: () => void,
+    restructure?: () => Promise<void>,
+  ): Promise<boolean> => {
     if (isResettingRef.current) return false;
     mm.awaitingApproval = true;
-    setNotesProgress({ current: 0, total: 1, label: 'Review the plan — add instructions per topic, then Approve' });
+    mindmapRestructureRef.current = restructure ?? null;
+    setNotesProgress({ current: 0, total: 1, label: 'Review the plan — Restructure it, or Approve & Generate' });
     syncMm();
     await waitForApproval();
+    mindmapRestructureRef.current = null;
     mm.awaitingApproval = false;
     syncMm();
     return !isResettingRef.current;
@@ -764,7 +779,8 @@ export function useGeneration({
         text = (fetched || '').trim();
         if (!text) throw new Error('Transcript came back empty.');
         setTranscriptInput(text);
-        toast.success('Transcript fetched — building notes…');
+        const words = (text.match(/\S+/g) || []).length;
+        toast.success(`Transcript fetched (~${words.toLocaleString('en-IN')} words) — building notes…`);
       } catch (err: any) {
         if (!isResettingRef.current) {
           console.error(err);
@@ -890,13 +906,15 @@ export function useGeneration({
         const i = appended;
         const secs = results[i]!;
         const before = mm.nodes.length;
-        const groupId = `c${i}`;
+        // Each SECTION is its own generation unit now (one expand call per
+        // section), so every node is its own group — clicking it regenerates
+        // just that section, and its status tracks just that section's call.
         secs.forEach((s, j) => mm.nodes.push({
           id: `c${i}s${j}`,
           label: s.heading,
           status: 'pending',
           children: s.subheadings.map((h, k) => ({ id: `c${i}s${j}l${k}`, label: h })),
-          groupId,
+          groupId: `c${i}s${j}`,
         }));
         chunkRange.push({ start: before, end: mm.nodes.length });
         chunkSections.push(secs);
@@ -926,23 +944,32 @@ export function useGeneration({
     return { chunkSections, chunkRange, anyRealOutline };
   };
 
-  // Medium/Detailed/Deep transcript path: build the full video's skeleton
-  // (every topic + sub-point) as a live mind map, then expand each segment
-  // into structured detailed notes from the transcript. Returns false if the
-  // skeleton step produced nothing (caller falls back to the simple path).
-  // Nodes from the same chunk share a groupId (one API call produced them
-  // together) — clicking any of them regenerates that whole chunk deeper.
-  const runLeveledTranscriptPipeline = async (text: string, level: 'medium' | 'detailed' | 'deep'): Promise<boolean> => {
-    // Smaller chunks = less transcript text competing for the output-token
-    // budget on each expand call, which is the single biggest lever against
-    // content silently going missing on long/dense lectures.
+  // Medium/Detailed/Deep chunked pipeline shared by TRANSCRIPT and pasted-
+  // TEXT input: build the full source's skeleton (every topic + sub-point)
+  // as a live mind map, pause at the review gate (Restructure the outline
+  // and/or attach per-section instructions, then Approve), then expand each
+  // SECTION in its own call. One call per section — not per chunk — is what
+  // stops a heading with many sub-points from being compressed into a
+  // one-line-per-point summary; a section whose sub-point list is very long
+  // is split further into batches inside expandChunkSection. Returns false
+  // if the skeleton step produced nothing (caller falls back).
+  const runLeveledChunkPipeline = async (
+    text: string,
+    level: 'medium' | 'detailed' | 'deep',
+    kind: ChunkSourceKind,
+  ): Promise<boolean> => {
+    // Smaller chunks = less source text competing for the output-token
+    // budget on each call — the main defense against silently dropped content.
     const chunks = chunkTranscript(text, 4500);
     const total = chunks.length;
     // Structuring always uses Pro (quality matters most for getting the
-    // skeleton right); Deep also forces Pro for expansion, Medium/Detailed
-    // expand on whichever model the user picked in the Sidebar.
+    // skeleton right). Once the user APPROVES a transcript plan, expansion
+    // always runs at the strongest setting — Pro model + maximum depth —
+    // whatever level got it here: class notes must be the deepest, most
+    // detailed version. Text keeps its level→model mapping.
     const outlineModel = DEEP_PRO_MODEL;
-    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : aiModel;
+    const expandLevel: 'medium' | 'detailed' | 'deep' = kind === 'transcript' ? 'deep' : level;
+    const expandModel = (kind === 'transcript' || level === 'deep') ? DEEP_PRO_MODEL : aiModel;
 
     const parts: string[] = [];
     const pushLive = (recordHistory = false) => {
@@ -954,11 +981,12 @@ export function useGeneration({
     };
 
     const mm: MindmapState = {
-      title: 'Class Notes',
-      subtitle: `Transcript • ${level} pipeline`,
+      title: kind === 'transcript' ? 'Class Notes' : 'Notes',
+      subtitle: kind === 'transcript' ? `Transcript • ${level} pipeline` : `Text • ${level} pipeline`,
       nodes: [],
       errorNodeId: null,
       awaitingApproval: false,
+      restructuring: false,
       complete: false,
       addBusy: false,
     };
@@ -968,30 +996,37 @@ export function useGeneration({
     });
 
     const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
-      expandTopicSection(mm.title || 'Class Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
+      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
     // The title only needs the first chunk, so it runs in parallel with
     // Phase 1 instead of being a serial round-trip of its own.
-    const titlePromise = generateTranscriptTitle(chunks[0], language, aiModel)
-      .catch(err => { console.error('Transcript title step failed:', err); return ''; });
+    const titlePromise = (kind === 'transcript'
+      ? generateTranscriptTitle(chunks[0], language, aiModel)
+      : generateTextTitle(chunks[0], language, aiModel)
+    ).catch(err => { console.error('Title step failed:', err); return ''; });
 
-    // Phase 1 — build the skeleton of the whole video (outline every segment).
-    setNotesProgress({ current: 0, total, label: 'Building the whole video structure…' });
+    // Phase 1 — build the skeleton of the whole source (outline every segment).
+    setNotesProgress({
+      current: 0, total,
+      label: `Building the whole ${kind === 'transcript' ? 'video' : 'content'} structure… (${total} part${total > 1 ? 's' : ''})`,
+    });
     syncMm();
     const { chunkSections, chunkRange, anyRealOutline } = await outlineChunksParallel(
       chunks,
-      (chunk, part, tot) => outlineTranscriptChunk(chunk, part, tot, language, outlineModel),
+      (chunk, part, tot) => kind === 'transcript'
+        ? outlineTranscriptChunk(chunk, part, tot, language, outlineModel)
+        : outlineTextChunk(chunk, part, tot, language, outlineModel),
       mm, syncMm, 'Building structure',
     );
     if (isResettingRef.current) { setMindmap(null); return true; }
 
     // Structure step wholesale-failed (e.g. network) → let the caller fall
-    // back to the simple per-chunk pipeline the user knows works.
+    // back to the single-shot path the user knows works.
     if (!anyRealOutline) { setMindmap(null); return false; }
 
-    // Title + overview (fetched in parallel with Phase 1 above).
+    // Title (fetched in parallel with Phase 1 above).
     const titleHtml = sanitizeHtml(await titlePromise);
     if (titleHtml) {
       parts.push(titleHtml);
@@ -1001,107 +1036,179 @@ export function useGeneration({
       pushLive();
     }
 
-    // Section numbers are precomputed from the already-built outline (Phase
-    // 1 ran fully before Phase 2 starts) rather than accumulated as chunks
-    // succeed — this keeps numbering stable regardless of skip/finish/retry
-    // outcomes, and lets every chunk's regenerate closure be registered
-    // up front so skipped/never-reached nodes stay clickable.
+    // Global section numbers, recomputed whenever the outline changes
+    // (Restructure) — chunkStartNum[i] is the number of chunk i's first
+    // section. Every section's regenerate closure is registered up front (at
+    // the strongest setting) so skipped/never-reached nodes stay clickable;
+    // the closures read chunkSections[i][j] at call time, so a restructured
+    // outline is picked up automatically.
     const chunkStartNum: number[] = [];
-    { let running = 1; for (let i = 0; i < total; i++) { chunkStartNum.push(running); running += chunkSections[i].length; } }
-    for (let i = 0; i < total; i++) {
-      const startNum = chunkStartNum[i];
-      controller.registerGroup(`c${i}`, (instruction, existingHtml) => expandTranscriptChunkStructured(
-        chunks[i], chunkSections[i], startNum, i + 1, total, language, DEEP_PRO_MODEL, 'deep',
-        { existingHtml, customInstruction: instruction },
-      ));
-    }
+    const registerSectionGroups = () => {
+      chunkStartNum.length = 0;
+      let running = 1;
+      for (let i = 0; i < total; i++) { chunkStartNum.push(running); running += chunkSections[i].length; }
+      for (let ci = 0; ci < total; ci++) {
+        for (let cj = 0; cj < chunkSections[ci].length; cj++) {
+          const i = ci, j = cj, num = chunkStartNum[ci] + cj;
+          controller.registerGroup(`c${i}s${j}`, (instruction, existingHtml) => expandChunkSection(
+            kind, chunks[i], chunkSections[i][j], num, chunkSections[i].map(s => s.heading),
+            i + 1, total, language, DEEP_PRO_MODEL, 'deep',
+            { existingHtml, customInstruction: instruction },
+          ));
+        }
+      }
+    };
+    registerSectionGroups();
 
-    // Any per-section instructions set during review, gathered for the chunk
-    // (a chunk covers several nodes, so its instruction combines theirs).
-    const chunkInstruction = (i: number): string | undefined => {
-      const r = chunkRange[i];
-      const notes: string[] = [];
-      for (let k = r.start; k < r.end; k++) if (mm.nodes[k].instruction) notes.push(`For "${mm.nodes[k].label}": ${mm.nodes[k].instruction}`);
-      return notes.length ? notes.join(' ') : undefined;
+    // Rebuild the mind-map nodes from the current (restructured) outline —
+    // per-section instructions whose heading survived are carried over, and
+    // user-added extra nodes are kept at the end.
+    const rebuildOutlineNodes = () => {
+      const prevInstructions = new Map<string, string>();
+      mm.nodes.forEach(n => { if (n.instruction) prevInstructions.set(n.label, n.instruction); });
+      const extraNodes = mm.nodes.filter(n => !/^c\d+s\d+$/.test(n.groupId));
+      mm.nodes = [];
+      chunkRange.length = 0;
+      for (let i = 0; i < total; i++) {
+        const before = mm.nodes.length;
+        chunkSections[i].forEach((s, j) => mm.nodes.push({
+          id: `c${i}s${j}`,
+          label: s.heading,
+          status: 'pending' as const,
+          children: s.subheadings.map((h, k) => ({ id: `c${i}s${j}l${k}`, label: h })),
+          groupId: `c${i}s${j}`,
+          instruction: prevInstructions.get(s.heading),
+        }));
+        chunkRange.push({ start: before, end: mm.nodes.length });
+      }
+      mm.nodes.push(...extraNodes);
     };
 
-    // Pause for review / per-section instructions before expanding.
-    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return true; }
+    // "Restructure" (review step): rewrite the whole outline — better,
+    // specific headings and cleaner grouping with EVERY point preserved
+    // (segment-level point-count guards inside restructureOutlineChunks keep
+    // the original wherever the rewrite comes back thinner) — then return to
+    // the same review step for approval.
+    const restructureOutline = async () => {
+      if (mm.restructuring || isResettingRef.current) return;
+      const stale = () => isResettingRef.current || mindmapControllerRef.current !== controller;
+      mm.restructuring = true;
+      syncMm();
+      try {
+        const improved = await restructureOutlineChunks(chunkSections, mm.title, language, DEEP_PRO_MODEL);
+        if (stale()) return;
+        for (let i = 0; i < total; i++) chunkSections[i] = improved[i];
+        rebuildOutlineNodes();
+        registerSectionGroups();
+        toast.success('Outline restructured — every point kept. Review it, then Approve & Generate.');
+      } catch (err: any) {
+        console.error('Outline restructure failed:', err);
+        if (!stale()) toast.error(`Restructure failed — the original outline is unchanged. ${err?.message || ''}`);
+      } finally {
+        if (!stale()) { mm.restructuring = false; syncMm(); }
+      }
+    };
 
-    // Phase 2 — expand each segment following its outline.
-    const chunkPartIndex: number[] = new Array(total).fill(-1);
-    let stoppedEarly = false;
+    // Pause for review — Restructure and/or per-section instructions, then
+    // Approve & Generate.
+    if (!(await runApprovalGate(mm, syncMm, restructureOutline))) { setMindmap(null); return true; }
+
+    // Phase 2 — expand every section in its own call, a few in flight at a
+    // time within each chunk. One slot per section is pre-allocated in
+    // `parts` so out-of-order completions still render in outline order, and
+    // registered on the controller so a later regenerate (or a skipped node
+    // generated on demand) lands in place instead of at the end.
+    const sectionSlot: number[][] = chunkSections.map(secs => secs.map(() => {
+      const idx = parts.length;
+      parts.push('');
+      return idx;
+    }));
     for (let i = 0; i < total; i++) {
+      for (let j = 0; j < chunkSections[i].length; j++) controller.setGroupPartIndex(`c${i}s${j}`, sectionSlot[i][j]);
+    }
+    const sectionDone: boolean[][] = chunkSections.map(secs => secs.map(() => false));
+    const totalSections = chunkSections.reduce((a, s) => a + s.length, 0);
+    let written = 0;
+    let stoppedEarly = false;
+
+    for (let i = 0; i < total && !stoppedEarly; i++) {
       if (isResettingRef.current) { setMindmap(null); return true; }
       const range = chunkRange[i];
-      const groupId = `c${i}`;
-      const startSectionNumber = chunkStartNum[i];
-      for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
-      mm.errorNodeId = null;
-      syncMm();
-      setNotesProgress({ current: i + 1, total, label: `Writing detailed notes (part ${i + 1}/${total})` });
-
-      let html = '';
-      let skipped = false;
-      retryLoop: while (true) {
-        let ok = false;
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          if (isResettingRef.current) { setMindmap(null); return true; }
-          try {
-            const ci = chunkInstruction(i);
-            html = await expandTranscriptChunkStructured(
-              chunks[i], chunkSections[i], startSectionNumber, i + 1, total, language, expandModel, level,
-              ci ? { customInstruction: ci } : undefined,
-            );
-            ok = true;
-            break;
-          } catch (err) {
-            console.error(`Transcript expand chunk ${i + 1} attempt ${attempt} failed:`, err);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
-          }
-        }
-        if (ok) break retryLoop;
-
-        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'error';
-        mm.errorNodeId = mm.nodes[range.start].id;
+      let remaining = chunkSections[i].map((_, j) => j);
+      while (remaining.length) {
+        if (isResettingRef.current) { setMindmap(null); return true; }
+        remaining.forEach(j => { mm.nodes[range.start + j].status = 'active'; });
+        mm.errorNodeId = null;
         syncMm();
-        setNotesProgress({ current: i + 1, total, label: `Part ${i + 1} ran into a problem — choose Retry, Skip or Finish` });
+        setNotesProgress({ current: written, total: totalSections, label: `Writing detailed notes (section ${Math.min(written + 1, totalSections)}/${totalSections})` });
+
+        const batch = remaining;
+        const failed: number[] = [];
+        await mapWithConcurrency(batch.length, 3, async (r) => {
+          const j = batch[r];
+          if (isResettingRef.current) return;
+          const node = mm.nodes[range.start + j];
+          let html = '';
+          for (let attempt = 1; attempt <= 2 && !html; attempt++) {
+            try {
+              html = await expandChunkSection(
+                kind, chunks[i], chunkSections[i][j], chunkStartNum[i] + j, chunkSections[i].map(s => s.heading),
+                i + 1, total, language, expandModel, expandLevel,
+                node.instruction ? { customInstruction: node.instruction } : undefined,
+              );
+            } catch (err) {
+              console.error(`${kind} section ${chunkStartNum[i] + j} attempt ${attempt} failed:`, err);
+              if (attempt < 2) await new Promise(res => setTimeout(res, 1500));
+            }
+          }
+          if (isResettingRef.current) return;
+          if (html) {
+            parts[sectionSlot[i][j]] = html;
+            sectionDone[i][j] = true;
+            node.status = 'done';
+            written++;
+            setNotesProgress({ current: written, total: totalSections, label: `Writing detailed notes (section ${written}/${totalSections})` });
+            pushLive();
+          } else {
+            failed.push(j);
+            node.status = 'error';
+          }
+          syncMm();
+        });
+        if (isResettingRef.current) { setMindmap(null); return true; }
+        if (!failed.length) break;
+
+        mm.errorNodeId = mm.nodes[range.start + failed[0]].id;
+        syncMm();
+        setNotesProgress({ current: written, total: totalSections, label: `${failed.length} section(s) ran into a problem — choose Retry, Skip or Finish` });
         const action = await waitForMindmapAction();
         if (isResettingRef.current) { setMindmap(null); return true; }
         mm.errorNodeId = null;
-        if (action === 'finish') { skipped = true; stoppedEarly = true; break retryLoop; }
-        if (action === 'skip') { skipped = true; break retryLoop; }
-        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
+        if (action === 'retry') { remaining = failed; continue; }
+        // Skip / Finish: no placeholder text — the 'skipped' status is
+        // enough, and the node stays clickable to generate on demand into
+        // its own slot.
+        failed.forEach(j => { mm.nodes[range.start + j].status = 'skipped'; });
         syncMm();
+        if (action === 'finish') stoppedEarly = true;
+        break;
       }
-
-      if (skipped) {
-        // No placeholder text — the node's 'skipped' status is enough, and
-        // it stays clickable to generate on demand (group registered above).
-        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'skipped';
-        syncMm();
-        if (stoppedEarly) break;
-        continue;
-      }
-
-      const partIndex = parts.length;
-      parts.push(html);
-      controller.setGroupPartIndex(groupId, partIndex);
-      chunkPartIndex[i] = partIndex;
-      for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'done';
-      pushLive();
+    }
+    if (stoppedEarly) {
+      mm.nodes.forEach(n => { if (n.status === 'pending' || n.status === 'active') n.status = 'skipped'; });
       syncMm();
     }
 
-    if (parts.length === 0) { setMindmap(null); return false; }
+    const anySectionDone = sectionDone.some(c => c.some(Boolean));
+    if (!anySectionDone && !stoppedEarly) { setMindmap(null); return false; }
 
-
-    await runGroundingPass(mm.title, mm, syncMm, parts, pushLive, chunkSections.map((secs, i) => ({
-      heading: secs.map(s => s.heading).join('; ') || `Part ${i + 1}`,
-      subheadings: secs.flatMap(s => s.subheadings),
-      partIndex: chunkPartIndex[i],
-      nodeIds: mm.nodes.slice(chunkRange[i].start, chunkRange[i].end).map(n => n.id),
-    })).filter(e => e.partIndex >= 0));
+    await runGroundingPass(mm.title, mm, syncMm, parts, pushLive,
+      chunkSections.flatMap((secs, i) => secs.map((s, j) => ({
+        heading: s.heading,
+        subheadings: s.subheadings,
+        partIndex: sectionDone[i][j] ? sectionSlot[i][j] : -1,
+        nodeIds: [`c${i}s${j}`],
+      }))).filter(e => e.partIndex >= 0));
 
     controller.markDone();
     await controller.waitForDone();
@@ -1112,163 +1219,11 @@ export function useGeneration({
     return true;
   };
 
-  // Medium/Detailed/Deep pasted-TEXT path: same shape as the transcript
-  // pipeline (build the whole skeleton, then expand each chunk following it)
-  // but grounded in pasted notes/content instead of spoken class audio, so
-  // long pastes don't get truncated or silently compressed either. Returns
-  // false if the skeleton step produced nothing (caller falls back to the
-  // single-shot generateFormattedNotes path).
-  const runLeveledTextPipeline = async (text: string, level: 'medium' | 'detailed' | 'deep'): Promise<boolean> => {
-    // Smaller chunks = less source text competing for the output-token
-    // budget per expand call — the main defense against silently dropped content.
-    const chunks = chunkTranscript(text, 4500);
-    const total = chunks.length;
-    const outlineModel = DEEP_PRO_MODEL;
-    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : aiModel;
+  const runLeveledTranscriptPipeline = (text: string, level: 'medium' | 'detailed' | 'deep') =>
+    runLeveledChunkPipeline(text, level, 'transcript');
 
-    const parts: string[] = [];
-    const pushLive = (recordHistory = false) => {
-      if (isResettingRef.current) return;
-      const html = sanitizeHtml(parts.join('\n'));
-      setGeneratedHtml(html);
-      if (recordHistory) pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
-    };
-
-    const mm: MindmapState = {
-      title: 'Notes', subtitle: `Text • ${level} pipeline`, nodes: [], errorNodeId: null, awaitingApproval: false, complete: false, addBusy: false,
-    };
-    const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
-
-    const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
-      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
-    const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
-    mindmapControllerRef.current = controller;
-
-    // Title runs in parallel with Phase 1 — it only needs the first chunk.
-    const titlePromise = generateTextTitle(chunks[0], language, aiModel)
-      .catch(err => { console.error('Text title step failed:', err); return ''; });
-
-    setNotesProgress({ current: 0, total, label: 'Building the whole content structure…' });
-    syncMm();
-    const { chunkSections, chunkRange, anyRealOutline } = await outlineChunksParallel(
-      chunks,
-      (chunk, part, tot) => outlineTextChunk(chunk, part, tot, language, outlineModel),
-      mm, syncMm, 'Building structure',
-    );
-    if (isResettingRef.current) { setMindmap(null); return true; }
-
-    if (!anyRealOutline) { setMindmap(null); return false; }
-
-    const titleHtml = sanitizeHtml(await titlePromise);
-    if (titleHtml) {
-      parts.push(titleHtml);
-      const m = titleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-      if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
-      syncMm();
-      pushLive();
-    }
-
-    // Precompute section numbers from the already-built outline so every
-    // chunk's regenerate closure can be registered up front, keeping
-    // skipped/never-reached nodes clickable-to-generate regardless of order.
-    const chunkStartNum: number[] = [];
-    { let running = 1; for (let i = 0; i < total; i++) { chunkStartNum.push(running); running += chunkSections[i].length; } }
-    for (let i = 0; i < total; i++) {
-      const startNum = chunkStartNum[i];
-      controller.registerGroup(`c${i}`, (instruction, existingHtml) => expandTextChunkStructured(
-        chunks[i], chunkSections[i], startNum, i + 1, total, language, DEEP_PRO_MODEL, 'deep',
-        { existingHtml, customInstruction: instruction },
-      ));
-    }
-
-    const chunkInstruction = (i: number): string | undefined => {
-      const r = chunkRange[i];
-      const notes: string[] = [];
-      for (let k = r.start; k < r.end; k++) if (mm.nodes[k].instruction) notes.push(`For "${mm.nodes[k].label}": ${mm.nodes[k].instruction}`);
-      return notes.length ? notes.join(' ') : undefined;
-    };
-
-    // Pause for review / per-section instructions before expanding.
-    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return true; }
-
-    const chunkPartIndex: number[] = new Array(total).fill(-1);
-    let stoppedEarly = false;
-    for (let i = 0; i < total; i++) {
-      if (isResettingRef.current) { setMindmap(null); return true; }
-      const range = chunkRange[i];
-      const groupId = `c${i}`;
-      const startSectionNumber = chunkStartNum[i];
-      for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
-      mm.errorNodeId = null;
-      syncMm();
-      setNotesProgress({ current: i + 1, total, label: `Writing detailed notes (part ${i + 1}/${total})` });
-
-      let html = '';
-      let skipped = false;
-      retryLoop: while (true) {
-        let ok = false;
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          if (isResettingRef.current) { setMindmap(null); return true; }
-          try {
-            const ci = chunkInstruction(i);
-            html = await expandTextChunkStructured(chunks[i], chunkSections[i], startSectionNumber, i + 1, total, language, expandModel, level, ci ? { customInstruction: ci } : undefined);
-            ok = true;
-            break;
-          } catch (err) {
-            console.error(`Text expand chunk ${i + 1} attempt ${attempt} failed:`, err);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
-          }
-        }
-        if (ok) break retryLoop;
-
-        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'error';
-        mm.errorNodeId = mm.nodes[range.start].id;
-        syncMm();
-        setNotesProgress({ current: i + 1, total, label: `Part ${i + 1} ran into a problem — choose Retry, Skip or Finish` });
-        const action = await waitForMindmapAction();
-        if (isResettingRef.current) { setMindmap(null); return true; }
-        mm.errorNodeId = null;
-        if (action === 'finish') { skipped = true; stoppedEarly = true; break retryLoop; }
-        if (action === 'skip') { skipped = true; break retryLoop; }
-        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'active';
-        syncMm();
-      }
-
-      if (skipped) {
-        for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'skipped';
-        syncMm();
-        if (stoppedEarly) break;
-        continue;
-      }
-
-      const partIndex = parts.length;
-      parts.push(html);
-      controller.setGroupPartIndex(groupId, partIndex);
-      chunkPartIndex[i] = partIndex;
-      for (let k = range.start; k < range.end; k++) mm.nodes[k].status = 'done';
-      pushLive();
-      syncMm();
-    }
-
-    if (parts.length === 0) { setMindmap(null); return false; }
-
-
-    await runGroundingPass(mm.title, mm, syncMm, parts, pushLive, chunkSections.map((secs, i) => ({
-      heading: secs.map(s => s.heading).join('; ') || `Part ${i + 1}`,
-      subheadings: secs.flatMap(s => s.subheadings),
-      partIndex: chunkPartIndex[i],
-      nodeIds: mm.nodes.slice(chunkRange[i].start, chunkRange[i].end).map(n => n.id),
-    })).filter(e => e.partIndex >= 0));
-
-    controller.markDone();
-    await controller.waitForDone();
-    if (isResettingRef.current) { setMindmap(null); return true; }
-
-    pushLive(true);
-    if (window.innerWidth < 1024) setSidebarOpen(false);
-    return true;
-  };
+  const runLeveledTextPipeline = (text: string, level: 'medium' | 'detailed' | 'deep') =>
+    runLeveledChunkPipeline(text, level, 'text');
 
   // Medium/Detailed/Deep uploaded-FILE path: analyze the file(s) once into a
   // structured outline, then expand section by section — re-sending the
@@ -1294,7 +1249,7 @@ export function useGeneration({
     };
 
     const mm: MindmapState = {
-      title: 'Notes', subtitle: `Files • ${level} pipeline`, nodes: [], errorNodeId: null, awaitingApproval: false, complete: false, addBusy: false,
+      title: 'Notes', subtitle: `Files • ${level} pipeline`, nodes: [], errorNodeId: null, awaitingApproval: false, restructuring: false, complete: false, addBusy: false,
     };
     const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
 
@@ -1324,7 +1279,7 @@ export function useGeneration({
     if (!sections.length) { setMindmap(null); return false; }
 
     const allHeadings = sections.map(s => s.heading);
-    const total = sections.length;
+    let total = sections.length;
 
     mm.nodes = sections.map((s, i) => ({
       id: `s${i}`, label: s.heading, status: 'pending' as const,
@@ -1343,11 +1298,47 @@ export function useGeneration({
 
     // Register every node's regenerate closure up front so skipped/
     // never-reached nodes stay clickable-to-generate while the map is open.
-    sections.forEach((s, i) => controller.registerGroup(mm.nodes[i].groupId, (instruction, existingHtml) =>
-      expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep', { existingHtml, customInstruction: instruction })));
+    const registerSectionGroups = () => {
+      sections.forEach((s, i) => controller.registerGroup(`s${i}`, (instruction, existingHtml) =>
+        expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep', { existingHtml, customInstruction: instruction })));
+    };
+    registerSectionGroups();
 
-    // Pause for review / per-section instructions before expanding.
-    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return true; }
+    // "Restructure" (review step): rewrite the outline — better headings,
+    // cleaner grouping, every point preserved — then return to review.
+    const restructureOutline = async () => {
+      if (mm.restructuring || isResettingRef.current) return;
+      const stale = () => isResettingRef.current || mindmapControllerRef.current !== controller;
+      mm.restructuring = true;
+      syncMm();
+      try {
+        const improved = await restructureOutlineSections(sections, mm.title || 'Notes', language, DEEP_PRO_MODEL);
+        if (stale()) return;
+        const prevInstructions = new Map<string, string>();
+        mm.nodes.forEach(n => { if (n.instruction) prevInstructions.set(n.label, n.instruction); });
+        const extraNodes = mm.nodes.filter(n => !/^s\d+$/.test(n.groupId));
+        sections.splice(0, sections.length, ...improved);
+        allHeadings.splice(0, allHeadings.length, ...sections.map(s => s.heading));
+        total = sections.length;
+        mm.nodes = sections.map((s, i) => ({
+          id: `s${i}`, label: s.heading, status: 'pending' as const,
+          children: (s.subheadings || []).map((h, j) => ({ id: `s${i}-${j}`, label: h })), groupId: `s${i}`,
+          instruction: prevInstructions.get(s.heading),
+        }));
+        mm.nodes.push(...extraNodes);
+        registerSectionGroups();
+        toast.success('Outline restructured — every point kept. Review it, then Approve & Generate.');
+      } catch (err: any) {
+        console.error('Outline restructure failed:', err);
+        if (!stale()) toast.error(`Restructure failed — the original outline is unchanged. ${err?.message || ''}`);
+      } finally {
+        if (!stale()) { mm.restructuring = false; syncMm(); }
+      }
+    };
+
+    // Pause for review — Restructure and/or per-section instructions, then
+    // Approve & Generate.
+    if (!(await runApprovalGate(mm, syncMm, restructureOutline))) { setMindmap(null); return true; }
 
     const refineFor = (i: number): RefinementOptions | undefined =>
       mm.nodes[i]?.instruction ? { customInstruction: mm.nodes[i].instruction } : undefined;
@@ -1507,7 +1498,7 @@ export function useGeneration({
       : level === 'detailed' ? 'Detailed pipeline' : 'Medium pipeline';
 
     // Local mutable mind map; re-clone into state on every change to re-render.
-    const mm: MindmapState = { title: topic, subtitle, nodes: [], errorNodeId: null, awaitingApproval: false, complete: false, addBusy: false };
+    const mm: MindmapState = { title: topic, subtitle, nodes: [], errorNodeId: null, awaitingApproval: false, restructuring: false, complete: false, addBusy: false };
     const syncMm = () => setMindmap({
       ...mm,
       nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
@@ -1554,7 +1545,7 @@ export function useGeneration({
     const sections = outline.sections;
     const allHeadings = sections.map(s => s.heading);
     const hasCompletenessPass = level === 'detailed' || level === 'deep';
-    const total = sections.length + (hasCompletenessPass ? 1 : 0);
+    let total = sections.length + (hasCompletenessPass ? 1 : 0);
 
     mm.title = outline.title || topic;
     mm.nodes = sections.map((s, i) => ({
@@ -1590,11 +1581,48 @@ export function useGeneration({
     // even starts) so every node — including ones later skipped or never
     // reached because the user chose "Finish now" — stays clickable to
     // generate/deepen on demand while the map is open.
-    sections.forEach((_, i) => controller.registerGroup(mm.nodes[i].groupId, (instruction, existingHtml) => deepenOne(i, instruction, existingHtml)));
+    const registerSectionGroups = () => {
+      sections.forEach((_, i) => controller.registerGroup(`s${i}`, (instruction, existingHtml) => deepenOne(i, instruction, existingHtml)));
+    };
+    registerSectionGroups();
     if (hasCompletenessPass) controller.registerGroup('extra', runCompleteness);
 
-    // Pause for the user to review the plan / attach per-section instructions.
-    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return; }
+    // "Restructure" (review step): rewrite the planned outline — better
+    // headings, cleaner grouping, every point preserved — then return to
+    // the same review step.
+    const restructureOutline = async () => {
+      if (mm.restructuring || isResettingRef.current) return;
+      const stale = () => isResettingRef.current || mindmapControllerRef.current !== controller;
+      mm.restructuring = true;
+      syncMm();
+      try {
+        const improved = await restructureOutlineSections(sections, mm.title || topic, language, DEEP_PRO_MODEL);
+        if (stale()) return;
+        const prevInstructions = new Map<string, string>();
+        mm.nodes.forEach(n => { if (n.instruction) prevInstructions.set(n.label, n.instruction); });
+        const extraNodes = mm.nodes.filter(n => !/^s\d+$/.test(n.groupId));
+        sections.splice(0, sections.length, ...improved);
+        allHeadings.splice(0, allHeadings.length, ...sections.map(s => s.heading));
+        total = sections.length + (hasCompletenessPass ? 1 : 0);
+        mm.nodes = sections.map((s, i) => ({
+          id: `s${i}`, label: s.heading, status: 'pending' as const,
+          children: (s.subheadings || []).map((h, j) => ({ id: `s${i}-${j}`, label: h })), groupId: `s${i}`,
+          instruction: prevInstructions.get(s.heading),
+        }));
+        mm.nodes.push(...extraNodes);
+        registerSectionGroups();
+        toast.success('Outline restructured — every point kept. Review it, then Approve & Generate.');
+      } catch (err: any) {
+        console.error('Outline restructure failed:', err);
+        if (!stale()) toast.error(`Restructure failed — the original outline is unchanged. ${err?.message || ''}`);
+      } finally {
+        if (!stale()) { mm.restructuring = false; syncMm(); }
+      }
+    };
+
+    // Pause for the user to review the plan — Restructure and/or attach
+    // per-section instructions, then Approve & Generate.
+    if (!(await runApprovalGate(mm, syncMm, restructureOutline))) { setMindmap(null); return; }
 
     const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
     let stoppedEarly = false;
@@ -1882,6 +1910,7 @@ export function useGeneration({
     setNotesProgress(null);
     // Unblock a pipeline paused on the approval gate, a Retry/Skip/Finish
     // prompt, or the Done button, then hide the map.
+    mindmapRestructureRef.current = null;
     handleMindmapApprove();
     if (mindmapActionRef.current) resolveMindmapAction('skip');
     mindmapControllerRef.current?.cancel();
@@ -1946,6 +1975,7 @@ export function useGeneration({
     mindmap,
     resolveMindmapAction,
     handleMindmapApprove,
+    handleMindmapRestructure,
     handleMindmapSetNodeInstruction,
     handleMindmapAddMore,
     handleMindmapNodeClick,

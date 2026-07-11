@@ -69,57 +69,10 @@ export const generateTextTitle = async (
   return cleanHtmlOutput(response.text || '');
 };
 
-export const expandTextChunkStructured = async (
-  chunkText: string,
-  sections: SourceSection[],
-  startSectionNumber: number,
-  part: number,
-  total: number,
-  language: string,
-  modelName: string,
-  level: 'medium' | 'detailed' | 'deep',
-  refine?: RefinementOptions,
-): Promise<string> => {
-  const ai = createAIClient();
-
-  const depth = level === 'deep'
-    ? 'Go MAXIMALLY deep on every point AND sub-point: full explanation, mechanism, and every fact, date, number, name, definition and example present in the source — expand each sub-point into its own <h4> where it has parts. Miss nothing.'
-    : level === 'detailed'
-      ? 'Explain every point and sub-point thoroughly, with the concrete facts and examples from the source.'
-      : 'Give each point a solid, clear explanation using the key facts from the source.';
-
-  const outlineList = sections
-    .map((s, i) => `${startSectionNumber + i}. ${s.heading}${s.subheadings.length ? ' — ' + s.subheadings.join('; ') : ''}`)
-    .join('\n');
-
-  const prompt = `
-    Role: Senior Subject-Matter Expert & Textbook Author.
-    Task: Write DETAILED, structured study notes for segment ${part} of ${total} of the source material, following the outline below. Draw ALL content from the source segment — capture every fact, date, number, name, definition and example present. This is NOT a summary; do not shorten or drop points — expand and enrich where the source is brief.
-
-    Language: ${language}
-
-    Outline to follow (number the sections continuing from ${startSectionNumber}):
-    ${outlineList}
-
-    Source segment (your source):
-    """${chunkText}"""
-
-    ${depth}
-
-    COMPLETENESS SAFETY NET: the outline above was extracted separately and may itself have missed something small. While writing, re-check the source segment against it — if you spot a real point the outline doesn't cover, still include it under the most relevant heading (or as its own <h3>/<h4>) rather than dropping it because it wasn't listed.
-
-    FORMAT:
-    - <h2>${startSectionNumber}. …</h2> for each outline section (continue the numbering), <h3>${startSectionNumber}.1 …</h3> for its sub-points, <h4> for a further level where needed.
-    - Explain every point in depth — never dispose of a sub-point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
-    - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide.
-    - Do NOT add a document <h1> title or overview (already present). No filler, no empty headings.
-    ${buildRefinementDirective(refine)}
-    Output: Return ONLY raw HTML. No markdown, no code fences.
-  `;
-
-  const response = await ai.models.generateContent({ model: modelName, contents: prompt, config: DETAILED_NOTES_CONFIG });
-  return cleanHtmlOutput(response.text || '');
-};
+// Phase 2 (per-section expansion) for pasted text lives in
+// chunkSectionExpansion.ts — one call per SECTION (with sub-point batching)
+// instead of one call per chunk, so a heading with many sub-points never
+// gets compressed into a summary.
 
 // --- Uploaded files ----------------------------------------------------------
 

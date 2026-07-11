@@ -102,7 +102,11 @@ Deno.serve(async (req) => {
     const url = String(payload?.url ?? "").trim();
     if (!url) return json({ error: "Missing 'url'" }, 400);
     const lang = String(payload?.lang ?? "").trim();
-    const params = new URLSearchParams({ url, text: "true", mode: "native" });
+    // mode "auto": use the native captions when the video has them, and fall
+    // back to AI-generated transcription when it doesn't — "native" alone
+    // made every caption-less video fail with no transcript at all, which is
+    // the #1 reason a fetch came back empty for real class recordings.
+    const params = new URLSearchParams({ url, text: "true", mode: "auto" });
     if (lang) params.set("lang", lang);
     upstreamUrl = `${SUPADATA_BASE}/transcript?${params.toString()}`;
   } else if (action === "poll") {
