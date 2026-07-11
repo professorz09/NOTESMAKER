@@ -1,6 +1,7 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
 import { parseOutlineSectionsJson, parseOutlineJsonObject } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
+import { mapWithConcurrency } from '../../utils/concurrency';
 
 // Shared guidance used by every expand-a-section prompt below. The guiding
 // principle is: EXPLAIN the material well, and let the model choose whatever
@@ -14,6 +15,41 @@ const EXPLAIN_RULE =
 // Presentation is the model\'s choice — flexible, not a checklist.
 const FORMAT_CHOICE =
   'Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or a simple clean SVG diagram in <div class="flowchart-container"> (no border, use viewBox). Use any of these ONLY because it genuinely aids understanding here, never to fill a quota: do not force a table or a diagram where clear writing reads better, and do not omit one where it truly clarifies. You decide, based on the content.';
+
+// A section whose sub-heading count exceeds MAX_SUBS_PER_CALL is expanded in
+// several calls of at most SUB_BATCH sub-headings each — all of them
+// competing for one output budget is exactly what used to compress each
+// sub-point into a one-line summary.
+const MAX_SUBS_PER_CALL = 8;
+const SUB_BATCH = 5;
+
+// Run one section's expansion, batching its sub-headings across multiple
+// calls when there are too many for a single output budget. `callOnce`
+// writes one slice: `subStart` is the 0-based index of the slice's first
+// sub-heading within the full section (for numbering continuation) and
+// `includeH2` says whether this call opens the section with its <h2>.
+// A refinement pass (existing draft / user instruction) always runs as one
+// call over the whole section, since it revises rather than writes fresh.
+async function expandWithSubBatches(
+  subheadings: string[],
+  refine: RefinementOptions | undefined,
+  callOnce: (subs: string[], subStart: number, includeH2: boolean, refine?: RefinementOptions) => Promise<string>,
+): Promise<string> {
+  const isRevision = !!(refine && (refine.existingHtml || refine.customInstruction));
+  if (isRevision || subheadings.length <= MAX_SUBS_PER_CALL) {
+    return callOnce(subheadings, 0, true, refine);
+  }
+  // Batches run in PARALLEL (bounded) — numbering is precomputed per batch,
+  // so completion order doesn't matter; results land in their slots.
+  const starts: number[] = [];
+  for (let start = 0; start < subheadings.length; start += SUB_BATCH) starts.push(start);
+  const pieces: string[] = new Array(starts.length).fill('');
+  await mapWithConcurrency(starts.length, 3, async (b) => {
+    const start = starts[b];
+    pieces[b] = await callOnce(subheadings.slice(start, start + SUB_BATCH), start, start === 0);
+  });
+  return pieces.join('\n');
+}
 
 
 // ---------------------------------------------------------------------------
@@ -78,7 +114,7 @@ export const generateTopicOutline = async (
   const ai = createAIClient();
 
   const scale = level === 'detailed'
-    ? 'Produce 8-15 main sections, and for EACH give 3-6 specific sub-headings that break the section into its real sub-dimensions. Be exhaustive — every angle of the topic should map to a section or sub-heading.'
+    ? 'Produce 8-15 main sections, and for EACH give 4-8 specific sub-headings that break the section into its real sub-dimensions. Keep sub-headings SMALL and granular — each one a single specific point, never a bundle of several ideas; split a broad sub-point into its smaller parts instead. Be exhaustive — every angle of the topic should map to a section or sub-heading.'
     : 'Produce 5-9 main sections. Add 2-4 sub-headings only where a section genuinely has distinct parts (otherwise an empty list is fine).';
 
   const prompt = `
@@ -129,23 +165,29 @@ export const expandTopicSection = async (
 ): Promise<string> => {
   const ai = createAIClient();
 
-  const subGuidance = section.subheadings.length
-    ? `Cover these sub-points, each as its own <h3>${sectionNumber}.k …</h3> sub-section, and EXPLAIN each one fully — do not just restate the heading and move on (go into <h4> where a sub-point itself has parts):\n${section.subheadings.map((s, i) => `${sectionNumber}.${i + 1} ${s}`).join('\n')}`
-    : (level === 'detailed'
-      ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained.'
-      : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
+  const callOnce = async (subs: string[], subStart: number, includeH2: boolean, refineOnce?: RefinementOptions) => {
+    const subGuidance = subs.length
+      ? `Write EVERY one of these sub-points as its OWN full sub-section, using exactly these <h3> headings/numbers. Where a sub-point GENUINELY has distinct parts (definition, mechanism, examples, data…), break it further into its own <h4>${sectionNumber}.k.m …</h4> sub-sub-sections — but only where that truly fits; a rich flowing explanation is fine where it doesn't:
+${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join('\n')}
+    **ANTI-SUMMARY RULE (most important):** each of these sub-points gets its own complete, multi-paragraph explanation — NEVER a single line, NEVER two sub-points folded into one, NEVER a bullet that just restates the heading.`
+      : (level === 'detailed'
+        ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained (with <h4> sub-parts where a sub-section is layered).'
+        : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
 
-  const depth = level === 'detailed'
-    ? 'Go MAXIMALLY deep: every sub-section must have real explanation, mechanism, and at least one concrete real-world example. Aim for a thorough, textbook-grade treatment of this section — do not stop early.'
-    : 'Give a solid, detailed treatment of this section with clear explanation and concrete examples.';
+    const depth = level === 'detailed'
+      ? 'Go MAXIMALLY deep: every sub-section must have real explanation, mechanism, and at least one concrete real-world example. Aim for a thorough, textbook-grade treatment of this section — do not stop early.'
+      : 'Give a solid, detailed treatment of this section with clear explanation and concrete examples.';
 
-  const prompt = `
+    const prompt = `
     Role: Senior Subject-Matter Expert & Textbook Author.
     Task: Write the FULL, detailed content for ONE section of a larger set of study notes on "${topic}". Write ONLY this section — do NOT repeat the document title or any other section's content.
 
     Language: ${language}
 
     This section (number ${sectionNumber}): "${section.heading}"
+    ${includeH2
+      ? `Begin with <h2>${sectionNumber}. ${section.heading}</h2>.`
+      : `Do NOT output the <h2> heading (it is already written) — continue directly with the <h3> sub-sections below.`}
     ${subGuidance}
 
     Full outline of the notes (for scope only — so you don't drift into other sections): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
@@ -153,23 +195,25 @@ export const expandTopicSection = async (
     ${depth}
 
     RULES:
-    - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then the sub-sections as <h3>${sectionNumber}.1 …</h3>, <h3>${sectionNumber}.2 …</h3>, etc. Use <h4> for a further level where needed.
     - ${EXPLAIN_RULE}
     - State each concept simply first, then develop it with concrete facts — real dates, numbers, names, article/section numbers — and at least one real example ("e.g., …") per sub-section. <strong> every key term, name, date and figure.
     - When you use bullets, each <li> is a full, informative sentence — never 2-3 words.
     - ${FORMAT_CHOICE}
     - Never output an empty or one-line heading. No filler — but every point must be genuinely explained, not compressed into a keyword.
-    ${buildRefinementDirective(refine)}
+    ${buildRefinementDirective(refineOnce)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
 
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: prompt,
-    config: DETAILED_NOTES_CONFIG,
-  });
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: DETAILED_NOTES_CONFIG,
+    });
 
-  return cleanHtmlOutput(response.text || '');
+    return cleanHtmlOutput(response.text || '');
+  };
+
+  return expandWithSubBatches(section.subheadings, refine, callOnce);
 };
 
 /**
@@ -193,7 +237,7 @@ export const generateDeepOutline = async (
 
     Build THREE levels of depth:
     - Sub-topics = the main sections (aim for 8-16, as many as the topic genuinely needs).
-    - Sub-sub-topics = 3-6 specific sub-headings under each section that break it into its real parts.
+    - Sub-sub-topics = 4-8 specific sub-headings under each section that break it into its real parts. Keep them SMALL and granular — each sub-heading is ONE specific point, never a bundle of several ideas; if a sub-point is broad, split it into its smaller parts (the expansion step will develop each one into its own fully-explained sub-section, so more granular = deeper notes).
     Also decide the focus areas that need the most depth.
 
     Output STRICT JSON ONLY (no markdown, no code fences, no commentary):
@@ -243,11 +287,14 @@ export const expandDeepSection = async (
   const isFocus = focusAreas.some(f =>
     f && (section.heading.toLowerCase().includes(f.toLowerCase()) || f.toLowerCase().includes(section.heading.toLowerCase())));
 
-  const subGuidance = section.subheadings.length
-    ? `Cover EACH of these sub-sub-topics as its own <h3>${sectionNumber}.k …</h3>, and expand its main points into full, in-depth explanation — never leave a sub-sub-topic as just a heading with a single line under it:\n${section.subheadings.map((s, i) => `${sectionNumber}.${i + 1} ${s}`).join('\n')}`
-    : 'Break this section into 3-5 logical <h3> sub-sections that fully cover it, each explained in depth.';
+  const callOnce = async (subs: string[], subStart: number, includeH2: boolean, refineOnce?: RefinementOptions) => {
+    const subGuidance = subs.length
+      ? `Write EACH of these sub-sub-topics as its OWN full sub-section, using exactly these <h3> headings/numbers. Where a sub-sub-topic GENUINELY has distinct parts (definition, background, mechanism/working, examples, data/figures, significance…), break it further into its own <h4>${sectionNumber}.k.m …</h4> sub-parts — but only where that truly fits; a rich flowing explanation is fine where it doesn't:
+${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join('\n')}
+    **ANTI-SUMMARY RULE (most important):** each sub-sub-topic gets its own complete, multi-paragraph, textbook-grade treatment — NEVER a heading with a single line under it, NEVER two sub-sub-topics folded into one, NEVER a bullet that just restates the heading.`
+      : 'Break this section into 3-5 logical <h3> sub-sections that fully cover it, each explained in depth with <h4> sub-parts where a sub-section is layered.';
 
-  const prompt = `
+    const prompt = `
     Role: Subject expert & textbook author.
     Task: Write the FULL, detailed content for ONE sub-topic of the larger notes on "${topic}". Write ONLY this section — never repeat the document title or other sections.
     ${isFocus ? 'This is a HIGH-FOCUS area of the topic — go especially deep here with extra examples, mechanisms and nuance.' : ''}
@@ -255,27 +302,32 @@ export const expandDeepSection = async (
     Language: ${language}
 
     Section number ${sectionNumber}: "${section.heading}"
+    ${includeH2
+      ? `Begin with <h2>${sectionNumber}. ${section.heading}</h2>.`
+      : `Do NOT output the <h2> heading (it is already written) — continue directly with the <h3> sub-sections below.`}
     ${subGuidance}
 
     Full outline (scope only, don't drift into other sections): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
 
     RULES:
-    - Begin with <h2>${sectionNumber}. ${section.heading}</h2>, then <h3>${sectionNumber}.1 …</h3>, <h3>${sectionNumber}.2 …</h3>, using <h4> for a further level where needed.
     - ${EXPLAIN_RULE}
     - State each point simply, then develop it in depth with concrete real facts (dates, numbers, names, articles) and at least one real example per sub-section. <strong> every key term, date and figure; full-sentence <li> bullets only.
     - ${FORMAT_CHOICE}
     - No empty or one-line headings. No filler — but nothing compressed into a bare keyword either; explain it.
-    ${buildRefinementDirective(refine)}
+    ${buildRefinementDirective(refineOnce)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
 
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: prompt,
-    config: DETAILED_NOTES_CONFIG,
-  });
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: DETAILED_NOTES_CONFIG,
+    });
 
-  return cleanHtmlOutput(response.text || '');
+    return cleanHtmlOutput(response.text || '');
+  };
+
+  return expandWithSubBatches(section.subheadings, refine, callOnce);
 };
 
 /**
