@@ -986,6 +986,7 @@ export function useGeneration({
       nodes: [],
       errorNodeId: null,
       awaitingApproval: false,
+      canRestructure: true,
       restructuring: false,
       complete: false,
       addBusy: false,
@@ -1249,7 +1250,7 @@ export function useGeneration({
     };
 
     const mm: MindmapState = {
-      title: 'Notes', subtitle: `Files • ${level} pipeline`, nodes: [], errorNodeId: null, awaitingApproval: false, restructuring: false, complete: false, addBusy: false,
+      title: 'Notes', subtitle: `Files • ${level} pipeline`, nodes: [], errorNodeId: null, awaitingApproval: false, canRestructure: true, restructuring: false, complete: false, addBusy: false,
     };
     const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
 
@@ -1545,7 +1546,7 @@ export function useGeneration({
     const sections = outline.sections;
     const allHeadings = sections.map(s => s.heading);
     const hasCompletenessPass = level === 'detailed' || level === 'deep';
-    let total = sections.length + (hasCompletenessPass ? 1 : 0);
+    const total = sections.length + (hasCompletenessPass ? 1 : 0);
 
     mm.title = outline.title || topic;
     mm.nodes = sections.map((s, i) => ({
@@ -1581,48 +1582,15 @@ export function useGeneration({
     // even starts) so every node — including ones later skipped or never
     // reached because the user chose "Finish now" — stays clickable to
     // generate/deepen on demand while the map is open.
-    const registerSectionGroups = () => {
-      sections.forEach((_, i) => controller.registerGroup(`s${i}`, (instruction, existingHtml) => deepenOne(i, instruction, existingHtml)));
-    };
-    registerSectionGroups();
+    sections.forEach((_, i) => controller.registerGroup(`s${i}`, (instruction, existingHtml) => deepenOne(i, instruction, existingHtml)));
     if (hasCompletenessPass) controller.registerGroup('extra', runCompleteness);
 
-    // "Restructure" (review step): rewrite the planned outline — better
-    // headings, cleaner grouping, every point preserved — then return to
-    // the same review step.
-    const restructureOutline = async () => {
-      if (mm.restructuring || isResettingRef.current) return;
-      const stale = () => isResettingRef.current || mindmapControllerRef.current !== controller;
-      mm.restructuring = true;
-      syncMm();
-      try {
-        const improved = await restructureOutlineSections(sections, mm.title || topic, language, DEEP_PRO_MODEL);
-        if (stale()) return;
-        const prevInstructions = new Map<string, string>();
-        mm.nodes.forEach(n => { if (n.instruction) prevInstructions.set(n.label, n.instruction); });
-        const extraNodes = mm.nodes.filter(n => !/^s\d+$/.test(n.groupId));
-        sections.splice(0, sections.length, ...improved);
-        allHeadings.splice(0, allHeadings.length, ...sections.map(s => s.heading));
-        total = sections.length + (hasCompletenessPass ? 1 : 0);
-        mm.nodes = sections.map((s, i) => ({
-          id: `s${i}`, label: s.heading, status: 'pending' as const,
-          children: (s.subheadings || []).map((h, j) => ({ id: `s${i}-${j}`, label: h })), groupId: `s${i}`,
-          instruction: prevInstructions.get(s.heading),
-        }));
-        mm.nodes.push(...extraNodes);
-        registerSectionGroups();
-        toast.success('Outline restructured — every point kept. Review it, then Approve & Generate.');
-      } catch (err: any) {
-        console.error('Outline restructure failed:', err);
-        if (!stale()) toast.error(`Restructure failed — the original outline is unchanged. ${err?.message || ''}`);
-      } finally {
-        if (!stale()) { mm.restructuring = false; syncMm(); }
-      }
-    };
-
-    // Pause for the user to review the plan — Restructure and/or attach
-    // per-section instructions, then Approve & Generate.
-    if (!(await runApprovalGate(mm, syncMm, restructureOutline))) { setMindmap(null); return; }
+    // Pause for the user to review the plan / attach per-section
+    // instructions. No Restructure here: a topic outline is already designed
+    // from scratch by the AI, so a restructure pass has nothing to fix —
+    // it's only offered where the outline was extracted from source material
+    // (transcript / text / files).
+    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return; }
 
     const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
     let stoppedEarly = false;

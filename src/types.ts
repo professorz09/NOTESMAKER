@@ -44,6 +44,12 @@ export interface MindmapState {
   // the user to review/instruct and press "Approve & Generate". No expensive
   // expansion has run yet at this point.
   awaitingApproval: boolean;
+  // True when this pipeline offers the "Restructure" action at the review
+  // step. Source-grounded pipelines (transcript, text, files) do — their
+  // outline is extracted mechanically and benefits from a cleanup pass. The
+  // topic pipeline doesn't: its outline is already designed by the AI from
+  // scratch, so there's nothing to restructure.
+  canRestructure?: boolean;
   // True while the optional "Restructure" pass (offered during the review
   // step) is rewriting the outline — both review buttons are disabled until
   // it lands and the nodes are rebuilt.

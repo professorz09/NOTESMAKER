@@ -231,7 +231,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
           )}
           {awaiting && (
             <p className="mt-2 text-[10.5px] text-indigo-100 leading-snug">
-              Tap any topic to add an instruction for it (optional), add points below, then either <strong>Restructure</strong> the outline (better headings — no point is dropped) or press <strong>Approve &amp; Generate</strong>.
+              Tap any topic to add an instruction for it (optional), add points below, then {mindmap.canRestructure ? <>either <strong>Restructure</strong> the outline (better headings — no point is dropped) or </> : <></>}press <strong>Approve &amp; Generate</strong>.
             </p>
           )}
         </div>
@@ -305,6 +305,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                 step; Approve starts the actual generation. */}
             {awaiting && (
               <div className="mt-1 space-y-1.5">
+                {mindmap.canRestructure && (
                 <button
                   onClick={onRestructure}
                   disabled={!!mindmap.restructuring}
@@ -314,6 +315,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Restructuring the outline… (no point is dropped)</>
                     : <><Shuffle className="w-4 h-4" /> Restructure — better headings, every point kept</>}
                 </button>
+                )}
                 <button
                   onClick={onApprove}
                   disabled={!!mindmap.restructuring}
