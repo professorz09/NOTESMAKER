@@ -82,6 +82,9 @@ html, body {
 .dark .editor-content .upsc-qa-divider { border-top-color: #334155; }
 .dark .editor-content .upsc-subject-gs { background: rgba(37,99,235,0.2); color: #93c5fd; border-color: #1d4ed8; }
 .dark .editor-content .upsc-subject-hl { background: rgba(234,88,12,0.2); color: #fb923c; border-color: #c2410c; }
+.editor-content .upsc-gen-loading { color: #7c3aed; font-weight: 600; padding: 10px 0; display: flex; align-items: center; gap: 6px; animation: upscPulse 1.3s ease-in-out infinite; }
+.dark .editor-content .upsc-gen-loading { color: #c4b5fd; }
+@keyframes upscPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 .editor-content .one-pager-divider { border: none; border-top: 2px solid #e2e8f0; margin: 40px 0 32px 0; }
 .dark .editor-content .one-pager-divider { border-top-color: #334155; }
 .editor-content .flowchart-container svg { max-width: 100%; height: auto; }

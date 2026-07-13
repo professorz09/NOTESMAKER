@@ -11,6 +11,7 @@ import {
   generateResearchPaper,
   translatePdfPageToHindi,
   analyzeAnswerPdf,
+  generateAnswerFromTopperCopy,
   generateOnePagerNotes,
   chunkTranscript,
   restructureTranscriptChunk,
@@ -358,6 +359,10 @@ export function useGeneration({
   const [answerPdfFile, setAnswerPdfFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
   const [answerAnalyzing, setAnswerAnalyzing] = useState(false);
 
+  // Topper answer-copy → clean formatted answer (PDF or photo).
+  const [topperCopyFile, setTopperCopyFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
+  const [topperGenerating, setTopperGenerating] = useState(false);
+
   // Class-transcript state
   const [transcriptInput, setTranscriptInput] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -450,6 +455,82 @@ export function useGeneration({
     } finally {
       if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
       setAnswerAnalyzing(false);
+    }
+  };
+
+  const handleTopperCopyUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = (event.target?.result as string).split(',')[1];
+      let mimeType = file.type || '';
+      if (!mimeType) mimeType = file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+      setTopperCopyFile({ name: file.name, mimeType, data: base64Data });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // Turn an uploaded topper answer copy (PDF or photo) into one clean,
+  // properly-formatted answer — appended below any existing content and
+  // rendered in the answer-copy style. Non-blocking: shows a live placeholder
+  // while the AI reads the copy.
+  const handleGenerateFromTopperCopy = async () => {
+    if (!topperCopyFile) return;
+    const existing = getCurrentHtml();
+    setTopperGenerating(true);
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+
+    const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
+    const loadingBody = `<p class="upsc-gen-loading">✍️ ${language === 'Hindi' ? 'टॉपर कॉपी पढ़कर उत्तर तैयार किया जा रहा है…' : 'Reading the topper copy…'}</p>`;
+    if (!isResettingRef.current) {
+      setGeneratedHtml(existing + divider + wrapUPSCBlock('टॉपर कॉपी', loadingBody, upscSubject, ' data-gen-pending="1"'));
+      scrollToLatestAnswer();
+    }
+
+    try {
+      // Build the page images the model reads: rasterize each PDF page, or use
+      // the uploaded photo directly.
+      const pageImages: { base64: string; mimeType: string }[] = [];
+      if (topperCopyFile.mimeType === 'application/pdf') {
+        const { numPages, pdf } = await loadPdf(topperCopyFile.data);
+        const pages = Math.min(numPages, 8);
+        for (let i = 1; i <= pages; i++) {
+          const page = await renderSinglePage(pdf, i, 2);
+          pageImages.push({ base64: canvasPageToJpegBase64(page.canvas, 0.9), mimeType: 'image/jpeg' });
+          releaseCanvas(page.canvas);
+        }
+      } else {
+        pageImages.push({ base64: topperCopyFile.data, mimeType: topperCopyFile.mimeType });
+      }
+
+      const raw = sanitizeHtml(await generateAnswerFromTopperCopy(pageImages, language, aiModel));
+      if (isResettingRef.current) return;
+
+      // Split the identified question from the answer body, then wrap in the
+      // standard answer-copy block so it exports with the framed template.
+      const holder = document.createElement('div');
+      holder.innerHTML = raw;
+      const qEl = holder.querySelector('.tc-question');
+      const question = (qEl?.textContent || '').trim() || (language === 'Hindi' ? 'टॉपर कॉपी आधारित उत्तर' : "Topper copy answer");
+      qEl?.remove();
+      const body = holder.innerHTML.trim() || raw;
+
+      const combined = existing + divider + wrapUPSCBlock(question, body, upscSubject);
+      finishGeneration(combined);
+      scrollToLatestAnswer();
+      setTopperCopyFile(null);
+      toast.success(language === 'Hindi' ? 'टॉपर कॉपी से उत्तर तैयार!' : 'Answer ready from topper copy!');
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        setGeneratedHtml(existing || null);
+        toast.error(`Failed: ${error.message || 'Please try again.'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setTopperGenerating(false);
     }
   };
 
@@ -1459,10 +1540,21 @@ export function useGeneration({
   const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  const wrapUPSCBlock = (question: string, answerHtml: string, subject: UPSCSubject) => {
+  const wrapUPSCBlock = (question: string, answerHtml: string, subject: UPSCSubject, extraAttr = '') => {
     const tagClass = subject === 'hindi_literature' ? 'upsc-subject-tag upsc-subject-hl' : 'upsc-subject-tag upsc-subject-gs';
     const tagLabel = subject === 'hindi_literature' ? 'Hindi Literature' : 'General Studies';
-    return `<section class="upsc-qa-block"><div class="upsc-question-header"><span class="${tagClass}">${tagLabel}</span><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
+    return `<section class="upsc-qa-block"${extraAttr}><div class="upsc-question-header"><span class="${tagClass}">${tagLabel}</span><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
+  };
+
+  // Smoothly bring the most recently appended answer into view so a non-
+  // blocking "next question" generation visibly grows the document downward
+  // instead of the user wondering whether anything is happening.
+  const scrollToLatestAnswer = () => {
+    setTimeout(() => {
+      const blocks = document.querySelectorAll('.editor-content .upsc-qa-block');
+      const last = blocks[blocks.length - 1];
+      last?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
   };
 
   // Medium/Detailed/Deep topic pipeline: plan an outline, then expand each
@@ -1821,16 +1913,31 @@ export function useGeneration({
       setTopicInput(nextQuestion);
       if (styleOverride) setUpscAnswerStyle(styleOverride);
       if (wordLimitOverride) setWordLimit(wordLimitOverride);
+
+      // Optimistic append: drop the question in immediately with a live
+      // "writing the answer" placeholder so the document visibly grows
+      // downward while generation runs — the screen is never blocked.
+      const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
+      const loadingBody = `<p class="upsc-gen-loading">✍️ ${language === 'Hindi' || useSubject === 'hindi_literature' ? 'उत्तर लिखा जा रहा है…' : 'Writing the answer…'}</p>`;
+      const placeholder = wrapUPSCBlock(nextQuestion, loadingBody, useSubject, ' data-gen-pending="1"');
+      if (!isResettingRef.current) {
+        setGeneratedHtml(existing + divider + placeholder);
+        scrollToLatestAnswer();
+      }
+
       const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useWordLimit, useStyle, useSubject);
+      if (isResettingRef.current) return;
       const newBlock = wrapUPSCBlock(nextQuestion, answer, useSubject);
-      const combined = existing
-        ? existing + '\n<hr class="upsc-qa-divider" />\n' + newBlock
-        : newBlock;
+      const combined = existing + divider + newBlock;
       finishGeneration(combined);
+      scrollToLatestAnswer();
       toast.success('Next UPSC question is ready!');
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);
+        // Roll back the optimistic placeholder so a failed run doesn't leave
+        // a stuck "writing…" block behind.
+        setGeneratedHtml(existing || null);
         toast.error(`Failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
@@ -1924,6 +2031,11 @@ export function useGeneration({
     handleAnswerPdfUpload,
     handleAnalyzeAnswer,
     answerAnalyzing,
+    topperCopyFile,
+    setTopperCopyFile,
+    handleTopperCopyUpload,
+    handleGenerateFromTopperCopy,
+    topperGenerating,
     onePagerTopicInput,
     setOnePagerTopicInput,
     onePagerTopics,

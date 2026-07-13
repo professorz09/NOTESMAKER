@@ -17,6 +17,21 @@ You have live Google Search grounding. USE IT to verify and pull in real, curren
 Never invent a citation, date, or number that sounds plausible — if unsure after searching, phrase it generally rather than stating a fake specific. Wrong specifics lose more marks than a well-reasoned general point.
 `;
 
+// Shared "clean exam-copy" FORMAT rule. This guides STRUCTURE only — it does
+// NOT prescribe any specific example, scheme, case or quote, so answers stay
+// varied and question-specific instead of collapsing into the same stock
+// response. A real topper's copy is scannable, not a wall of prose. Keeping it
+// clean also lets the answer paginate neatly into the answer-copy PDF.
+const CLEAN_FORMAT_RULE = `
+━━━ FORMAT — KEEP IT SIMPLE, CLEAN & SCANNABLE ━━━
+Present the answer like a topper's exam copy — an examiner should grasp the structure at a glance:
+• Break the body into clearly LABELLED sections with short <h3> headings that name the actual sub-theme of THIS question (decide the labels yourself from the question) — never generic ones like "Body" or "Point 1".
+• Under each heading prefer TIGHT <ul><li> points, one idea per bullet, ~12–22 words each. Avoid long unbroken paragraphs.
+• <strong> the key term / name / figure in each point so the copy is easy to scan.
+• No filler, no repetition, no "it is well known that…". Stay within the word limit so the answer fits cleanly on the page.
+(Bring your own relevant evidence naturally where it strengthens a point — this rule is about layout, not about which examples to use.)
+`;
+
 export type UPSCAnswerStyle = 'auto' | 'topper' | 'bullets' | 'analytical';
 export type UPSCSubject = 'gs' | 'hindi_literature';
 
@@ -114,7 +129,7 @@ Write a high-scoring UPSC Mains answer.
 Question/Topic: "${question}"
 Language: ${lang}
 Word Limit: ~${wordLimit} words
-${GROUNDING_RULE}
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
 STRUCTURE:
 • Introduction (<h2>): A sharp opening — a real fact, data point, quote, or constitutional/legal reference relevant to the question (verified via search), followed by 1-2 lines of context/definition. Under 50 words.
 • Body (<h3> sub-headings): Cover the question's multiple dimensions in logical order. Every claim must be backed by a REAL, verified example — an actual scheme, case, data point, article, or event, never a vague generality standing alone.
@@ -133,7 +148,7 @@ You are a seasoned UPSC Mains examiner and IAS mentor. Write an answer that read
 Question: "${question}"
 Language: ${lang}
 Word Limit: ~${wordLimit} words
-${GROUNDING_RULE}
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
 ━━━ STEP 1 — READ THE QUESTION
 Before writing, silently identify:
 • Subject/paper (Polity, Economy, History, Geography, Environment, Ethics, Literature, Science…)
@@ -197,7 +212,7 @@ Write a UPSC Mains answer in a clean, scannable bullet-point format — the kind
 Question: "${question}"
 Language: ${lang}
 Word Limit: ~${wordLimit} words
-${GROUNDING_RULE}
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
 FORMAT RULES:
 • Introduction: 2-3 crisp lines. One striking, VERIFIED fact, data point, or quote to open (real source, real number — not approximated), then context. No <h2> heading needed — just a strong opening paragraph.
 • Body: Use <h3> sub-headings (4-6 words max). Under each, use tight <ul><li> bullet points:
@@ -220,7 +235,7 @@ Write a deeply analytical UPSC Mains answer that examines the question from mult
 Question: "${question}"
 Language: ${lang}
 Word Limit: ~${wordLimit} words
-${GROUNDING_RULE}
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
 APPROACH:
 This is NOT a recall answer. It is an ANALYSIS answer. The examiner wants to see:
 1. That you understand the complexity and tensions in the issue

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronDown, ChevronUp, GraduationCap, BookText } from 'lucide-react';
+import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronUp, GraduationCap, BookText, Loader2 } from 'lucide-react';
 import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 
 interface NextQuestionPanelProps {
   defaultStyle: UPSCAnswerStyle;
   defaultWordLimit: number;
   defaultSubject: UPSCSubject;
+  isGenerating?: boolean;
   onGenerate: (style: UPSCAnswerStyle, wordLimit: number, customQuestion: string, subject: UPSCSubject) => void;
 }
 
@@ -22,6 +23,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
   defaultStyle,
   defaultWordLimit,
   defaultSubject,
+  isGenerating = false,
   onGenerate,
 }) => {
   const [open, setOpen] = useState(true);
@@ -159,15 +161,19 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
         </div>
 
         <button
+          disabled={isGenerating}
           onClick={() => {
             onGenerate(style, wordLimit, question.trim(), subject);
             setQuestion('');
           }}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110"
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
           style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
         >
-          <ArrowRight className="w-4 h-4" />
-          Generate Next Question
+          {isGenerating ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Writing the answer below…</>
+          ) : (
+            <><ArrowRight className="w-4 h-4" /> Generate Next Question</>
+          )}
         </button>
       </div>
     </div>

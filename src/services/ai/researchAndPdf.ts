@@ -166,6 +166,65 @@ RULES:
   return cleanHtmlOutput(response.text || "");
 };
 
+// Read a topper's answer copy (handwritten or typed, any language, possibly
+// several pages / photos) and reproduce it as ONE clean, properly-formatted
+// answer — translated to the target language if the topper wrote in another.
+// This transcribes and tidies the topper's OWN content (points, examples,
+// data, quotes) — it does NOT invent new facts — then lays it out with proper
+// exam-copy structure so it renders and exports cleanly.
+export const generateAnswerFromTopperCopy = async (
+  pageImages: { base64: string; mimeType: string }[],
+  language: string = 'Hindi',
+  modelName: string = 'gemini-3.1-pro-preview',
+): Promise<string> => {
+  const ai = createAIClient();
+
+  const target = language === 'Hindi'
+    ? 'Hindi (Devanagari script)'
+    : language;
+
+  const prompt = `
+You are a UPSC Mains expert who cleanly digitises a TOPPER's handwritten answer copy.
+
+The uploaded images are a topper's answer copy (handwritten or typed, possibly across several pages/photos). The topper may have written in English or Hindi. Your job:
+
+1. READ the whole copy carefully — every point, sub-point, example, data figure, article/scheme/case name, quote and diagram label the topper actually wrote.
+2. IDENTIFY the question being answered (read it from the top of the copy if visible, otherwise infer it precisely from the answer).
+3. REPRODUCE the topper's answer FAITHFULLY — same points, same structure, same examples/data — but rewritten in ${target}, cleanly formatted.
+
+━━━ HARD RULES ━━━
+• FIDELITY FIRST: Use ONLY what the topper actually wrote. Do NOT add new examples, schemes, cases, data or quotes that aren't in the copy, and do NOT drop the topper's points. If a word is illegible, render the most sensible reading — never invent a fresh fact.
+• LANGUAGE: Write the ENTIRE answer in ${target}, even if the topper wrote in English (translate faithfully). Keep proper nouns / Article numbers / scheme names accurate; a technical English term may follow in parentheses where helpful.
+• Preserve the topper's own diagrams/flow as a <div class="note-box"> describing them in words if they can't be redrawn.
+
+━━━ CLEAN EXAM-COPY FORMAT ━━━
+Lay the answer out like a neat topper copy an examiner can scan:
+• <h2>भूमिका</h2> — the topper's introduction, tight.
+• Body: clearly LABELLED <h3> sub-headings (use the topper's own section labels where they wrote them), each with short <ul><li> points, one idea per bullet.
+• <strong> every key term / name / figure the topper used.
+• <div class="note-box"> for a small set of the topper's key facts/quotes if the copy has them.
+• <h2>निष्कर्ष</h2> — the topper's conclusion.
+
+━━━ OUTPUT (raw HTML only, no markdown) ━━━
+Output EXACTLY this shape and nothing else:
+<div class="tc-question">[the identified question, in ${target}]</div>
+[the full formatted answer body: <h2>, <h3>, <ul><li>, <strong>, <div class="note-box"> …]
+`;
+
+  const parts: any[] = [
+    ...pageImages.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } })),
+    { text: prompt },
+  ];
+
+  const response = await ai.models.generateContent({
+    model: modelName,
+    contents: { parts },
+    config: NOTES_GEN_CONFIG,
+  });
+
+  return cleanHtmlOutput(response.text || '');
+};
+
 export const translatePdfPageToHindi = async (
   pageImageBase64: string,
   pageNumber: number,

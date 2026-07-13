@@ -132,6 +132,7 @@ const App: React.FC = () => {
     handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
     translateProgress, translateResumeState, setTranslateResumeState,
     answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
+    topperCopyFile, setTopperCopyFile, handleTopperCopyUpload, handleGenerateFromTopperCopy, topperGenerating,
     onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
     transcriptInput, setTranscriptInput, transcriptProgress,
     handleTranscriptFileUpload, handleGenerateTranscript,
@@ -389,7 +390,11 @@ const App: React.FC = () => {
       const { exportContentAsPdfDirect } = await import('./utils/pdfDirectExport');
       const html = isEditing && editorRef.current ? getCleanHtml() : (generatedHtml || '');
       const baseName = extractProjectName(html).replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'Notes';
-      await exportContentAsPdfDirect(content, { fontSize, lineHeight, fileName: baseName });
+      // A UPSC answer renders into the printed answer-copy frame (PROFESSOR /
+      // UPSC header, ruled margin, page numbers); everything else uses the
+      // clean plain sheet.
+      const template = /upsc-qa-block|upsc-question/.test(content) ? 'answerCopy' : 'plain';
+      await exportContentAsPdfDirect(content, { fontSize, lineHeight, fileName: baseName, template });
       toast.success('PDF downloaded!');
     } catch (err: any) {
       console.error(err);
@@ -636,6 +641,11 @@ const App: React.FC = () => {
         handleAnswerPdfUpload={handleAnswerPdfUpload}
         handleAnalyzeAnswer={handleAnalyzeAnswer}
         answerAnalyzing={answerAnalyzing}
+        topperCopyFile={topperCopyFile}
+        setTopperCopyFile={setTopperCopyFile}
+        handleTopperCopyUpload={handleTopperCopyUpload}
+        handleGenerateFromTopperCopy={handleGenerateFromTopperCopy}
+        topperGenerating={topperGenerating}
         onePagerTopicInput={onePagerTopicInput}
         setOnePagerTopicInput={setOnePagerTopicInput}
         onePagerTopics={onePagerTopics}
