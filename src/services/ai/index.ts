@@ -18,4 +18,4 @@ export { scanSectionsForGroundingAdditions } from './groundingEnrichment';
 export type { GroundingSectionMeta, GroundingAddition } from './groundingEnrichment';
 export { rewriteContent, rewriteSection, expandSection, generateNextContent, generateDetailedNextTopic } from './contentRewrite';
 export { generateDiagram, generateSectionImage } from './diagramAndImage';
-export { generateResearchPaper, translatePdfToHindi, analyzeAnswerPdf, translatePdfPageToHindi } from './researchAndPdf';
+export { generateResearchPaper, translatePdfToHindi, analyzeAnswerPdf, generateAnswerFromTopperCopy, translatePdfPageToHindi } from './researchAndPdf';

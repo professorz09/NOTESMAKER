@@ -154,6 +154,13 @@ export const buildContentStyleRules = (prefix: string, fontSize: number, lineHei
     ${p}.table-of-contents ul { list-style: none !important; padding-left: 0 !important; }
     ${p}.table-of-contents a { color: #475569 !important; text-decoration: none !important; display: flex; justify-content: space-between; }
 
+    /* UPSC answer copy */
+    ${p}.upsc-qa-block { margin-bottom: 20px; }
+    ${p}.upsc-subject-tag { display: inline-block; font-size: 0.72em; font-weight: 700; letter-spacing: 0.04em; padding: 2px 9px; border-radius: 20px; margin-bottom: 5px; background: #dbeafe !important; color: #1d4ed8 !important; border: 1px solid #93c5fd !important; }
+    ${p}.upsc-subject-tag.upsc-subject-hl { background: #ffedd5 !important; color: #c2410c !important; border-color: #fdba74 !important; }
+    ${p}.upsc-question { display: block; background: #f1f5f9 !important; color: #0f172a !important; border-left: 4px solid #3b82f6 !important; padding: 10px 14px; margin: 0 0 14px; border-radius: 0 6px 6px 0; font-size: 1.05em; font-weight: 700; line-height: 1.45; page-break-inside: avoid; break-inside: avoid; page-break-after: avoid; break-after: avoid; }
+    ${p}.upsc-qa-divider { border: none; border-top: 2px dashed #cbd5e1; margin: 24px 0 20px; }
+
     /* Answer analysis */
     ${p}.answer-analysis .section-card { page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; padding: 14px; }
 

@@ -68,12 +68,15 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         )}
       </div>
 
-      {/* Create Next UPSC Question panel — shown after UPSC answer is generated */}
-      {mode !== 'transcript' && outputStyle === 'upsc' && generatedHtml && status === GenerationStatus.IDLE && (
+      {/* Create Next UPSC Question panel — stays mounted during generation so
+          the answer appends below without the panel vanishing / the screen
+          blocking; it just shows a clean "generating" state on its button. */}
+      {mode !== 'transcript' && outputStyle === 'upsc' && generatedHtml && (
         <NextQuestionPanel
           defaultStyle={upscAnswerStyle}
           defaultWordLimit={wordLimit}
           defaultSubject={upscSubject}
+          isGenerating={status !== GenerationStatus.IDLE}
           onGenerate={(style, wl, q, subj) => handleNextUPSCQuestion(style, wl, q, subj)}
         />
       )}

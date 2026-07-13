@@ -80,6 +80,11 @@ interface SidebarProps {
   handleAnswerPdfUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAnalyzeAnswer: () => void;
   answerAnalyzing: boolean;
+  topperCopyFile: { name: string; mimeType: string; data: string } | null;
+  setTopperCopyFile: (f: null) => void;
+  handleTopperCopyUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleGenerateFromTopperCopy: () => void;
+  topperGenerating: boolean;
   onePagerTopicInput: string;
   setOnePagerTopicInput: (v: string) => void;
   onePagerTopics: string[];
@@ -122,6 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   translatePdfFile, handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
   setTranslatePdfFile, translateProgress, translateResumeState, setTranslateResumeState,
   answerPdfFile, setAnswerPdfFile, handleAnswerPdfUpload, handleAnalyzeAnswer, answerAnalyzing,
+  topperCopyFile, setTopperCopyFile, handleTopperCopyUpload, handleGenerateFromTopperCopy, topperGenerating,
   onePagerTopicInput, setOnePagerTopicInput, onePagerTopics, onePagerLoading, handleAddOnePager,
   transcriptInput, setTranscriptInput, handleTranscriptFileUpload, handleGenerateTranscript, transcriptProgress,
   handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
@@ -264,6 +270,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             handleAnswerPdfUpload={handleAnswerPdfUpload}
             handleAnalyzeAnswer={handleAnalyzeAnswer}
             answerAnalyzing={answerAnalyzing}
+            topperCopyFile={topperCopyFile}
+            setTopperCopyFile={setTopperCopyFile}
+            handleTopperCopyUpload={handleTopperCopyUpload}
+            handleGenerateFromTopperCopy={handleGenerateFromTopperCopy}
+            topperGenerating={topperGenerating}
           />
 
           <SidebarOnePager
