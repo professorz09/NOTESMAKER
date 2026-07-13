@@ -21,8 +21,8 @@ interface EditorCanvasProps {
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';
   upscAnswerStyle: UPSCAnswerStyle;
   upscSubject: UPSCSubject;
-  wordLimit: number;
-  handleNextUPSCQuestion: (style?: UPSCAnswerStyle, wordLimit?: number, customQuestion?: string, subject?: UPSCSubject) => void;
+  marks: number;
+  handleNextUPSCQuestion: (style?: UPSCAnswerStyle, marks?: number, customQuestion?: string, subject?: UPSCSubject) => void;
 }
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
@@ -41,7 +41,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   outputStyle,
   upscAnswerStyle,
   upscSubject,
-  wordLimit,
+  marks,
   handleNextUPSCQuestion,
 }) => {
   const showContent = !!generatedHtml;
@@ -74,7 +74,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       {mode !== 'transcript' && outputStyle === 'upsc' && generatedHtml && (
         <NextQuestionPanel
           defaultStyle={upscAnswerStyle}
-          defaultWordLimit={wordLimit}
+          defaultMarks={marks}
           defaultSubject={upscSubject}
           isGenerating={status !== GenerationStatus.IDLE}
           onGenerate={(style, wl, q, subj) => handleNextUPSCQuestion(style, wl, q, subj)}

@@ -235,7 +235,8 @@ export function useGeneration({
   const [upscAnswerStyle, setUpscAnswerStyle] = useState<UPSCAnswerStyle>('topper');
   const [upscSubject, setUpscSubject] = useState<UPSCSubject>('gs');
   const [tableInstruction, setTableInstruction] = useState('');
-  const [wordLimit, setWordLimit] = useState(250);
+  const [wordLimit, setWordLimit] = useState(250); // notes/text/file/research length
+  const [upscMarks, setUpscMarks] = useState(15);  // UPSC answers are sized by marks
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('medium');
   // Optional final pipeline step (off by default — a leveled generation
   // behaves exactly as before when this is off). When on, after every
@@ -1822,7 +1823,7 @@ export function useGeneration({
               }
             } catch { /* keep original if correction fails */ }
           }
-          const answer = await generateUPSCAnswer(question, language, aiModel, wordLimit, upscAnswerStyle, upscSubject);
+          const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject);
           result = wrapUPSCBlock(question, answer, upscSubject);
         }
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
@@ -1879,7 +1880,7 @@ export function useGeneration({
 
   const handleNextUPSCQuestion = async (
     styleOverride?: UPSCAnswerStyle,
-    wordLimitOverride?: number,
+    marksOverride?: number,
     customQuestion?: string,
     subjectOverride?: UPSCSubject,
   ) => {
@@ -1890,7 +1891,7 @@ export function useGeneration({
       return;
     }
     const useStyle = styleOverride ?? upscAnswerStyle;
-    const useWordLimit = wordLimitOverride ?? wordLimit;
+    const useMarks = marksOverride ?? upscMarks;
     const useSubject = subjectOverride ?? upscSubject;
     // Capture existing HTML BEFORE we flip status
     const existing = getCurrentHtml();
@@ -1912,7 +1913,7 @@ export function useGeneration({
       }
       setTopicInput(nextQuestion);
       if (styleOverride) setUpscAnswerStyle(styleOverride);
-      if (wordLimitOverride) setWordLimit(wordLimitOverride);
+      if (marksOverride) setUpscMarks(marksOverride);
 
       // Optimistic append: drop the question in immediately with a live
       // "writing the answer" placeholder so the document visibly grows
@@ -1925,7 +1926,7 @@ export function useGeneration({
         scrollToLatestAnswer();
       }
 
-      const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useWordLimit, useStyle, useSubject);
+      const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useMarks, useStyle, useSubject);
       if (isResettingRef.current) return;
       const newBlock = wrapUPSCBlock(nextQuestion, answer, useSubject);
       const combined = existing + divider + newBlock;
@@ -2003,6 +2004,7 @@ export function useGeneration({
     upscSubject, setUpscSubject,
     tableInstruction, setTableInstruction,
     wordLimit, setWordLimit,
+    upscMarks, setUpscMarks,
     detailLevel, setDetailLevel,
     groundingEnabled, setGroundingEnabled,
     notesProgress,

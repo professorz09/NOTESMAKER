@@ -3,15 +3,21 @@ import { GraduationCap, Bot, Trophy, List, Brain, Type, BookOpen, BookText } fro
 import type { UPSCAnswerStyle, UPSCSubject } from '../../services/ai/index';
 
 interface SidebarUPSCSettingsProps {
-  wordLimit: number;
-  setWordLimit: (limit: number) => void;
+  upscMarks: number;
+  setUpscMarks: (marks: number) => void;
   upscAnswerStyle: UPSCAnswerStyle;
   setUpscAnswerStyle: (s: UPSCAnswerStyle) => void;
   upscSubject: UPSCSubject;
   setUpscSubject: (s: UPSCSubject) => void;
 }
 
-const WORD_LIMITS = [150, 250, 500, 1000];
+// UPSC answers are sized by MARKS — each fills a set portion of the answer copy.
+const MARKS_OPTIONS: { marks: number; pages: string }[] = [
+  { marks: 10, pages: '~1½ pages' },
+  { marks: 15, pages: '~2 pages' },
+  { marks: 20, pages: '~3 pages' },
+  { marks: 50, pages: '~5 pages' },
+];
 
 const ANSWER_STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: string }>; label: string; desc: string }[] = [
   { id: 'auto',       icon: Bot,    label: 'AI Auto',    desc: 'AI decides all'  },
@@ -28,7 +34,7 @@ const STYLE_HINTS: Record<UPSCAnswerStyle, string> = {
 };
 
 export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
-  wordLimit, setWordLimit,
+  upscMarks, setUpscMarks,
   upscAnswerStyle, setUpscAnswerStyle,
   upscSubject, setUpscSubject,
 }) => (
@@ -81,26 +87,30 @@ export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
       )}
     </div>
 
-    {/* Word Limit */}
+    {/* Marks — answer length is sized by marks, not word count */}
     <div className="space-y-2">
       <label className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
-        <Type className="w-3 h-3" /> Word Limit
+        <Type className="w-3 h-3" /> Marks
       </label>
       <div className="grid grid-cols-4 gap-1.5">
-        {WORD_LIMITS.map((w) => (
-          <button
-            key={w}
-            type="button"
-            onClick={() => setWordLimit(w)}
-            className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
-              wordLimit === w
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
-                : 'bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8 hover:text-white'
-            }`}
-          >
-            {w}
-          </button>
-        ))}
+        {MARKS_OPTIONS.map(({ marks, pages }) => {
+          const active = upscMarks === marks;
+          return (
+            <button
+              key={marks}
+              type="button"
+              onClick={() => setUpscMarks(marks)}
+              className={`flex flex-col items-center gap-0.5 py-2 rounded-xl transition-all ${
+                active
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
+                  : 'bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8 hover:text-white'
+              }`}
+            >
+              <span className="text-xs font-bold leading-none">{marks}</span>
+              <span className={`text-[8px] leading-none ${active ? 'text-blue-100' : 'text-slate-600'}`}>{pages}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
 
