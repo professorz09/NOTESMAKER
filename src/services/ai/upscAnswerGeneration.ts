@@ -35,6 +35,33 @@ Present the answer like a topper's exam copy — an examiner should grasp the st
 export type UPSCAnswerStyle = 'auto' | 'topper' | 'bullets' | 'analytical';
 export type UPSCSubject = 'gs' | 'hindi_literature';
 
+// UPSC answers are sized by MARKS, not raw word counts — that's how the exam
+// actually works. Each marks value targets a page-fill on the answer copy and
+// a word budget calibrated to roughly reach it in the rendered PDF.
+export const UPSC_MARKS_OPTIONS = [10, 15, 20, 50] as const;
+export type UPSCMarks = (typeof UPSC_MARKS_OPTIONS)[number];
+
+const MARKS_SPEC: Record<number, { words: number; pagesEn: string; pagesHi: string }> = {
+  10: { words: 400,  pagesEn: 'about 1½ pages', pagesHi: 'लगभग डेढ़ (1½) पृष्ठ' },
+  15: { words: 550,  pagesEn: 'about 2 pages',  pagesHi: 'लगभग 2 पृष्ठ' },
+  20: { words: 800,  pagesEn: 'about 3 pages',  pagesHi: 'लगभग 3 पृष्ठ' },
+  50: { words: 1300, pagesEn: 'about 5 pages',  pagesHi: 'लगभग 5 पृष्ठ' },
+};
+
+export const marksToWordLimit = (marks: number): number => (MARKS_SPEC[marks]?.words ?? 400);
+
+const lengthLineEn = (marks: number): string => {
+  const s = MARKS_SPEC[marks];
+  if (!s) return `Word Limit: ~${marks} words`;
+  return `Length: This is a ${marks}-marks question — write a COMPLETE answer of about ${s.words} words that fills ${s.pagesEn} of the answer copy. Scale DEPTH to the marks (more marks → more sub-dimensions, examples and analysis) — never pad with filler to reach the length.`;
+};
+
+const lengthLineHi = (marks: number): string => {
+  const s = MARKS_SPEC[marks];
+  if (!s) return `शब्द सीमा: लगभग ${marks} शब्द`;
+  return `लंबाई: यह ${marks} अंकों का प्रश्न है — लगभग ${s.words} शब्दों का पूर्ण उत्तर लिखें जो उत्तर-पुस्तिका के ${s.pagesHi} भर दे। गहराई अंकों के अनुसार रखें (अधिक अंक → अधिक आयाम, उदाहरण व विश्लेषण) — लंबाई पूरी करने हेतु व्यर्थ भराव न करें।`;
+};
+
 // Correct user's question to proper formal Hindi
 export const correctQuestionHindi = async (
   question: string,
@@ -57,14 +84,14 @@ export const correctQuestionHindi = async (
 
 const buildHindiLiteraturePrompt = (
   question: string,
-  wordLimit: number,
+  marks: number,
   style: UPSCAnswerStyle
 ): string => `
 आप UPSC हिंदी साहित्य (वैकल्पिक विषय) के विशेषज्ञ परीक्षक और टॉपर मेंटर हैं।
 
 प्रश्न: "${question}"
 भाषा: हिंदी (देवनागरी लिपि) — सब कुछ हिंदी में लिखें
-शब्द सीमा: लगभग ${wordLimit} शब्द
+${lengthLineHi(marks)}
 उत्तर शैली: ${style === 'bullets' ? 'बिंदुवार (Bullet Points)' : style === 'analytical' ? 'विश्लेषणात्मक' : 'टॉपर की प्रतिलिपि'}
 
 ━━━ ग्राउंडिंग — सही तथ्यों हेतु Google Search का प्रयोग करें ━━━
@@ -111,24 +138,26 @@ HTML में लिखें: <h3> उपशीर्षक के लिए, 
 const buildUPSCPrompt = (
   question: string,
   language: string,
-  wordLimit: number,
+  marks: number,
   style: UPSCAnswerStyle,
   subject: UPSCSubject = 'gs'
 ): string => {
   if (subject === 'hindi_literature') {
-    return buildHindiLiteraturePrompt(question, wordLimit, style);
+    return buildHindiLiteraturePrompt(question, marks, style);
   }
 
   const lang = language === 'Hindi'
     ? 'Hindi (Devanagari script). Write everything — headings, body, conclusion — in Hindi.'
     : 'English';
+  const lengthLine = lengthLineEn(marks);
+  const words = marksToWordLimit(marks);
 
   if (style === 'auto') return `
 Write a high-scoring UPSC Mains answer.
 
 Question/Topic: "${question}"
 Language: ${lang}
-Word Limit: ~${wordLimit} words
+${lengthLine}
 ${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
 STRUCTURE:
 • Introduction (<h2>): A sharp opening — a real fact, data point, quote, or constitutional/legal reference relevant to the question (verified via search), followed by 1-2 lines of context/definition. Under 50 words.
@@ -147,7 +176,7 @@ You are a seasoned UPSC Mains examiner and IAS mentor. Write an answer that read
 
 Question: "${question}"
 Language: ${lang}
-Word Limit: ~${wordLimit} words
+${lengthLine}
 ${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
 ━━━ STEP 1 — READ THE QUESTION
 Before writing, silently identify:
@@ -202,7 +231,7 @@ A genuine verdict, not a template:
 • DO NOT start with "Thus", "Hence", "In conclusion", "To conclude"
 Under 50 words. Make the last line memorable — an examiner should remember your answer after reading dozens of others.
 
-RULES: ~${wordLimit} words total. No "It is well known that…", no hollow filler, no invented facts.
+RULES: ~${words} words total. No "It is well known that…", no hollow filler, no invented facts.
 Return ONLY raw HTML. No markdown fences.
 `;
 
@@ -211,7 +240,7 @@ Write a UPSC Mains answer in a clean, scannable bullet-point format — the kind
 
 Question: "${question}"
 Language: ${lang}
-Word Limit: ~${wordLimit} words
+${lengthLine}
 ${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
 FORMAT RULES:
 • Introduction: 2-3 crisp lines. One striking, VERIFIED fact, data point, or quote to open (real source, real number — not approximated), then context. No <h2> heading needed — just a strong opening paragraph.
@@ -234,7 +263,7 @@ Write a deeply analytical UPSC Mains answer that examines the question from mult
 
 Question: "${question}"
 Language: ${lang}
-Word Limit: ~${wordLimit} words
+${lengthLine}
 ${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
 APPROACH:
 This is NOT a recall answer. It is an ANALYSIS answer. The examiner wants to see:
@@ -267,12 +296,12 @@ export const generateUPSCAnswer = async (
   question: string,
   language: string,
   modelName: string = "gemini-3.1-pro-preview",
-  wordLimit: number = 250,
+  marks: number = 15,
   answerStyle: UPSCAnswerStyle = 'topper',
   subject: UPSCSubject = 'gs'
 ): Promise<string> => {
   const ai = createAIClient();
-  const prompt = buildUPSCPrompt(question, language, wordLimit, answerStyle, subject);
+  const prompt = buildUPSCPrompt(question, language, marks, answerStyle, subject);
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,

@@ -4,10 +4,10 @@ import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 
 interface NextQuestionPanelProps {
   defaultStyle: UPSCAnswerStyle;
-  defaultWordLimit: number;
+  defaultMarks: number;
   defaultSubject: UPSCSubject;
   isGenerating?: boolean;
-  onGenerate: (style: UPSCAnswerStyle, wordLimit: number, customQuestion: string, subject: UPSCSubject) => void;
+  onGenerate: (style: UPSCAnswerStyle, marks: number, customQuestion: string, subject: UPSCSubject) => void;
 }
 
 const STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
@@ -17,18 +17,23 @@ const STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: str
   { id: 'analytical', icon: Brain,  label: 'Analytical' },
 ];
 
-const WORD_LIMITS = [150, 250, 500, 1000];
+const MARKS_OPTIONS: { marks: number; pages: string }[] = [
+  { marks: 10, pages: '~1½ pg' },
+  { marks: 15, pages: '~2 pg' },
+  { marks: 20, pages: '~3 pg' },
+  { marks: 50, pages: '~5 pg' },
+];
 
 export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
   defaultStyle,
-  defaultWordLimit,
+  defaultMarks,
   defaultSubject,
   isGenerating = false,
   onGenerate,
 }) => {
   const [open, setOpen] = useState(true);
   const [style, setStyle] = useState<UPSCAnswerStyle>(defaultStyle);
-  const [wordLimit, setWordLimit] = useState<number>(defaultWordLimit);
+  const [marks, setMarks] = useState<number>(defaultMarks);
   const [subject, setSubject] = useState<UPSCSubject>(defaultSubject);
   const [question, setQuestion] = useState('');
 
@@ -110,26 +115,30 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           />
         </div>
 
-        {/* Word Limit */}
+        {/* Marks */}
         <div className="space-y-2">
           <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5">
-            <Type className="w-3 h-3" /> Word Limit
+            <Type className="w-3 h-3" /> Marks
           </label>
           <div className="grid grid-cols-4 gap-2">
-            {WORD_LIMITS.map((w) => (
-              <button
-                key={w}
-                type="button"
-                onClick={() => setWordLimit(w)}
-                className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                  wordLimit === w
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
-              >
-                {w}
-              </button>
-            ))}
+            {MARKS_OPTIONS.map(({ marks: m, pages }) => {
+              const active = marks === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMarks(m)}
+                  className={`flex flex-col items-center gap-0.5 py-2 rounded-xl transition-all ${
+                    active
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <span className="text-xs font-bold leading-none">{m}</span>
+                  <span className={`text-[8px] leading-none ${active ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>{pages}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -163,7 +172,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
         <button
           disabled={isGenerating}
           onClick={() => {
-            onGenerate(style, wordLimit, question.trim(), subject);
+            onGenerate(style, marks, question.trim(), subject);
             setQuestion('');
           }}
           className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"

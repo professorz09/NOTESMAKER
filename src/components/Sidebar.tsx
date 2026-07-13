@@ -29,8 +29,8 @@ interface SidebarProps {
   setUpscSubject: (s: UPSCSubject) => void;
   tableInstruction: string;
   setTableInstruction: (v: string) => void;
-  wordLimit: number;
-  setWordLimit: (limit: number) => void;
+  upscMarks: number;
+  setUpscMarks: (marks: number) => void;
   detailLevel: DetailLevel;
   setDetailLevel: (level: DetailLevel) => void;
   groundingEnabled: boolean;
@@ -110,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   upscAnswerStyle, setUpscAnswerStyle,
   upscSubject, setUpscSubject,
   tableInstruction, setTableInstruction,
-  wordLimit, setWordLimit,
+  upscMarks, setUpscMarks,
   detailLevel, setDetailLevel,
   groundingEnabled, setGroundingEnabled,
   notesProgress,
@@ -232,8 +232,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {mode !== 'transcript' && outputStyle === 'upsc' && (
             <SidebarUPSCSettings
-              wordLimit={wordLimit}
-              setWordLimit={setWordLimit}
+              upscMarks={upscMarks}
+              setUpscMarks={setUpscMarks}
               upscAnswerStyle={upscAnswerStyle}
               setUpscAnswerStyle={setUpscAnswerStyle}
               upscSubject={upscSubject}

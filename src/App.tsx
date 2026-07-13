@@ -114,7 +114,7 @@ const App: React.FC = () => {
     upscAnswerStyle, setUpscAnswerStyle,
     upscSubject, setUpscSubject,
     tableInstruction, setTableInstruction,
-    wordLimit, setWordLimit,
+    upscMarks, setUpscMarks,
     detailLevel, setDetailLevel,
     groundingEnabled, setGroundingEnabled,
     notesProgress,
@@ -596,7 +596,7 @@ const App: React.FC = () => {
         outputStyle={outputStyle} setOutputStyle={setOutputStyle}
         upscAnswerStyle={upscAnswerStyle} setUpscAnswerStyle={setUpscAnswerStyle}
         upscSubject={upscSubject} setUpscSubject={setUpscSubject}
-        wordLimit={wordLimit} setWordLimit={setWordLimit}
+        upscMarks={upscMarks} setUpscMarks={setUpscMarks}
         detailLevel={detailLevel} setDetailLevel={setDetailLevel}
         groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled}
         notesProgress={notesProgress}
@@ -720,7 +720,7 @@ const App: React.FC = () => {
             outputStyle={outputStyle}
             upscAnswerStyle={upscAnswerStyle}
             upscSubject={upscSubject}
-            wordLimit={wordLimit}
+            marks={upscMarks}
             handleNextUPSCQuestion={handleNextUPSCQuestion}
           />
         </div>
