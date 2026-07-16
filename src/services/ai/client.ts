@@ -98,6 +98,16 @@ export const UPSC_ANSWER_CONFIG = {
   thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
 } as const;
 
+// Attaches live Google Search grounding to a call's config when the user has
+// the "Google Grounding" toggle on. Applied to every generation call in the
+// leveled pipelines (outline + every section's expansion + the completeness/
+// add-a-point calls) — not just the end-of-pipeline scan — so sections are
+// written with real current facts from the start rather than patched
+// afterwards. `enabled` defaults to false so every existing call site that
+// doesn't pass it keeps its exact previous behavior.
+export const withGoogleSearch = <T extends object>(config: T, enabled: boolean = false): T =>
+  enabled ? ({ ...config, tools: [{ googleSearch: {} }] } as T) : config;
+
 export const cleanHtmlOutput = (text: string): string => {
   if (!text) return "";
   return text

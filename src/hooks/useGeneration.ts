@@ -1126,7 +1126,7 @@ export function useGeneration({
     });
 
     const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
-      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
+      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine, groundingEnabled);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
@@ -1187,8 +1187,8 @@ export function useGeneration({
     const outlineResult = await outlineChunksParallel(
       chunks,
       (chunk, part, tot) => kind === 'transcript'
-        ? outlineTranscriptChunk(chunk, part, tot, language, outlineModel)
-        : outlineTextChunk(chunk, part, tot, language, outlineModel),
+        ? outlineTranscriptChunk(chunk, part, tot, language, outlineModel, groundingEnabled)
+        : outlineTextChunk(chunk, part, tot, language, outlineModel, groundingEnabled),
       mm, syncMm, 'Building structure',
     );
     if (isResettingRef.current) { setMindmap(null); return true; }
@@ -1227,7 +1227,7 @@ export function useGeneration({
           controller.registerGroup(`c${i}s${j}`, (instruction, existingHtml) => expandChunkSection(
             kind, chunks[i], chunkSections[i][j], num, chunkSections[i].map(s => s.heading),
             i + 1, total, language, DEEP_PRO_MODEL, 'deep',
-            { existingHtml, customInstruction: instruction },
+            { existingHtml, customInstruction: instruction }, groundingEnabled,
           ));
         }
       }
@@ -1380,7 +1380,7 @@ export function useGeneration({
               html = await expandChunkSection(
                 kind, chunks[i], chunkSections[i][j], chunkStartNum[i] + j, chunkSections[i].map(s => s.heading),
                 i + 1, total, language, expandModel, expandLevel,
-                node.instruction ? { customInstruction: node.instruction } : undefined,
+                node.instruction ? { customInstruction: node.instruction } : undefined, groundingEnabled,
               );
             } catch (err) {
               console.error(`${kind} section ${chunkStartNum[i] + j} attempt ${attempt} failed:`, err);
@@ -1489,7 +1489,7 @@ export function useGeneration({
     const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
 
     const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
-      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
+      expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine, groundingEnabled);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
@@ -1504,7 +1504,7 @@ export function useGeneration({
     // silently demote the whole run to the single-shot fallback path.
     let sections: TranscriptSection[] = [];
     for (let attempt = 1; attempt <= 2 && !sections.length; attempt++) {
-      try { sections = await outlineFiles(fileParts, language, outlineModel); }
+      try { sections = await outlineFiles(fileParts, language, outlineModel, groundingEnabled); }
       catch (err) {
         console.error(`File outline attempt ${attempt} failed:`, err);
         if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
@@ -1535,7 +1535,7 @@ export function useGeneration({
     // never-reached nodes stay clickable-to-generate while the map is open.
     const registerSectionGroups = () => {
       sections.forEach((s, i) => controller.registerGroup(`s${i}`, (instruction, existingHtml) =>
-        expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep', { existingHtml, customInstruction: instruction })));
+        expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep', { existingHtml, customInstruction: instruction }, groundingEnabled)));
     };
     registerSectionGroups();
 
@@ -1594,7 +1594,7 @@ export function useGeneration({
         for (let attempt = 1; attempt <= 2; attempt++) {
           if (isResettingRef.current) { setMindmap(null); return true; }
           try {
-            html = await expandFilesSection(fileParts, sections[i], i + 1, allHeadings, language, expandModel, level, refineFor(i));
+            html = await expandFilesSection(fileParts, sections[i], i + 1, allHeadings, language, expandModel, level, refineFor(i), groundingEnabled);
             ok = true;
             break;
           } catch (err) {
@@ -1760,7 +1760,7 @@ export function useGeneration({
     // "Add a point" always uses general-knowledge elaboration at max depth on
     // the chosen model — a lightweight companion to the main pipeline.
     const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
-      expandTopicSection(topic, { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine);
+      expandTopicSection(topic, { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine, groundingEnabled);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
@@ -1788,10 +1788,10 @@ export function useGeneration({
             // quality is what makes the rest of the pipeline good, so both
             // levels use the strongest model here; they only diverge on the
             // model used to WRITE each section (see expandOne below).
-            const deep = await generateDeepOutline(topic, language, DEEP_PRO_MODEL);
+            const deep = await generateDeepOutline(topic, language, DEEP_PRO_MODEL, groundingEnabled);
             if (deep) { outline = deep; focusAreas = deep.focusAreas || []; }
           } else {
-            outline = await generateTopicOutline(topic, language, aiModel, level);
+            outline = await generateTopicOutline(topic, language, aiModel, level, groundingEnabled);
           }
         } catch (err) {
           console.error(`Outline attempt ${attempt} failed:`, err);
@@ -1840,19 +1840,19 @@ export function useGeneration({
     // differs. Medium keeps the lighter expandTopicSection + user's model.
     const expandModel = level === 'deep' ? DEEP_PRO_MODEL : DETAILED_FLASH_MODEL;
     const expandOne = (i: number) => (level === 'deep' || level === 'detailed')
-      ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, expandModel, refineFor(i))
-      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium', refineFor(i));
+      ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, expandModel, refineFor(i), groundingEnabled)
+      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium', refineFor(i), groundingEnabled);
     // Clicking a node (done/error/never-attempted) always regenerates via Pro
     // at max depth, one strength level above whatever the automatic pass
     // used — carrying the existing draft + any typed instruction as a
     // revision pass rather than a blind rewrite.
     const deepenOne = (i: number, instruction?: string, existingHtml?: string) =>
-      expandDeepSection(topic, sections[i], i + 1, allHeadings, [sections[i].heading], language, DEEP_PRO_MODEL, { existingHtml, customInstruction: instruction });
+      expandDeepSection(topic, sections[i], i + 1, allHeadings, [sections[i].heading], language, DEEP_PRO_MODEL, { existingHtml, customInstruction: instruction }, groundingEnabled);
     // Completeness pass always runs on Pro for both Deep and Detailed — it's
     // the final accuracy check over the whole topic, same as the outline.
     const runCompleteness = (instruction?: string, existingHtml?: string) => generateAdditionalTopicAspects(
       topic, allHeadings, sections.length + 1, language, (level === 'deep' || level === 'detailed') ? DEEP_PRO_MODEL : aiModel,
-      { existingHtml, customInstruction: instruction },
+      { existingHtml, customInstruction: instruction }, groundingEnabled,
     );
 
     // Register every node's regenerate closure UP FRONT (before generation

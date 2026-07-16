@@ -1,4 +1,4 @@
-import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
+import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG, withGoogleSearch } from './client';
 import { parseOutlineSectionsJson, type OutlineSection } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
 
@@ -24,6 +24,7 @@ export const outlineTextChunk = async (
   total: number,
   language: string,
   modelName: string,
+  grounded: boolean = false,
 ): Promise<SourceSection[]> => {
   const ai = createAIClient();
 
@@ -43,7 +44,7 @@ export const outlineTextChunk = async (
     Capture EVERY real point — do not merge or drop any. Headings must be concrete and specific to what this segment actually contains, never generic placeholders.
   `;
 
-  const response = await ai.models.generateContent({ model: modelName, contents: prompt, config: NOTES_GEN_CONFIG });
+  const response = await ai.models.generateContent({ model: modelName, contents: prompt, config: withGoogleSearch(NOTES_GEN_CONFIG, grounded) });
   return parseOutlineSectionsJson(response.text || '');
 };
 
@@ -80,6 +81,7 @@ export const outlineFiles = async (
   files: { data: string; mimeType: string }[],
   language: string,
   modelName: string,
+  grounded: boolean = false,
 ): Promise<SourceSection[]> => {
   const ai = createAIClient();
 
@@ -100,7 +102,7 @@ export const outlineFiles = async (
   const parts: any[] = files.map(f => ({ inlineData: { data: f.data, mimeType: f.mimeType } }));
   parts.push({ text: prompt });
 
-  const response = await ai.models.generateContent({ model: modelName, contents: { parts }, config: NOTES_GEN_CONFIG });
+  const response = await ai.models.generateContent({ model: modelName, contents: { parts }, config: withGoogleSearch(NOTES_GEN_CONFIG, grounded) });
   return parseOutlineSectionsJson(response.text || '');
 };
 
@@ -136,6 +138,7 @@ export const expandFilesSection = async (
   modelName: string,
   level: 'medium' | 'detailed' | 'deep',
   refine?: RefinementOptions,
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -171,6 +174,7 @@ export const expandFilesSection = async (
     - Explain every point in depth — never dispose of a point in a single passing line. Full-sentence <ul><li> bullets, <strong> for key terms/dates/figures.
     - Present each part in whatever form explains it best — prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota — you decide.
     - Never output an empty or one-line heading. No filler.
+    ${grounded ? '- You have live Google Search access for this call — where a fact genuinely benefits from being current (a scheme\'s latest status, recent statistics, a recent event), search and weave in the real, current, correctly-dated fact. Never contradict the files — only ADD current context around them.' : ''}
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
@@ -178,6 +182,6 @@ export const expandFilesSection = async (
   const parts: any[] = files.map(f => ({ inlineData: { data: f.data, mimeType: f.mimeType } }));
   parts.push({ text: prompt });
 
-  const response = await ai.models.generateContent({ model: modelName, contents: { parts }, config: DETAILED_NOTES_CONFIG });
+  const response = await ai.models.generateContent({ model: modelName, contents: { parts }, config: withGoogleSearch(DETAILED_NOTES_CONFIG, grounded) });
   return cleanHtmlOutput(response.text || '');
 };

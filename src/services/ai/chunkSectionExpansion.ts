@@ -1,4 +1,4 @@
-import { createAIClient, cleanHtmlOutput, DETAILED_NOTES_CONFIG } from './client';
+import { createAIClient, cleanHtmlOutput, DETAILED_NOTES_CONFIG, withGoogleSearch } from './client';
 import type { OutlineSection } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
 import { mapWithConcurrency } from '../../utils/concurrency';
@@ -46,6 +46,11 @@ const depthDirective = (level: 'medium' | 'detailed' | 'deep') =>
     ? 'Go MAXIMALLY deep and advanced on every sub-point: what it is, why it matters, how it works / the mechanism, background and significance, plus every concrete fact from the source. Expand a sub-point into its own <h4> parts where it is layered. Miss nothing.'
     : 'Give every sub-point a solid, clear, self-sufficient explanation using the key facts from the source.';
 
+// Real live-search grounding (see withGoogleSearch in client.ts) — used
+// wherever the "Google Grounding" toggle is on, across the whole pipeline.
+const SEARCH_GROUNDING_RULE =
+  'You have live Google Search access for this call — where a sub-point genuinely benefits from being current (a scheme\'s latest status, recent statistics, a recent event), search and weave in the real, current, correctly-dated fact. Never contradict the source material — only ADD current context around it. Don\'t search for content that doesn\'t need it.';
+
 async function expandOnce(
   kind: ChunkSourceKind,
   chunkText: string,
@@ -61,6 +66,7 @@ async function expandOnce(
   modelName: string,
   level: 'medium' | 'detailed' | 'deep',
   refine?: RefinementOptions,
+  grounded: boolean = false,
 ): Promise<string> {
   const ai = createAIClient();
   const w = KIND_WORDING[kind];
@@ -101,6 +107,7 @@ ${subList}
     - Full-sentence <ul><li> bullets, <strong> for key terms / dates / figures / names.
     - Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or ONE clean SVG in <div class="flowchart-container"> (no border, use viewBox). Use these only where they genuinely aid understanding, never to fill a quota.
     - No document <h1>, no overview, no summary/conclusion block, no filler, no empty or one-line headings.
+    ${grounded ? '- ' + SEARCH_GROUNDING_RULE : ''}
     ${buildRefinementDirective(refine)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
@@ -108,7 +115,7 @@ ${subList}
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
-    config: DETAILED_NOTES_CONFIG,
+    config: withGoogleSearch(DETAILED_NOTES_CONFIG, grounded),
   });
 
   return cleanHtmlOutput(response.text || '');
@@ -137,6 +144,7 @@ export const expandChunkSection = async (
   modelName: string,
   level: 'medium' | 'detailed' | 'deep',
   refine?: RefinementOptions,
+  grounded: boolean = false,
 ): Promise<string> => {
   const subs = section.subheadings;
   const isRevision = !!(refine && (refine.existingHtml || refine.customInstruction));
@@ -144,7 +152,7 @@ export const expandChunkSection = async (
   if (isRevision || subs.length <= MAX_SUBS_PER_CALL) {
     return expandOnce(
       kind, chunkText, section.heading, subs, sectionNumber, 0, true,
-      siblingHeadings, part, total, language, modelName, level, refine,
+      siblingHeadings, part, total, language, modelName, level, refine, grounded,
     );
   }
 
@@ -158,7 +166,7 @@ export const expandChunkSection = async (
     const start = starts[b];
     pieces[b] = await expandOnce(
       kind, chunkText, section.heading, subs.slice(start, start + SUB_BATCH), sectionNumber, start, start === 0,
-      siblingHeadings, part, total, language, modelName, level, refine,
+      siblingHeadings, part, total, language, modelName, level, refine, grounded,
     );
   });
   return pieces.join('\n');
