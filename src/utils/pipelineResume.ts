@@ -9,16 +9,26 @@ import type { MindmapNode } from '../types';
 // starting completely over. To fix that, once the user has approved the plan
 // (the point after which real, costly generation work happens) the pipeline
 // periodically snapshots its progress to localStorage. On the next app load,
-// if a snapshot is found, the user is offered a "Resume" action that picks up
+// every snapshot found is offered as a "Resume" action that picks up
 // generation from exactly the sections that were never finished — already
 // completed sections are kept as-is, nothing is re-generated needlessly.
 //
 // Snapshots are only taken AFTER approval (outline already built + reviewed)
 // since that phase is cheap to redo from scratch if interrupted; it's the
 // expensive per-section expansion that's worth preserving.
+//
+// Multiple pipelines can be pending at once — starting a fresh generation
+// does NOT discard an earlier interrupted one; each snapshot is its own
+// entry (keyed by `id`), so the user can leave several unfinished notes
+// sitting around and come back to resume any of them individually.
 // ---------------------------------------------------------------------------
 
-export interface TopicResumeSnapshot {
+interface ResumeSnapshotBase {
+  id: string;
+  savedAt: number;
+}
+
+export interface TopicResumeSnapshot extends ResumeSnapshotBase {
   kind: 'topic';
   level: 'medium' | 'detailed' | 'deep';
   topic: string;
@@ -35,10 +45,9 @@ export interface TopicResumeSnapshot {
   // memory, so a resumed run's click-to-regenerate lands in the same slot.
   partIndexByGroupId: Record<string, number>;
   stoppedEarly: boolean;
-  savedAt: number;
 }
 
-export interface ChunkResumeSnapshot {
+export interface ChunkResumeSnapshot extends ResumeSnapshotBase {
   kind: 'chunk';
   chunkSourceKind: 'transcript' | 'text';
   level: 'medium' | 'detailed' | 'deep';
@@ -52,43 +61,61 @@ export interface ChunkResumeSnapshot {
   parts: string[];
   partIndexByGroupId: Record<string, number>;
   stoppedEarly: boolean;
-  savedAt: number;
 }
 
 export type PipelineResumeSnapshot = TopicResumeSnapshot | ChunkResumeSnapshot;
 
-const RESUME_KEY = 'nm_pipeline_resume_v1';
+const RESUME_KEY = 'nm_pipeline_resume_v2';
 // A pending snapshot older than this is more likely to be confusing than
 // useful (the user has probably moved on) — treat it as stale and ignore it.
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Cap how many interrupted pipelines can sit pending at once — protects
+// localStorage from unbounded growth if the user repeatedly starts and
+// abandons generations without ever resuming or discarding them.
+const MAX_PENDING = 8;
 
-export function saveResumeSnapshot(snapshot: PipelineResumeSnapshot): void {
+function readAll(): PipelineResumeSnapshot[] {
   try {
-    localStorage.setItem(RESUME_KEY, JSON.stringify(snapshot));
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    const now = Date.now();
+    return list.filter((snap): snap is PipelineResumeSnapshot =>
+      snap && typeof snap === 'object' &&
+      typeof snap.id === 'string' &&
+      (snap.kind === 'topic' || snap.kind === 'chunk') &&
+      now - (snap.savedAt || 0) <= MAX_AGE_MS);
+  } catch {
+    return [];
+  }
+}
+
+function writeAll(list: PipelineResumeSnapshot[]): void {
+  try {
+    localStorage.setItem(RESUME_KEY, JSON.stringify(list));
   } catch {
     // localStorage full/unavailable — resume just won't be offered; the
     // in-progress generation itself is unaffected.
   }
 }
 
-export function loadResumeSnapshot(): PipelineResumeSnapshot | null {
-  try {
-    const raw = localStorage.getItem(RESUME_KEY);
-    if (!raw) return null;
-    const snap = JSON.parse(raw);
-    if (!snap || typeof snap !== 'object') return null;
-    if (Date.now() - (snap.savedAt || 0) > MAX_AGE_MS) return null;
-    if (snap.kind !== 'topic' && snap.kind !== 'chunk') return null;
-    return snap as PipelineResumeSnapshot;
-  } catch {
-    return null;
-  }
+// Upserts by id — a pipeline calls this repeatedly as it progresses, each
+// time overwriting its own entry in place rather than creating duplicates.
+export function saveResumeSnapshot(snapshot: PipelineResumeSnapshot): void {
+  const list = readAll().filter(s => s.id !== snapshot.id);
+  list.push(snapshot);
+  // Oldest-first, so trimming to the cap drops the longest-abandoned ones.
+  list.sort((a, b) => a.savedAt - b.savedAt);
+  while (list.length > MAX_PENDING) list.shift();
+  writeAll(list);
 }
 
-export function clearResumeSnapshot(): void {
-  try {
-    localStorage.removeItem(RESUME_KEY);
-  } catch {
-    // ignore
-  }
+export function loadResumeSnapshots(): PipelineResumeSnapshot[] {
+  return readAll().sort((a, b) => b.savedAt - a.savedAt);
+}
+
+export function clearResumeSnapshot(id: string): void {
+  const list = readAll().filter(s => s.id !== id);
+  writeAll(list);
 }

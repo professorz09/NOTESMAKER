@@ -128,7 +128,7 @@ const App: React.FC = () => {
     handleFileUpload, removeFile,
     handleGenerate, handleGenerateTable,
     handleNextUPSCQuestion,
-    resumeSnapshot, handleResumePipeline, handleDismissResume,
+    resumeSnapshots, handleResumePipeline, handleDismissResume,
     handleClearCanvas,
     translatePdfFile, setTranslatePdfFile,
     handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
@@ -753,7 +753,7 @@ const App: React.FC = () => {
 
       {!mindmap && status === GenerationStatus.IDLE && (
         <ResumeBanner
-          snapshot={resumeSnapshot}
+          snapshots={resumeSnapshots}
           onResume={handleResumePipeline}
           onDismiss={handleDismissResume}
         />

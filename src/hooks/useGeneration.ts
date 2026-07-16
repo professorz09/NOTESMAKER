@@ -52,9 +52,14 @@ import {
   type TopicResumeSnapshot,
   type ChunkResumeSnapshot,
   saveResumeSnapshot,
-  loadResumeSnapshot,
+  loadResumeSnapshots,
   clearResumeSnapshot,
 } from '../utils/pipelineResume';
+
+// Unique id for one pipeline run — stable across a resume so its snapshot
+// keeps upserting the same localStorage entry instead of duplicating.
+const genPipelineId = (): string =>
+  (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `pl-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 // Every leveled pipeline's own internal calls (outline/structure, Deep-level
 // expansion, completeness passes, and any manual "regenerate this node"
@@ -265,11 +270,16 @@ export function useGeneration({
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
   const [mindmap, setMindmap] = useState<MindmapState | null>(null);
-  // A leveled pipeline interrupted mid-generation (network drop, page
-  // refresh, the browser tab/app being reclaimed) leaves a snapshot in
-  // localStorage — checked once on load so the user can pick up exactly
-  // where it stopped instead of losing everything already generated.
-  const [resumeSnapshot, setResumeSnapshot] = useState<PipelineResumeSnapshot | null>(() => loadResumeSnapshot());
+  // Every leveled pipeline interrupted mid-generation (network drop, page
+  // refresh, the browser tab/app being reclaimed) leaves its own snapshot in
+  // localStorage — several can be pending at once, since starting a fresh
+  // generation doesn't discard an earlier interrupted one. Checked on load
+  // (and refreshed after every run) so the user can resume any of them from
+  // exactly where it stopped instead of losing everything already generated.
+  const [resumeSnapshots, setResumeSnapshots] = useState<PipelineResumeSnapshot[]>(() => loadResumeSnapshots());
+  // The pipeline id currently running (if any) — lets Clear Canvas discard
+  // just that one snapshot instead of every other pending pipeline too.
+  const activePipelineIdRef = useRef<string | null>(null);
   // Resolver for the Retry/Skip/Finish prompt when a section fails mid-pipeline.
   const mindmapActionRef = useRef<((a: MindmapAction) => void) | null>(null);
   // Add-a-point / node-click / done-button bridge for the active pipeline.
@@ -923,6 +933,10 @@ export function useGeneration({
       mindmapActionRef.current = null;
       mindmapControllerRef.current?.cancel();
       mindmapControllerRef.current = null;
+      activePipelineIdRef.current = null;
+      // Picks up this run's own snapshot if it got interrupted (e.g. an
+      // uncaught error) without needing a page reload first.
+      setResumeSnapshots(loadResumeSnapshots());
     }
   };
 
@@ -1116,12 +1130,11 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
-    if (!resumeFrom) {
-      // A stale snapshot from an earlier, unrelated pipeline shouldn't be
-      // offered once a fresh generation is deliberately started.
-      clearResumeSnapshot();
-      setResumeSnapshot(null);
-    }
+    // A resumed run keeps upserting its own snapshot entry; a fresh run gets
+    // a brand-new id — either way this does NOT touch any OTHER pending
+    // pipeline's snapshot, so several can sit interrupted at once.
+    const pipelineId = resumeFrom?.id ?? genPipelineId();
+    activePipelineIdRef.current = pipelineId;
 
     let chunkSections: TopicOutlineSection[][];
     let chunkRange: { start: number; end: number }[];
@@ -1320,6 +1333,7 @@ export function useGeneration({
         if (idx >= 0) partIndexByGroupId[n.groupId] = idx;
       });
       const snapshot: ChunkResumeSnapshot = {
+        id: pipelineId,
         kind: 'chunk',
         chunkSourceKind: kind,
         level,
@@ -1426,8 +1440,8 @@ export function useGeneration({
 
     // The pipeline has reached its finished/reviewable state — the notes are
     // already fully in the canvas, so there's nothing left worth resuming.
-    clearResumeSnapshot();
-    setResumeSnapshot(null);
+    clearResumeSnapshot(pipelineId);
+    activePipelineIdRef.current = null;
     controller.markDone();
     await controller.waitForDone();
     if (isResettingRef.current) { setMindmap(null); return true; }
@@ -1750,12 +1764,11 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
-    if (!resumeFrom) {
-      // A stale snapshot from an earlier, unrelated pipeline shouldn't be
-      // offered once a fresh generation is deliberately started.
-      clearResumeSnapshot();
-      setResumeSnapshot(null);
-    }
+    // A resumed run keeps upserting its own snapshot entry; a fresh run gets
+    // a brand-new id — either way this does NOT touch any OTHER pending
+    // pipeline's snapshot, so several can sit interrupted at once.
+    const pipelineId = resumeFrom?.id ?? genPipelineId();
+    activePipelineIdRef.current = pipelineId;
 
     let outline: { title: string; sections: TopicOutlineSection[] } | null = null;
     let focusAreas: string[] = [];
@@ -1885,6 +1898,7 @@ export function useGeneration({
         if (idx >= 0) partIndexByGroupId[n.groupId] = idx;
       });
       const snapshot: TopicResumeSnapshot = {
+        id: pipelineId,
         kind: 'topic',
         level,
         topic,
@@ -2015,8 +2029,8 @@ export function useGeneration({
 
     // The pipeline has reached its finished/reviewable state — the notes are
     // already fully in the canvas, so there's nothing left worth resuming.
-    clearResumeSnapshot();
-    setResumeSnapshot(null);
+    clearResumeSnapshot(pipelineId);
+    activePipelineIdRef.current = null;
     controller.markDone();
     await controller.waitForDone();
     if (isResettingRef.current) { setMindmap(null); return; }
@@ -2104,6 +2118,10 @@ export function useGeneration({
       mindmapActionRef.current = null;
       mindmapControllerRef.current?.cancel();
       mindmapControllerRef.current = null;
+      activePipelineIdRef.current = null;
+      // Picks up this run's own snapshot if it got interrupted (e.g. an
+      // uncaught error) without needing a page reload first.
+      setResumeSnapshots(loadResumeSnapshots());
     }
   };
 
@@ -2207,8 +2225,13 @@ export function useGeneration({
     activeEditIdRef.current = null;
     selectionRangeRef.current = null;
     localStorage.removeItem(STORAGE_KEY);
-    clearResumeSnapshot();
-    setResumeSnapshot(null);
+    // Only the pipeline actually loaded into the canvas is discarded here —
+    // any OTHER interrupted pipeline stays pending and resumable.
+    if (activePipelineIdRef.current) {
+      clearResumeSnapshot(activePipelineIdRef.current);
+      activePipelineIdRef.current = null;
+      setResumeSnapshots(loadResumeSnapshots());
+    }
     setTranslateProgress(null);
     setTranslateResumeState(null);
     setTranscriptProgress(null);
@@ -2228,15 +2251,14 @@ export function useGeneration({
     setTimeout(() => { isResettingRef.current = false; }, 100);
   };
 
-  // Continue an interrupted leveled pipeline from its last saved snapshot
-  // (see resumeSnapshot / pipelineResume.ts) instead of losing everything
+  // Continue one interrupted leveled pipeline from its last saved snapshot
+  // (see resumeSnapshots / pipelineResume.ts) instead of losing everything
   // already generated to a dropped connection, a refresh, or the app being
-  // reclaimed in the background.
-  const handleResumePipeline = async () => {
-    const snap = resumeSnapshot;
-    if (!snap) return;
-    setResumeSnapshot(null);
-    clearResumeSnapshot();
+  // reclaimed in the background. Any OTHER pending pipeline is left alone —
+  // several can sit interrupted at once, resumed one at a time.
+  const handleResumePipeline = async (snap: PipelineResumeSnapshot) => {
+    // Optimistically drop it from the pending list — it's now the active run.
+    setResumeSnapshots(prev => prev.filter(s => s.id !== snap.id));
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       setLanguage(snap.language);
@@ -2265,12 +2287,16 @@ export function useGeneration({
       mindmapActionRef.current = null;
       mindmapControllerRef.current?.cancel();
       mindmapControllerRef.current = null;
+      activePipelineIdRef.current = null;
+      // Re-read from storage: picks this one back up if it got interrupted
+      // again mid-resume, and reflects any other pipeline's own outcome too.
+      setResumeSnapshots(loadResumeSnapshots());
     }
   };
 
-  const handleDismissResume = () => {
-    setResumeSnapshot(null);
-    clearResumeSnapshot();
+  const handleDismissResume = (id: string) => {
+    clearResumeSnapshot(id);
+    setResumeSnapshots(prev => prev.filter(s => s.id !== id));
   };
 
   return {
@@ -2295,7 +2321,7 @@ export function useGeneration({
     handleGenerate,
     handleGenerateTable,
     handleNextUPSCQuestion,
-    resumeSnapshot,
+    resumeSnapshots,
     handleResumePipeline,
     handleDismissResume,
     handleClearCanvas,

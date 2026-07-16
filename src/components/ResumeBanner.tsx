@@ -1,11 +1,11 @@
-import React from 'react';
-import { History, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { History, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { PipelineResumeSnapshot } from '../utils/pipelineResume';
 
 interface ResumeBannerProps {
-  snapshot: PipelineResumeSnapshot | null;
-  onResume: () => void;
-  onDismiss: () => void;
+  snapshots: PipelineResumeSnapshot[];
+  onResume: (snapshot: PipelineResumeSnapshot) => void;
+  onDismiss: (id: string) => void;
 }
 
 const LEVEL_LABEL: Record<string, string> = {
@@ -14,61 +14,78 @@ const LEVEL_LABEL: Record<string, string> = {
   deep: 'Deep',
 };
 
-export const ResumeBanner: React.FC<ResumeBannerProps> = ({ snapshot, onResume, onDismiss }) => {
-  if (!snapshot) return null;
-
+const ResumeItem: React.FC<{
+  snapshot: PipelineResumeSnapshot;
+  onResume: () => void;
+  onDismiss: () => void;
+}> = ({ snapshot, onResume, onDismiss }) => {
   const done = snapshot.nodes.filter(n => n.status === 'done').length;
   const total = snapshot.nodes.length || 1;
   const title = snapshot.kind === 'topic' ? snapshot.topic : snapshot.title;
 
   return (
-    <div
-      className="fixed inset-0 z-[75] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
-      onClick={onDismiss}
-    >
-      <div
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 duration-200"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
-            <History className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">Unfinished notes found</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Generation was interrupted — pick up where it left off?</p>
-          </div>
-          <button
-            onClick={onDismiss}
-            aria-label="Dismiss"
-            className="ml-auto flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 px-3.5 py-3 mb-4">
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{title || 'Untitled'}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {LEVEL_LABEL[snapshot.level] || snapshot.level} pipeline • {done}/{total} sections already written
+    <div className="rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 px-3 py-2.5">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">{title || 'Untitled'}</p>
+          <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+            {LEVEL_LABEL[snapshot.level] || snapshot.level} pipeline • {done}/{total} sections done
           </p>
         </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={onDismiss}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-          >
-            Discard
-          </button>
-          <button
-            onClick={onResume}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
-          >
-            Resume
-          </button>
-        </div>
+        <button
+          onClick={onDismiss}
+          aria-label="Discard"
+          className="flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
+      <button
+        onClick={onResume}
+        className="mt-2 w-full py-1.5 rounded-lg text-[12.5px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+      >
+        Resume
+      </button>
+    </div>
+  );
+};
+
+// Non-blocking floating panel — several notes pipelines can be interrupted
+// and left pending at once (starting a fresh generation doesn't discard an
+// earlier one), so this lists all of them rather than a single blocking modal.
+export const ResumeBanner: React.FC<ResumeBannerProps> = ({ snapshots, onResume, onDismiss }) => {
+  const [collapsed, setCollapsed] = useState(false);
+
+  if (!snapshots.length) return null;
+
+  return (
+    <div
+      className="fixed z-[65] w-[min(92vw,340px)] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden"
+      style={{ left: '1.25rem', bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+    >
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
+      >
+        <History className="w-4 h-4 flex-shrink-0" />
+        <span className="text-[12.5px] font-bold flex-1 text-left">
+          {snapshots.length} unfinished note{snapshots.length > 1 ? 's' : ''}
+        </span>
+        {collapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      {!collapsed && (
+        <div className="p-2.5 space-y-2 max-h-[50vh] overflow-y-auto scrollbar-thin">
+          {snapshots.map(snap => (
+            <ResumeItem
+              key={snap.id}
+              snapshot={snap}
+              onResume={() => onResume(snap)}
+              onDismiss={() => onDismiss(snap.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
