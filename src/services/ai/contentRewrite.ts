@@ -1,4 +1,9 @@
-import { createAIClient, cleanHtmlOutput, buildContents, NOTES_GEN_CONFIG } from './client';
+import { createAIClient, cleanHtmlOutput, buildContents, NOTES_GEN_CONFIG, withGoogleSearch } from './client';
+
+// Shared "use live search" line — appended when the editor's own Grounding
+// toggle is on for this edit (independent of the sidebar pipeline's toggle).
+const GROUNDING_LINE =
+  'You have live Google Search access for this call — where the content genuinely benefits from a current fact (a scheme\'s latest status, recent statistics, a recent event), search and weave in the real, current, correctly-dated fact.';
 
 // Shared "the instruction is law" directive for the general-purpose Rewrite
 // tab (rewriteContent / rewriteSection) — this is the option users reach for
@@ -28,7 +33,8 @@ export const rewriteContent = async (
   textToRewrite: string,
   instruction: string,
   modelName: string = "gemini-3.1-flash-lite",
-  images?: { base64: string; mimeType: string }[]
+  images?: { base64: string; mimeType: string }[],
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -43,6 +49,7 @@ export const rewriteContent = async (
       - Structure: keep the original structure (prose/list/etc.) if the instruction doesn't imply a different one.
       - Tone: professional and academic.
       - Formatting: <strong> for key terms.
+      ${grounded ? '- ' + GROUNDING_LINE : ''}
 
       Return ONLY the resulting HTML for this text. No commentary, no markdown fences.
     `;
@@ -50,7 +57,7 @@ export const rewriteContent = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: buildContents(prompt, images),
-    config: NOTES_GEN_CONFIG,
+    config: withGoogleSearch(NOTES_GEN_CONFIG, grounded),
   });
 
   return cleanHtmlOutput(response.text || textToRewrite);
@@ -60,7 +67,8 @@ export const rewriteSection = async (
   sectionContent: string,
   instruction: string,
   modelName: string = "gemini-3.1-flash-lite",
-  images?: { base64: string; mimeType: string }[]
+  images?: { base64: string; mimeType: string }[],
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -76,6 +84,7 @@ export const rewriteSection = async (
     **Fallbacks — ONLY apply where the instruction doesn't already say otherwise:**
     - Structure/numbering: keep the existing numbering (e.g., 1.1) as a baseline ONLY if the instruction doesn't call for a different structure (like a table or a plain list) — a structural instruction always wins over preserving numbering.
     - Tone: academic and authoritative.
+    ${grounded ? '- ' + GROUNDING_LINE : ''}
 
     Output: Valid HTML only, no commentary, no markdown fences.
   `;
@@ -83,7 +92,7 @@ export const rewriteSection = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: buildContents(prompt, images),
-    config: NOTES_GEN_CONFIG,
+    config: withGoogleSearch(NOTES_GEN_CONFIG, grounded),
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -92,7 +101,8 @@ export const expandSection = async (
   sectionContent: string,
   instruction: string,
   modelName: string = "gemini-3.1-pro-preview",
-  images?: { base64: string; mimeType: string }[]
+  images?: { base64: string; mimeType: string }[],
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -116,6 +126,7 @@ export const expandSection = async (
        Use <thead><th>, <tbody><td>, <ul><li> inside cells, <strong> for key terms.
     5. **Diagram (Optional):** If the expanded content has a clear process, cycle, or relationship, add ONE SVG diagram inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     6. **Volume:** Significantly increase depth of knowledge, not just word count.
+    ${grounded ? '7. **Current facts:** ' + GROUNDING_LINE : ''}
 
     Output: Valid HTML only. Start directly with the heading element.
   `;
@@ -123,7 +134,7 @@ export const expandSection = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: buildContents(prompt, images),
-    config: NOTES_GEN_CONFIG,
+    config: withGoogleSearch(NOTES_GEN_CONFIG, grounded),
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -132,7 +143,8 @@ export const generateNextContent = async (
   previousContext: string,
   instruction: string,
   modelName: string = "gemini-3.1-pro-preview",
-  images?: { base64: string; mimeType: string }[]
+  images?: { base64: string; mimeType: string }[],
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -156,6 +168,7 @@ export const generateNextContent = async (
     5. **Formatting:** Use <strong> for key terms. <div class="note-box"> is a rare exception for one genuinely noteworthy fact, not a routine habit.
     6. **Table (Optional):** If a section being added has structured/comparative data, include ONE appropriately-formatted table.
     7. **Diagram (Optional):** If the new content has a clear visual structure, add ONE SVG inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
+    ${grounded ? '8. **Current facts:** ' + GROUNDING_LINE : ''}
 
     Output: Return ONLY the HTML for the NEW content.
   `;
@@ -163,7 +176,7 @@ export const generateNextContent = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: buildContents(prompt, images),
-    config: NOTES_GEN_CONFIG,
+    config: withGoogleSearch(NOTES_GEN_CONFIG, grounded),
   });
   return cleanHtmlOutput(response.text || "");
 };
@@ -172,7 +185,8 @@ export const generateDetailedNextTopic = async (
   previousContext: string,
   topicName: string,
   modelName: string = "gemini-3.1-pro-preview",
-  images?: { base64: string; mimeType: string }[]
+  images?: { base64: string; mimeType: string }[],
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -194,6 +208,7 @@ export const generateDetailedNextTopic = async (
     6. **Table (Optional):** If the topic benefits from structured data, include ONE appropriate table with <caption>.
     7. **Diagram (Optional):** If the topic has a clear visual structure, include ONE SVG inside <div class="flowchart-container">. Ensure the SVG is clean, readable, and responsive (use viewBox). DO NOT include a border on the SVG itself.
     8. **Tone:** Professional academic tone.
+    ${grounded ? '9. **Current facts:** ' + GROUNDING_LINE : ''}
 
     Output: HTML for the new MAJOR section only.
   `;
@@ -201,7 +216,7 @@ export const generateDetailedNextTopic = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: buildContents(prompt, images),
-    config: NOTES_GEN_CONFIG,
+    config: withGoogleSearch(NOTES_GEN_CONFIG, grounded),
   });
   return cleanHtmlOutput(response.text || "");
 };

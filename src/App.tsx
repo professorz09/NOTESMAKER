@@ -153,6 +153,7 @@ const App: React.FC = () => {
     rewriteType,
     editTab, setEditTab,
     rewriteModel, setRewriteModel,
+    rewriteGrounded, setRewriteGrounded,
     modalImages, setModalImages,
     selectionRangeRef,
     activeEditIdRef,
@@ -736,6 +737,7 @@ const App: React.FC = () => {
         rewriteType={rewriteType}
         editTab={editTab} setEditTab={setEditTab}
         rewriteModel={rewriteModel} setRewriteModel={setRewriteModel}
+        rewriteGrounded={rewriteGrounded} setRewriteGrounded={setRewriteGrounded}
         rewriteInstruction={rewriteInstruction} setRewriteInstruction={setRewriteInstruction}
         isRewriting={isRewriting}
         handleRewriteSubmit={handleRewriteSubmit}

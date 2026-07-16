@@ -43,6 +43,10 @@ export function useAIEdit({
   const [rewriteType, setRewriteType] = useState<'selection' | 'section'>('selection');
   const [editTab, setEditTab] = useState<EditTab>('rewrite');
   const [rewriteModel, setRewriteModel] = useState('gemini-3.1-flash-lite');
+  // Per-edit Google Grounding toggle — independent of the sidebar pipeline's
+  // toggle, since an inline edit may want live search even when the last
+  // full generation didn't (or vice versa).
+  const [rewriteGrounded, setRewriteGrounded] = useState(false);
 
   const selectionRangeRef = useRef<Range | null>(null);
   const activeEditIdRef = useRef<string | null>(null);
@@ -293,10 +297,10 @@ export function useAIEdit({
 
       if (rewriteType === 'section') {
         const sectionImages = [...extractImagesFromHtml(activeSectionHtml), ...extraImages];
-        if (editTab === 'rewrite') resultHtml = await rewriteSection(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
-        else if (editTab === 'expand') resultHtml = await expandSection(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
-        else if (editTab === 'continue') resultHtml = await generateNextContent(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
-        else if (editTab === 'next_topic') resultHtml = await generateDetailedNextTopic(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages);
+        if (editTab === 'rewrite') resultHtml = await rewriteSection(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages, rewriteGrounded);
+        else if (editTab === 'expand') resultHtml = await expandSection(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages, rewriteGrounded);
+        else if (editTab === 'continue') resultHtml = await generateNextContent(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages, rewriteGrounded);
+        else if (editTab === 'next_topic') resultHtml = await generateDetailedNextTopic(activeSectionHtml, rewriteInstruction, rewriteModel, sectionImages, rewriteGrounded);
         else if (editTab === 'image') resultHtml = activeSectionHtml + await generateSectionImage(activeSectionHtml, rewriteInstruction);
         else if (editTab === 'diagram') resultHtml = activeSectionHtml + await generateDiagram(activeSectionHtml, rewriteInstruction, rewriteModel);
       } else {
@@ -309,10 +313,10 @@ export function useAIEdit({
         })();
         const selectedText = range?.toString() || '';
         const selectionImages = [...extractImagesFromHtml(selectionHtml), ...extraImages];
-        if (editTab === 'rewrite') resultHtml = await rewriteContent(selectedText, rewriteInstruction, rewriteModel, selectionImages);
-        else if (editTab === 'expand') resultHtml = await expandSection(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages);
-        else if (editTab === 'continue') resultHtml = selectionHtml + ' ' + await generateNextContent(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages);
-        else if (editTab === 'next_topic') resultHtml = selectionHtml + ' ' + await generateDetailedNextTopic(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages);
+        if (editTab === 'rewrite') resultHtml = await rewriteContent(selectedText, rewriteInstruction, rewriteModel, selectionImages, rewriteGrounded);
+        else if (editTab === 'expand') resultHtml = await expandSection(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages, rewriteGrounded);
+        else if (editTab === 'continue') resultHtml = selectionHtml + ' ' + await generateNextContent(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages, rewriteGrounded);
+        else if (editTab === 'next_topic') resultHtml = selectionHtml + ' ' + await generateDetailedNextTopic(selectionHtml || selectedText, rewriteInstruction, rewriteModel, selectionImages, rewriteGrounded);
         else if (editTab === 'image') resultHtml = selectedText + '<br/>' + await generateSectionImage(selectedText, rewriteInstruction);
         else if (editTab === 'diagram') resultHtml = selectedText + '<br/>' + await generateDiagram(selectedText, rewriteInstruction, rewriteModel);
       }
@@ -454,6 +458,7 @@ export function useAIEdit({
     rewriteType,
     editTab, setEditTab,
     rewriteModel, setRewriteModel,
+    rewriteGrounded, setRewriteGrounded,
     modalImages, setModalImages,
     selectionRangeRef,
     activeEditIdRef,

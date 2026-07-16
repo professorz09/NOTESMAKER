@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Sparkles, Wand2, TableProperties, ImagePlus, X, Trash2, AlertTriangle, Minimize2, Maximize2 } from 'lucide-react';
+import { Sparkles, Wand2, TableProperties, ImagePlus, X, Trash2, AlertTriangle, Minimize2, Maximize2, Globe2 } from 'lucide-react';
 import { Button } from './Button';
 
 interface RewriteModalProps {
@@ -12,6 +12,8 @@ interface RewriteModalProps {
   setEditTab: (tab: 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram' | 'table') => void;
   rewriteModel: string;
   setRewriteModel: (model: string) => void;
+  rewriteGrounded: boolean;
+  setRewriteGrounded: (grounded: boolean) => void;
   rewriteInstruction: string;
   setRewriteInstruction: (instruction: string) => void;
   isRewriting: boolean;
@@ -32,6 +34,8 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
   setEditTab,
   rewriteModel,
   setRewriteModel,
+  rewriteGrounded,
+  setRewriteGrounded,
   rewriteInstruction,
   setRewriteInstruction,
   isRewriting,
@@ -223,13 +227,28 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
             }
           </h3>
           <div className="flex items-center gap-2">
+            {editTab !== 'image' && editTab !== 'diagram' && (
+              <button
+                type="button"
+                onClick={() => setRewriteGrounded(!rewriteGrounded)}
+                disabled={isRewriting}
+                title={rewriteGrounded ? 'Google Grounding on — this edit uses live search' : 'Google Grounding off — turn on for live current facts'}
+                className={`p-1.5 rounded-lg border transition-all disabled:opacity-50 ${
+                  rewriteGrounded
+                    ? 'bg-sky-500/10 border-sky-500/40 text-sky-500 dark:text-sky-400'
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+                }`}
+              >
+                <Globe2 className="w-3.5 h-3.5" />
+              </button>
+            )}
             <select
               value={rewriteModel}
               onChange={(e) => setRewriteModel(e.target.value)}
               className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-medium shadow-sm"
               disabled={isRewriting}
             >
-              <option value="gemini-3-flash-preview">Flash (Fast)</option>
+              <option value="gemini-3.1-flash-lite">Flash (Fast)</option>
               <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
             </select>
             {isRewriting && (
