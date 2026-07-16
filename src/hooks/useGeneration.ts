@@ -265,7 +265,13 @@ export function useGeneration({
   // adds a live-search-grounded "current update" box only to the sections
   // that genuinely need current/latest information — everything else is
   // left untouched.
-  const [groundingEnabled, setGroundingEnabled] = useState(false);
+  // `ui*` holds the sidebar's live toggle; `groundingEnabled` below is what
+  // the rest of this hook actually reads — a resumed pipeline shadows it
+  // with the snapshot's own value (see runLeveledTopicPipeline /
+  // runLeveledChunkPipeline) so it can't drift from what the sidebar
+  // currently shows while the resumed run continues generating sections.
+  const [uiGroundingEnabled, setGroundingEnabled] = useState(false);
+  const groundingEnabled = uiGroundingEnabled;
   // Multi-step notes-pipeline progress (Medium/Detailed/Deep topic generation).
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
@@ -381,8 +387,11 @@ export function useGeneration({
     }
   };
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
-  const [language, setLanguage] = useState('Hindi');
-  const [aiModel, setAiModel] = useState('gemini-3.1-pro-preview');
+  // Same shadowing pattern as groundingEnabled above.
+  const [uiLanguage, setLanguage] = useState('Hindi');
+  const [uiAiModel, setAiModel] = useState('gemini-3.1-pro-preview');
+  const language = uiLanguage;
+  const aiModel = uiAiModel;
   const [topicInput, setTopicInput] = useState('');
   const [textInput, setTextInput] = useState('');
   const [files, setFiles] = useState<{ name: string; mimeType: string; data: string }[]>([]);
@@ -1091,8 +1100,19 @@ export function useGeneration({
     // safer to fall back to a fresh run than index out of bounds.
     if (resumeFrom && resumeFrom.chunkSections.length !== total) {
       console.error('Resume snapshot chunk count mismatch — starting fresh instead.');
+      clearResumeSnapshot(resumeFrom.id);
+      setResumeSnapshots(prev => prev.filter(s => s.id !== resumeFrom!.id));
+      toast.warning('That saved draft no longer matches this app version — starting it fresh instead.');
       resumeFrom = undefined;
     }
+    // A resumed run keeps using the language/model/grounding IT was started
+    // with, never whatever the sidebar happens to show right now — these
+    // shadow the hook-level values for the rest of this function. Without
+    // this, sections written before an interruption and sections written
+    // after Resume could end up in different languages/models/grounding.
+    const language = resumeFrom?.language ?? uiLanguage;
+    const aiModel = resumeFrom?.aiModel ?? uiAiModel;
+    const groundingEnabled = resumeFrom?.groundingEnabled ?? uiGroundingEnabled;
     // Structuring always uses Pro (quality matters most for getting the
     // skeleton right). Once the user APPROVES a transcript plan, expansion
     // always runs at the strongest setting — Pro model + maximum depth —
@@ -1370,6 +1390,7 @@ export function useGeneration({
         sourceText: text,
         language,
         aiModel,
+        groundingEnabled,
         title: mm.title,
         subtitle: mm.subtitle,
         chunkSections: chunkSections.map(secs => secs.map(s => ({ heading: s.heading, subheadings: s.subheadings }))),
@@ -1425,6 +1446,11 @@ export function useGeneration({
             written++;
             setNotesProgress({ current: written, total: totalSections, label: `Writing detailed notes (section ${written}/${totalSections})` });
             pushLive();
+            // Persist THIS section's own completion immediately rather than
+            // waiting for the whole (up to 3-wide) concurrent batch to
+            // finish — otherwise an interruption mid-batch could silently
+            // lose sections that had already finished successfully.
+            persistProgress();
           } else {
             failed.push(j);
             node.status = 'error';
@@ -1764,6 +1790,15 @@ export function useGeneration({
     level: 'medium' | 'detailed' | 'deep',
     resumeFrom?: TopicResumeSnapshot,
   ) => {
+    // A resumed run keeps using the language/model/grounding IT was started
+    // with, never whatever the sidebar happens to show right now — these
+    // shadow the hook-level values for the rest of this function. Without
+    // this, sections written before an interruption and sections written
+    // after Resume could end up in different languages/models/grounding.
+    const language = resumeFrom?.language ?? uiLanguage;
+    const aiModel = resumeFrom?.aiModel ?? uiAiModel;
+    const groundingEnabled = resumeFrom?.groundingEnabled ?? uiGroundingEnabled;
+
     const parts: string[] = [];
     // During the build we only update the canvas + storage; we record a single
     // undo-history entry at the very end (recordHistory=true) so Undo doesn't
@@ -1948,6 +1983,7 @@ export function useGeneration({
         topic,
         language,
         aiModel,
+        groundingEnabled,
         title: mm.title,
         subtitle: mm.subtitle,
         sections: sections.map(s => ({ heading: s.heading, subheadings: s.subheadings })),
@@ -2000,6 +2036,11 @@ export function useGeneration({
           written++;
           setNotesProgress({ current: written, total, label: `Writing detailed notes (section ${written}/${total})` });
           pushLive();
+          // Persist THIS section's own completion immediately rather than
+          // waiting for the whole (up to 3-wide) concurrent batch to
+          // finish — otherwise an interruption mid-batch could silently
+          // lose sections that had already finished successfully.
+          persistProgress();
         } else {
           failed.push(i);
           mm.nodes[i].status = 'error';
@@ -2313,6 +2354,7 @@ export function useGeneration({
       setLanguage(snap.language);
       setAiModel(snap.aiModel);
       setDetailLevel(snap.level);
+      let resumed = true;
       if (snap.kind === 'topic') {
         setMode('topic');
         setTopicInput(snap.topic);
@@ -2321,9 +2363,16 @@ export function useGeneration({
         setMode(snap.chunkSourceKind === 'transcript' ? 'transcript' : 'text');
         if (snap.chunkSourceKind === 'transcript') setTranscriptInput(snap.sourceText);
         else setTextInput(snap.sourceText);
-        await runLeveledChunkPipeline(snap.sourceText, snap.level, snap.chunkSourceKind, snap);
+        // Unlike the topic pipeline, this one can report it made no real
+        // progress at all (e.g. every remaining section failed again) — in
+        // that case the earlier already-generated content is still on the
+        // canvas, but it isn't honest to call this a successful resume.
+        resumed = await runLeveledChunkPipeline(snap.sourceText, snap.level, snap.chunkSourceKind, snap);
       }
-      if (!isResettingRef.current) toast.success('Notes generation resumed!');
+      if (!isResettingRef.current) {
+        if (resumed) toast.success('Notes generation resumed!');
+        else toast.warning('Could not continue this draft — the earlier content is still here, but please try regenerating the rest.');
+      }
     } catch (error: any) {
       if (!isResettingRef.current) {
         console.error(error);

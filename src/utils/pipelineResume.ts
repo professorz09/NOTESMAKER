@@ -34,6 +34,10 @@ export interface TopicResumeSnapshot extends ResumeSnapshotBase {
   topic: string;
   language: string;
   aiModel: string;
+  // Google Grounding as it was set for THIS run — a resume must keep using
+  // it (or not), never whatever the sidebar toggle happens to be at resume
+  // time, or sections would mix grounded/ungrounded facts in one document.
+  groundingEnabled: boolean;
   title: string;
   subtitle: string;
   sections: { heading: string; subheadings: string[] }[];
@@ -54,6 +58,7 @@ export interface ChunkResumeSnapshot extends ResumeSnapshotBase {
   sourceText: string;
   language: string;
   aiModel: string;
+  groundingEnabled: boolean;
   title: string;
   subtitle: string;
   chunkSections: { heading: string; subheadings: string[] }[][];
