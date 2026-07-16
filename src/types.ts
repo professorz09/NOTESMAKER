@@ -60,4 +60,12 @@ export interface MindmapState {
   complete: boolean;
   // True while an "add a point" request is in flight.
   addBusy: boolean;
+  // Set once a "Restructure" pass comes back, before it's applied — holds
+  // both the original and the candidate outline so the review step can show
+  // a before/after comparison and let the user pick one, instead of the
+  // restructure silently overwriting the original outline.
+  compareOutline?: {
+    before: { heading: string; subheadings: string[] }[];
+    after: { heading: string; subheadings: string[] }[];
+  } | null;
 }

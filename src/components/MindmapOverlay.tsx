@@ -11,6 +11,8 @@ interface MindmapOverlayProps {
   onSetNodeInstruction: (nodeId: string, text: string) => void;
   onApprove: () => void;
   onRestructure: () => void;
+  onCompareApply: () => void;
+  onCompareDiscard: () => void;
   onAddMore: (text: string) => void;
   onDone: () => void;
 }
@@ -180,8 +182,29 @@ const NodeRow: React.FC<{
   );
 };
 
+// Compact heading + sub-headings list used by both sides of the before/after
+// outline comparison.
+const OutlineList: React.FC<{ sections: { heading: string; subheadings: string[] }[] }> = ({ sections }) => (
+  <div className="space-y-1.5">
+    {sections.map((s, i) => (
+      <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 px-2.5 py-1.5">
+        <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-100">{i + 1}. {s.heading}</p>
+        {s.subheadings.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {s.subheadings.map((h, j) => (
+              <span key={j} className="text-[9.5px] px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+                {h}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+);
+
 export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
-  mindmap, onRetry, onSkip, onFinish, onNodeClick, onSetNodeInstruction, onApprove, onRestructure, onAddMore, onDone,
+  mindmap, onRetry, onSkip, onFinish, onNodeClick, onSetNodeInstruction, onApprove, onRestructure, onCompareApply, onCompareDiscard, onAddMore, onDone,
 }) => {
   const [addText, setAddText] = useState('');
   const awaiting = mindmap.awaitingApproval;
@@ -231,7 +254,9 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
           )}
           {awaiting && (
             <p className="mt-2 text-[10.5px] text-indigo-100 leading-snug">
-              Tap any topic to add an instruction for it (optional), add points below, then {mindmap.canRestructure ? <>either <strong>Restructure</strong> the outline (better headings — no point is dropped) or </> : <></>}press <strong>Approve &amp; Generate</strong>.
+              {mindmap.compareOutline
+                ? 'Pick which outline to proceed with below.'
+                : <>Tap any topic to add an instruction for it (optional), add points below, then {mindmap.canRestructure ? <>either <strong>Restructure</strong> the outline (better headings — no point is dropped) or </> : <></>}press <strong>Approve &amp; Generate</strong>.</>}
             </p>
           )}
         </div>
@@ -244,9 +269,42 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
           </div>
         </div>
 
-        {/* branches (left-spine tree) — the "add a point" row lives on the
+        {/* Restructure came back — compare before/after and pick one before
+            anything else in the review step is usable again. */}
+        {mindmap.compareOutline ? (
+          <div className="px-4 sm:px-5 py-3 max-h-[60vh] overflow-y-auto scrollbar-thin space-y-3">
+            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 leading-snug">
+              Compare the original outline with the restructured one, then pick which to proceed with.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Original</p>
+                <OutlineList sections={mindmap.compareOutline.before} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-1.5">Restructured</p>
+                <OutlineList sections={mindmap.compareOutline.after} />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={onCompareDiscard}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 active:scale-[0.98] transition-all"
+              >
+                Keep Original
+              </button>
+              <button
+                onClick={onCompareApply}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all"
+              >
+                <Shuffle className="w-3.5 h-3.5" /> Use Restructured
+              </button>
+            </div>
+          </div>
+        ) : (
+        /* branches (left-spine tree) — the "add a point" row lives on the
             same spine as the last node, so it reads as part of the map
-            rather than a separate bar stuck to the bottom. */}
+            rather than a separate bar stuck to the bottom. */
         <div className="px-4 sm:px-5 py-3 max-h-[52vh] overflow-y-auto scrollbar-thin">
           <div className="relative ml-2 pl-0 space-y-2 border-l-2 border-slate-200 dark:border-slate-700">
             {mindmap.nodes.length === 0 ? (
@@ -327,6 +385,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
             )}
           </div>
         </div>
+        )}
 
         {!awaiting && (
         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700">

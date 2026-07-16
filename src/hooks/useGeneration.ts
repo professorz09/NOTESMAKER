@@ -307,6 +307,12 @@ export function useGeneration({
   // is open (cleared again when the gate resolves).
   const mindmapRestructureRef = useRef<(() => Promise<void>) | null>(null);
   const handleMindmapRestructure = () => { void mindmapRestructureRef.current?.(); };
+  // Resolves the before/after choice once a Restructure pass has produced a
+  // candidate outline (see mm.compareOutline) — set alongside
+  // mindmapRestructureRef, cleared the same way.
+  const mindmapCompareRef = useRef<{ apply: () => void; discard: () => void } | null>(null);
+  const handleMindmapCompareApply = () => { mindmapCompareRef.current?.apply(); };
+  const handleMindmapCompareDiscard = () => { mindmapCompareRef.current?.discard(); };
   const handleMindmapAddMore = (text: string) => { mindmapControllerRef.current?.onAddMore(text); };
   const handleMindmapNodeClick = (nodeId: string, instruction?: string) => { mindmapControllerRef.current?.onNodeClick(nodeId, instruction); };
   const handleMindmapSetNodeInstruction = (nodeId: string, instruction: string) => { mindmapControllerRef.current?.setNodeInstruction(nodeId, instruction); };
@@ -1258,11 +1264,13 @@ export function useGeneration({
       mm.nodes.push(...extraNodes);
     };
 
-    // "Restructure" (review step): rewrite the whole outline — better,
+    // "Restructure" (review step): propose a rewritten outline — better,
     // specific headings and cleaner grouping with EVERY point preserved
     // (segment-level point-count guards inside restructureOutlineChunks keep
-    // the original wherever the rewrite comes back thinner) — then return to
-    // the same review step for approval.
+    // the original wherever the rewrite comes back thinner) — but don't
+    // apply it yet. `mm.compareOutline` holds both versions so the review
+    // step can show a before/after and let the user pick one.
+    let pendingRestructure: TopicOutlineSection[][] | null = null;
     const restructureOutline = async () => {
       if (mm.restructuring || isResettingRef.current) return;
       const stale = () => isResettingRef.current || mindmapControllerRef.current !== controller;
@@ -1271,16 +1279,34 @@ export function useGeneration({
       try {
         const improved = await restructureOutlineChunks(chunkSections, mm.title, language, DEEP_PRO_MODEL);
         if (stale()) return;
-        for (let i = 0; i < total; i++) chunkSections[i] = improved[i];
-        rebuildOutlineNodes();
-        registerSectionGroups();
-        toast.success('Outline restructured — every point kept. Review it, then Approve & Generate.');
+        pendingRestructure = improved;
+        mm.compareOutline = {
+          before: chunkSections.flat().map(s => ({ heading: s.heading, subheadings: s.subheadings })),
+          after: improved.flat().map(s => ({ heading: s.heading, subheadings: s.subheadings })),
+        };
       } catch (err: any) {
         console.error('Outline restructure failed:', err);
         if (!stale()) toast.error(`Restructure failed — the original outline is unchanged. ${err?.message || ''}`);
       } finally {
         if (!stale()) { mm.restructuring = false; syncMm(); }
       }
+    };
+    // Chosen "Use Restructured" — apply the held candidate and rebuild.
+    const applyRestructure = () => {
+      if (!pendingRestructure || isResettingRef.current) return;
+      for (let i = 0; i < total; i++) chunkSections[i] = pendingRestructure[i];
+      rebuildOutlineNodes();
+      registerSectionGroups();
+      pendingRestructure = null;
+      mm.compareOutline = null;
+      syncMm();
+      toast.success('Restructured outline applied — every point kept.');
+    };
+    // Chosen "Keep Original" — discard the candidate, outline is unchanged.
+    const discardRestructure = () => {
+      pendingRestructure = null;
+      mm.compareOutline = null;
+      syncMm();
     };
 
     if (resumeFrom) {
@@ -1295,7 +1321,11 @@ export function useGeneration({
     } else {
       // Pause for review — Restructure and/or per-section instructions, then
       // Approve & Generate.
-      if (!(await runApprovalGate(mm, syncMm, restructureOutline))) { setMindmap(null); return true; }
+      mindmapCompareRef.current = { apply: applyRestructure, discard: discardRestructure };
+      const approved = await runApprovalGate(mm, syncMm, restructureOutline);
+      mindmapCompareRef.current = null;
+      mm.compareOutline = null;
+      if (!approved) { setMindmap(null); return true; }
     }
 
     // Phase 2 — expand every section in its own call, a few in flight at a
@@ -2259,6 +2289,7 @@ export function useGeneration({
     // Unblock a pipeline paused on the approval gate, a Retry/Skip/Finish
     // prompt, or the Done button, then hide the map.
     mindmapRestructureRef.current = null;
+    mindmapCompareRef.current = null;
     handleMindmapApprove();
     if (mindmapActionRef.current) resolveMindmapAction('skip');
     mindmapControllerRef.current?.cancel();
@@ -2381,6 +2412,8 @@ export function useGeneration({
     resolveMindmapAction,
     handleMindmapApprove,
     handleMindmapRestructure,
+    handleMindmapCompareApply,
+    handleMindmapCompareDiscard,
     handleMindmapSetNodeInstruction,
     handleMindmapAddMore,
     handleMindmapNodeClick,
