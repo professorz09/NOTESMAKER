@@ -1879,12 +1879,26 @@ export function useGeneration({
       if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return; }
     }
 
-    const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
-    let stoppedEarly = resumeFrom?.stoppedEarly ?? false;
     if (resumeFrom) {
       Object.entries(resumeFrom.partIndexByGroupId).forEach(([groupId, idx]) => controller.setGroupPartIndex(groupId, idx));
-      sections.forEach((_, i) => { sectionPartIndex[i] = controller.getGroupPartIndex(`s${i}`); });
     }
+    // Pre-allocate a slot per section in `parts` up front — this lets
+    // several sections write in PARALLEL (below) while still landing in
+    // outline order regardless of which one finishes first, exactly like
+    // the transcript/text chunk pipeline already does. A section already
+    // completed by a prior (resumed) run reuses its existing slot instead
+    // of getting a fresh, empty one.
+    const sectionSlot: number[] = sections.map((_, i) => {
+      const existing = controller.getGroupPartIndex(`s${i}`);
+      if (existing >= 0) return existing;
+      const idx = parts.length;
+      parts.push('');
+      controller.setGroupPartIndex(`s${i}`, idx);
+      return idx;
+    });
+    const sectionDone: boolean[] = sections.map((_, i) => mm.nodes[i]?.status === 'done');
+    let written = sectionDone.filter(Boolean).length;
+    let stoppedEarly = resumeFrom?.stoppedEarly ?? false;
 
     // Snapshot progress to localStorage so a network drop / refresh / the app
     // being reclaimed can resume from exactly here instead of losing
@@ -1918,65 +1932,69 @@ export function useGeneration({
     };
     persistProgress();
 
-    for (let i = 0; i < sections.length; i++) {
+    // Expand sections in parallel batches (a few in flight at once) instead
+    // of strictly one at a time — brings a broad topic's generation time in
+    // line with the transcript/text pipeline, which already batches this
+    // way. Sections already settled by a prior (resumed) run — done or
+    // explicitly skipped — are left alone rather than redone. A batch that
+    // comes back with failures pauses ONCE for Retry/Skip/Finish covering
+    // all of them, same UX as before — just resolved for several sections
+    // at a time instead of one.
+    let remaining = sections.map((_, i) => i).filter(i => !sectionDone[i] && mm.nodes[i].status !== 'skipped');
+    while (remaining.length) {
       if (isResettingRef.current) { setMindmap(null); return; }
-      if (sectionPartIndex[i] >= 0 || mm.nodes[i].status === 'skipped') {
-        // Already settled by a previous run (resume) — nothing to redo.
-        continue;
-      }
-      mm.nodes[i].status = 'active';
+      remaining.forEach(i => { mm.nodes[i].status = 'active'; });
       mm.errorNodeId = null;
       syncMm();
-      setNotesProgress({ current: i + 1, total, label: `Part ${i + 1}/${total}: ${sections[i].heading}` });
+      setNotesProgress({ current: written, total, label: `Writing detailed notes (section ${Math.min(written + 1, total)}/${total})` });
 
-      let html = '';
-      let skipped = false;
-      // Two silent auto-retries; if still failing, pause on the node for the
-      // user to Retry, Skip, or Finish now with whatever's already built.
-      retryLoop: while (true) {
-        let ok = false;
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          if (isResettingRef.current) { setMindmap(null); return; }
-          try { html = await expandOne(i); ok = true; break; }
-          catch (err) {
+      const batch = remaining;
+      const failed: number[] = [];
+      await mapWithConcurrency(batch.length, 3, async (r) => {
+        const i = batch[r];
+        if (isResettingRef.current) return;
+        let html = '';
+        for (let attempt = 1; attempt <= 2 && !html; attempt++) {
+          try {
+            html = await expandOne(i);
+          } catch (err) {
             console.error(`Section ${i + 1} attempt ${attempt} failed:`, err);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
+            if (attempt < 2) await new Promise(res => setTimeout(res, 1500 * attempt));
           }
         }
-        if (ok) break retryLoop;
-
-        mm.nodes[i].status = 'error';
-        mm.errorNodeId = mm.nodes[i].id;
+        if (isResettingRef.current) return;
+        if (html) {
+          parts[sectionSlot[i]] = html;
+          sectionDone[i] = true;
+          mm.nodes[i].status = 'done';
+          written++;
+          setNotesProgress({ current: written, total, label: `Writing detailed notes (section ${written}/${total})` });
+          pushLive();
+        } else {
+          failed.push(i);
+          mm.nodes[i].status = 'error';
+        }
         syncMm();
-        setNotesProgress({ current: i + 1, total, label: `Part ${i + 1} ran into a problem — choose Retry, Skip or Finish` });
-        const action = await waitForMindmapAction();
-        if (isResettingRef.current) { setMindmap(null); return; }
-        mm.errorNodeId = null;
-        if (action === 'finish') { skipped = true; stoppedEarly = true; break retryLoop; }
-        if (action === 'skip') { skipped = true; break retryLoop; }
-        mm.nodes[i].status = 'active';
-        syncMm();
-      }
-
-      if (skipped) {
-        // Leave content untouched (no placeholder text) — the node's
-        // 'skipped' status is enough, and it stays clickable to generate
-        // on demand later since its group was registered up front.
-        mm.nodes[i].status = 'skipped';
-        syncMm();
-        persistProgress();
-        if (stoppedEarly) break;
-        continue;
-      }
-
-      const partIndex = parts.length;
-      parts.push(html);
-      controller.setGroupPartIndex(mm.nodes[i].groupId, partIndex);
-      sectionPartIndex[i] = partIndex;
-      mm.nodes[i].status = 'done';
-      syncMm();
-      pushLive();
+      });
       persistProgress();
+      if (isResettingRef.current) { setMindmap(null); return; }
+      if (!failed.length) break;
+
+      mm.errorNodeId = mm.nodes[failed[0]].id;
+      syncMm();
+      setNotesProgress({ current: written, total, label: `${failed.length} section(s) ran into a problem — choose Retry, Skip or Finish` });
+      const action = await waitForMindmapAction();
+      if (isResettingRef.current) { setMindmap(null); return; }
+      mm.errorNodeId = null;
+      if (action === 'retry') { remaining = failed; continue; }
+      // Skip / Finish: no placeholder text — the 'skipped' status is
+      // enough, and the node stays clickable to generate on demand into
+      // its own slot.
+      failed.forEach(i => { mm.nodes[i].status = 'skipped'; });
+      syncMm();
+      persistProgress();
+      if (action === 'finish') stoppedEarly = true;
+      break;
     }
 
     // Detailed & Deep: a final "what's still missing?" completeness pass —
@@ -2023,7 +2041,7 @@ export function useGeneration({
     await runGroundingPass(outline.title || topic, mm, syncMm, parts, pushLive, sections.map((s, i) => ({
       heading: s.heading,
       subheadings: s.subheadings,
-      partIndex: sectionPartIndex[i],
+      partIndex: sectionDone[i] ? sectionSlot[i] : -1,
       nodeIds: [mm.nodes[i].id],
     })).filter(e => e.partIndex >= 0));
 
