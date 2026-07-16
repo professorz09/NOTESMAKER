@@ -37,12 +37,14 @@ const KIND_WORDING: Record<ChunkSourceKind, { source: string; segment: string; g
   },
 };
 
+// Detailed uses the exact same depth instruction as Deep — the two levels
+// share identical prompts/structure everywhere in this pipeline; the model
+// passed in by the caller (Pro for Deep, Flash for Detailed) is the only
+// thing that differs between them.
 const depthDirective = (level: 'medium' | 'detailed' | 'deep') =>
-  level === 'deep'
+  (level === 'deep' || level === 'detailed')
     ? 'Go MAXIMALLY deep and advanced on every sub-point: what it is, why it matters, how it works / the mechanism, background and significance, plus every concrete fact from the source. Expand a sub-point into its own <h4> parts where it is layered. Miss nothing.'
-    : level === 'detailed'
-      ? 'Explain every sub-point thoroughly and concretely, with the facts and examples from the source.'
-      : 'Give every sub-point a solid, clear, self-sufficient explanation using the key facts from the source.';
+    : 'Give every sub-point a solid, clear, self-sufficient explanation using the key facts from the source.';
 
 async function expandOnce(
   kind: ChunkSourceKind,

@@ -7,6 +7,7 @@ import { LoadingOverlay } from './components/LoadingOverlay';
 import { ClearConfirmModal } from './components/ClearConfirmModal';
 import { EditorCanvas } from './components/EditorCanvas';
 import { MindmapOverlay } from './components/MindmapOverlay';
+import { ResumeBanner } from './components/ResumeBanner';
 import { GenerationStatus } from './types';
 import { useHistory } from './hooks/useHistory';
 import { useEditorContent } from './hooks/useEditorContent';
@@ -127,6 +128,7 @@ const App: React.FC = () => {
     handleFileUpload, removeFile,
     handleGenerate, handleGenerateTable,
     handleNextUPSCQuestion,
+    resumeSnapshot, handleResumePipeline, handleDismissResume,
     handleClearCanvas,
     translatePdfFile, setTranslatePdfFile,
     handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
@@ -748,6 +750,14 @@ const App: React.FC = () => {
         onConfirm={confirmClear}
         onCancel={() => setShowClearConfirm(false)}
       />
+
+      {!mindmap && status === GenerationStatus.IDLE && (
+        <ResumeBanner
+          snapshot={resumeSnapshot}
+          onResume={handleResumePipeline}
+          onDismiss={handleDismissResume}
+        />
+      )}
     </div>
   );
 };

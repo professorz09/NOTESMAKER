@@ -166,13 +166,21 @@ export const expandTopicSection = async (
   const ai = createAIClient();
 
   const callOnce = async (subs: string[], subStart: number, includeH2: boolean, refineOnce?: RefinementOptions) => {
+    const isRevision = !!(refineOnce && (refineOnce.existingHtml || refineOnce.customInstruction));
     const subGuidance = subs.length
       ? `Write EVERY one of these sub-points as its OWN full sub-section, using exactly these <h3> headings/numbers. Where a sub-point GENUINELY has distinct parts (definition, mechanism, examples, data…), break it further into its own <h4>${sectionNumber}.k.m …</h4> sub-sub-sections — but only where that truly fits; a rich flowing explanation is fine where it doesn't:
 ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join('\n')}
     **ANTI-SUMMARY RULE (most important):** each of these sub-points gets its own complete, multi-paragraph explanation — NEVER a single line, NEVER two sub-points folded into one, NEVER a bullet that just restates the heading.`
-      : (level === 'detailed'
-        ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained (with <h4> sub-parts where a sub-section is layered).'
-        : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
+      : isRevision
+        // A no-fixed-subheadings revision (e.g. an "add a point" section being
+        // improved) must NOT also be told to invent a fresh 3-5-section
+        // structure — that instruction fights the "revise this existing draft"
+        // directive below and is exactly why refine clicks used to come back
+        // as a generic rewrite instead of an actual improvement.
+        ? 'Keep this section\'s existing structure (its current sub-headings, if any) unless it is genuinely unclear — only reorganize into new <h3> sub-sections if that would make it noticeably clearer.'
+        : (level === 'detailed'
+          ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained (with <h4> sub-parts where a sub-section is layered).'
+          : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
 
     const depth = level === 'detailed'
       ? 'Go MAXIMALLY deep: every sub-section must have real explanation, mechanism, and at least one concrete real-world example. Aim for a thorough, textbook-grade treatment of this section — do not stop early.'
@@ -190,7 +198,7 @@ ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join(
       : `Do NOT output the <h2> heading (it is already written) — continue directly with the <h3> sub-sections below.`}
     ${subGuidance}
 
-    Full outline of the notes (for scope only — so you don't drift into other sections): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
+    Other sections ALREADY WRITTEN elsewhere in these notes (read them for context — do not repeat what they already cover, but do write this section so it fits naturally alongside them in scope and depth): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
 
     ${depth}
 
@@ -288,11 +296,18 @@ export const expandDeepSection = async (
     f && (section.heading.toLowerCase().includes(f.toLowerCase()) || f.toLowerCase().includes(section.heading.toLowerCase())));
 
   const callOnce = async (subs: string[], subStart: number, includeH2: boolean, refineOnce?: RefinementOptions) => {
+    const isRevision = !!(refineOnce && (refineOnce.existingHtml || refineOnce.customInstruction));
     const subGuidance = subs.length
       ? `Write EACH of these sub-sub-topics as its OWN full sub-section, using exactly these <h3> headings/numbers. Where a sub-sub-topic GENUINELY has distinct parts (definition, background, mechanism/working, examples, data/figures, significance…), break it further into its own <h4>${sectionNumber}.k.m …</h4> sub-parts — but only where that truly fits; a rich flowing explanation is fine where it doesn't:
 ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join('\n')}
     **ANTI-SUMMARY RULE (most important):** each sub-sub-topic gets its own complete, multi-paragraph, textbook-grade treatment — NEVER a heading with a single line under it, NEVER two sub-sub-topics folded into one, NEVER a bullet that just restates the heading.`
-      : 'Break this section into 3-5 logical <h3> sub-sections that fully cover it, each explained in depth with <h4> sub-parts where a sub-section is layered.';
+      : isRevision
+        // Don't fight the "revise this existing draft" directive below with a
+        // "build a brand-new structure" instruction — that contradiction is
+        // why a refine click used to come back as a generic rewrite instead
+        // of an actual improvement on what was already there.
+        ? 'Keep this section\'s existing structure (its current sub-headings, if any) unless it is genuinely unclear — only reorganize into new <h3> sub-sections if that would make it noticeably clearer.'
+        : 'Break this section into 3-5 logical <h3> sub-sections that fully cover it, each explained in depth with <h4> sub-parts where a sub-section is layered.';
 
     const prompt = `
     Role: Subject expert & textbook author.
@@ -307,7 +322,7 @@ ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join(
       : `Do NOT output the <h2> heading (it is already written) — continue directly with the <h3> sub-sections below.`}
     ${subGuidance}
 
-    Full outline (scope only, don't drift into other sections): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
+    Other sections ALREADY WRITTEN elsewhere in these notes (read them for context — do not repeat what they already cover, but do write this section so it fits naturally alongside them in scope and depth): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
 
     RULES:
     - ${EXPLAIN_RULE}

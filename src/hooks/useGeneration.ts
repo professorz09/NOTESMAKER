@@ -38,6 +38,7 @@ import {
   type DetailLevel,
   type TranscriptSection,
   type ChunkSourceKind,
+  type TopicOutlineSection,
 } from '../services/ai/index';
 import { GenerationStatus, type MindmapState } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
@@ -46,15 +47,29 @@ import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
 import { fetchVideoTranscript, looksLikeVideoUrl } from '../services/supadata';
 import { toast } from '../components/Toast';
+import {
+  type PipelineResumeSnapshot,
+  type TopicResumeSnapshot,
+  type ChunkResumeSnapshot,
+  saveResumeSnapshot,
+  loadResumeSnapshot,
+  clearResumeSnapshot,
+} from '../utils/pipelineResume';
 
 // Every leveled pipeline's own internal calls (outline/structure, Deep-level
 // expansion, completeness passes, and any manual "regenerate this node"
 // click) always use Gemini 3 Pro — quality and completeness matter more here
 // than speed, and Flash-lite measurably drops depth/accuracy on this kind of
 // dense, structure-heavy generation. The name must not change: this is the
-// current supported Pro model ID. (Medium/Detailed's per-section automatic
-// expand still respects the user's own Sidebar model choice, `aiModel`.)
+// current supported Pro model ID. (Medium's per-section automatic expand
+// still respects the user's own Sidebar model choice, `aiModel`.)
 const DEEP_PRO_MODEL = 'gemini-3.1-pro-preview';
+// Detailed shares Deep's outline + expand PROMPTS and STRUCTURE exactly (see
+// runLeveledTopicPipeline) — the only difference between the two levels is
+// which model writes each section: Deep uses Pro throughout, Detailed uses
+// Pro for the outline/completeness passes and this Flash model for the bulk
+// per-section expand (faster, cheaper, still solid quality).
+const DETAILED_FLASH_MODEL = 'gemini-3.1-flash-lite';
 
 type MindmapAction = 'retry' | 'skip' | 'finish';
 
@@ -111,6 +126,7 @@ function createMindmapController(
   const registerGroup = (groupId: string, regenerate: RegenerateFn) => {
     groups.set(groupId, { partIndex: -1, regenerate });
   };
+  const getGroupPartIndex = (groupId: string): number => groups.get(groupId)?.partIndex ?? -1;
   const setGroupPartIndex = (groupId: string, partIndex: number) => {
     const g = groups.get(groupId);
     if (g) g.partIndex = partIndex;
@@ -207,7 +223,7 @@ function createMindmapController(
     if (r) r();
   };
 
-  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, setNodeInstruction, markDone, waitForDone, resolveDone, cancel };
+  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, getGroupPartIndex, setNodeInstruction, markDone, waitForDone, resolveDone, cancel };
 }
 type MindmapController = ReturnType<typeof createMindmapController>;
 
@@ -249,6 +265,11 @@ export function useGeneration({
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
   const [mindmap, setMindmap] = useState<MindmapState | null>(null);
+  // A leveled pipeline interrupted mid-generation (network drop, page
+  // refresh, the browser tab/app being reclaimed) leaves a snapshot in
+  // localStorage — checked once on load so the user can pick up exactly
+  // where it stopped instead of losing everything already generated.
+  const [resumeSnapshot, setResumeSnapshot] = useState<PipelineResumeSnapshot | null>(() => loadResumeSnapshot());
   // Resolver for the Retry/Skip/Finish prompt when a section fails mid-pipeline.
   const mindmapActionRef = useRef<((a: MindmapAction) => void) | null>(null);
   // Add-a-point / node-click / done-button bridge for the active pipeline.
@@ -1039,19 +1060,31 @@ export function useGeneration({
     text: string,
     level: 'medium' | 'detailed' | 'deep',
     kind: ChunkSourceKind,
+    resumeFrom?: ChunkResumeSnapshot,
   ): Promise<boolean> => {
     // Smaller chunks = less source text competing for the output-token
     // budget on each call — the main defense against silently dropped content.
     const chunks = chunkTranscript(text, 4500);
     const total = chunks.length;
+    // Chunking is deterministic given the same text, but guard against a
+    // stale snapshot (e.g. saved by an older app build) not lining up —
+    // safer to fall back to a fresh run than index out of bounds.
+    if (resumeFrom && resumeFrom.chunkSections.length !== total) {
+      console.error('Resume snapshot chunk count mismatch — starting fresh instead.');
+      resumeFrom = undefined;
+    }
     // Structuring always uses Pro (quality matters most for getting the
     // skeleton right). Once the user APPROVES a transcript plan, expansion
     // always runs at the strongest setting — Pro model + maximum depth —
     // whatever level got it here: class notes must be the deepest, most
-    // detailed version. Text keeps its level→model mapping.
+    // detailed version. Text keeps its level→model mapping: Medium respects
+    // the user's Sidebar choice, Deep is all-Pro, Detailed is Pro+Flash
+    // (same prompts as Deep — see depthDirective — just written by Flash).
     const outlineModel = DEEP_PRO_MODEL;
     const expandLevel: 'medium' | 'detailed' | 'deep' = kind === 'transcript' ? 'deep' : level;
-    const expandModel = (kind === 'transcript' || level === 'deep') ? DEEP_PRO_MODEL : aiModel;
+    const expandModel = kind === 'transcript' || level === 'deep'
+      ? DEEP_PRO_MODEL
+      : level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel;
 
     const parts: string[] = [];
     const pushLive = (recordHistory = false) => {
@@ -1083,6 +1116,48 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
+    if (!resumeFrom) {
+      // A stale snapshot from an earlier, unrelated pipeline shouldn't be
+      // offered once a fresh generation is deliberately started.
+      clearResumeSnapshot();
+      setResumeSnapshot(null);
+    }
+
+    let chunkSections: TopicOutlineSection[][];
+    let chunkRange: { start: number; end: number }[];
+
+    if (resumeFrom) {
+      // Skip the (cheap, fast) outline phase entirely — pick up straight from
+      // the saved plan and whatever sections were already written. Copied
+      // (not referenced) since a later Restructure would otherwise mutate
+      // the snapshot object itself.
+      chunkSections = resumeFrom.chunkSections.map(secs => secs.map(s => ({ heading: s.heading, subheadings: [...s.subheadings] })));
+      mm.title = resumeFrom.title;
+      const savedById = new Map(resumeFrom.nodes.map(n => [n.id, n]));
+      chunkRange = [];
+      mm.nodes = [];
+      for (let i = 0; i < total; i++) {
+        const before = mm.nodes.length;
+        chunkSections[i].forEach((s, j) => {
+          const id = `c${i}s${j}`;
+          const saved = savedById.get(id);
+          mm.nodes.push({
+            id,
+            label: s.heading,
+            status: (saved?.status === 'done' || saved?.status === 'skipped') ? saved.status : 'pending',
+            children: s.subheadings.map((h, k) => ({ id: `${id}l${k}`, label: h })),
+            groupId: id,
+            instruction: saved?.instruction,
+          });
+        });
+        chunkRange.push({ start: before, end: mm.nodes.length });
+      }
+      const extraNodes = resumeFrom.nodes.filter(n => !/^c\d+s\d+$/.test(n.groupId));
+      mm.nodes.push(...extraNodes.map(n => ({ ...n, children: n.children.map(c => ({ ...c })) })));
+      parts.push(...resumeFrom.parts);
+      syncMm();
+      pushLive();
+    } else {
     // The title only needs the first chunk, so it runs in parallel with
     // Phase 1 instead of being a serial round-trip of its own.
     const titlePromise = (kind === 'transcript'
@@ -1096,7 +1171,7 @@ export function useGeneration({
       label: `Building the whole ${kind === 'transcript' ? 'video' : 'content'} structure… (${total} part${total > 1 ? 's' : ''})`,
     });
     syncMm();
-    const { chunkSections, chunkRange, anyRealOutline } = await outlineChunksParallel(
+    const outlineResult = await outlineChunksParallel(
       chunks,
       (chunk, part, tot) => kind === 'transcript'
         ? outlineTranscriptChunk(chunk, part, tot, language, outlineModel)
@@ -1107,7 +1182,9 @@ export function useGeneration({
 
     // Structure step wholesale-failed (e.g. network) → let the caller fall
     // back to the single-shot path the user knows works.
-    if (!anyRealOutline) { setMindmap(null); return false; }
+    if (!outlineResult.anyRealOutline) { setMindmap(null); return false; }
+    chunkSections = outlineResult.chunkSections;
+    chunkRange = outlineResult.chunkRange;
 
     // Title (fetched in parallel with Phase 1 above).
     const titleHtml = sanitizeHtml(await titlePromise);
@@ -1117,6 +1194,7 @@ export function useGeneration({
       if (m) { const t = m[1].replace(/<[^>]+>/g, '').trim(); if (t) mm.title = t; }
       syncMm();
       pushLive();
+    }
     }
 
     // Global section numbers, recomputed whenever the outline changes
@@ -1192,16 +1270,31 @@ export function useGeneration({
       }
     };
 
-    // Pause for review — Restructure and/or per-section instructions, then
-    // Approve & Generate.
-    if (!(await runApprovalGate(mm, syncMm, restructureOutline))) { setMindmap(null); return true; }
+    if (resumeFrom) {
+      // Approval already happened before the interruption — reconnect any
+      // "add a point" nodes carried over so they stay clickable-to-refine,
+      // and restore every group's slot in `parts` from the snapshot.
+      mm.nodes
+        .filter(n => !/^c\d+s\d+$/.test(n.groupId))
+        .forEach((n, idx) => controller.registerGroup(n.groupId, (instruction, existingHtml) =>
+          extraExpand(n.label, total * 1000 + idx, mm.nodes.map(x => x.label), { existingHtml, customInstruction: instruction })));
+      Object.entries(resumeFrom.partIndexByGroupId).forEach(([groupId, idx]) => controller.setGroupPartIndex(groupId, idx));
+    } else {
+      // Pause for review — Restructure and/or per-section instructions, then
+      // Approve & Generate.
+      if (!(await runApprovalGate(mm, syncMm, restructureOutline))) { setMindmap(null); return true; }
+    }
 
     // Phase 2 — expand every section in its own call, a few in flight at a
     // time within each chunk. One slot per section is pre-allocated in
     // `parts` so out-of-order completions still render in outline order, and
     // registered on the controller so a later regenerate (or a skipped node
-    // generated on demand) lands in place instead of at the end.
-    const sectionSlot: number[][] = chunkSections.map(secs => secs.map(() => {
+    // generated on demand) lands in place instead of at the end. A section
+    // already settled by a prior (interrupted) run reuses its existing slot
+    // instead of getting a fresh, empty one.
+    const sectionSlot: number[][] = chunkSections.map((secs, i) => secs.map((_, j) => {
+      const existing = controller.getGroupPartIndex(`c${i}s${j}`);
+      if (existing >= 0) return existing;
       const idx = parts.length;
       parts.push('');
       return idx;
@@ -1209,15 +1302,51 @@ export function useGeneration({
     for (let i = 0; i < total; i++) {
       for (let j = 0; j < chunkSections[i].length; j++) controller.setGroupPartIndex(`c${i}s${j}`, sectionSlot[i][j]);
     }
-    const sectionDone: boolean[][] = chunkSections.map(secs => secs.map(() => false));
+    const sectionDone: boolean[][] = chunkSections.map((secs, i) => secs.map((_, j) =>
+      mm.nodes[chunkRange[i].start + j]?.status === 'done'));
     const totalSections = chunkSections.reduce((a, s) => a + s.length, 0);
-    let written = 0;
-    let stoppedEarly = false;
+    let written = sectionDone.reduce((a, c) => a + c.filter(Boolean).length, 0);
+    let stoppedEarly = resumeFrom?.stoppedEarly ?? false;
+
+    // Snapshot progress to localStorage so a network drop / refresh / the app
+    // being reclaimed can resume from exactly here instead of losing
+    // everything already written. The (cheap, fast) outline/approval phase
+    // above is NOT snapshotted — only this expensive per-section expansion is.
+    const persistProgress = () => {
+      if (isResettingRef.current) return;
+      const partIndexByGroupId: Record<string, number> = {};
+      mm.nodes.forEach(n => {
+        const idx = controller.getGroupPartIndex(n.groupId);
+        if (idx >= 0) partIndexByGroupId[n.groupId] = idx;
+      });
+      const snapshot: ChunkResumeSnapshot = {
+        kind: 'chunk',
+        chunkSourceKind: kind,
+        level,
+        sourceText: text,
+        language,
+        aiModel,
+        title: mm.title,
+        subtitle: mm.subtitle,
+        chunkSections: chunkSections.map(secs => secs.map(s => ({ heading: s.heading, subheadings: s.subheadings }))),
+        nodes: mm.nodes.map(n => ({ ...n, children: n.children.map(c => ({ ...c })) })),
+        parts: [...parts],
+        partIndexByGroupId,
+        stoppedEarly,
+        savedAt: Date.now(),
+      };
+      saveResumeSnapshot(snapshot);
+    };
+    persistProgress();
 
     for (let i = 0; i < total && !stoppedEarly; i++) {
       if (isResettingRef.current) { setMindmap(null); return true; }
       const range = chunkRange[i];
-      let remaining = chunkSections[i].map((_, j) => j);
+      // Sections already settled by a prior (interrupted) run — done or
+      // explicitly skipped — are left alone rather than redone.
+      let remaining = chunkSections[i]
+        .map((_, j) => j)
+        .filter(j => !sectionDone[i][j] && mm.nodes[range.start + j].status !== 'skipped');
       while (remaining.length) {
         if (isResettingRef.current) { setMindmap(null); return true; }
         remaining.forEach(j => { mm.nodes[range.start + j].status = 'active'; });
@@ -1258,6 +1387,7 @@ export function useGeneration({
           }
           syncMm();
         });
+        persistProgress();
         if (isResettingRef.current) { setMindmap(null); return true; }
         if (!failed.length) break;
 
@@ -1274,6 +1404,7 @@ export function useGeneration({
         failed.forEach(j => { mm.nodes[range.start + j].status = 'skipped'; });
         syncMm();
         if (action === 'finish') stoppedEarly = true;
+        persistProgress();
         break;
       }
     }
@@ -1293,6 +1424,10 @@ export function useGeneration({
         nodeIds: [`c${i}s${j}`],
       }))).filter(e => e.partIndex >= 0));
 
+    // The pipeline has reached its finished/reviewable state — the notes are
+    // already fully in the canvas, so there's nothing left worth resuming.
+    clearResumeSnapshot();
+    setResumeSnapshot(null);
     controller.markDone();
     await controller.waitForDone();
     if (isResettingRef.current) { setMindmap(null); return true; }
@@ -1320,7 +1455,10 @@ export function useGeneration({
   ): Promise<boolean> => {
     const fileParts = uploadedFiles.map(f => ({ data: f.data, mimeType: f.mimeType }));
     const outlineModel = DEEP_PRO_MODEL;
-    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : aiModel;
+    // Same prompts/structure for Detailed and Deep (see expandFilesSection's
+    // depth directive) — Deep is all-Pro, Detailed is Pro outline + Flash
+    // expand, Medium keeps the user's own Sidebar model choice.
+    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel;
 
     const parts: string[] = [];
     const pushLive = (recordHistory = false) => {
@@ -1574,7 +1712,14 @@ export function useGeneration({
   //
   // Falls back to a single shot if the outline step yields nothing. Manages its
   // own live state + progress; caller's finally resets status/progress/mindmap.
-  const runLeveledTopicPipeline = async (topic: string, level: 'medium' | 'detailed' | 'deep') => {
+  // `resumeFrom` — when set, skips outline generation + the approval gate
+  // entirely and continues expansion from exactly the sections a prior,
+  // interrupted run hadn't finished yet (see persistTopicSnapshot below).
+  const runLeveledTopicPipeline = async (
+    topic: string,
+    level: 'medium' | 'detailed' | 'deep',
+    resumeFrom?: TopicResumeSnapshot,
+  ) => {
     const parts: string[] = [];
     // During the build we only update the canvas + storage; we record a single
     // undo-history entry at the very end (recordHistory=true) so Undo doesn't
@@ -1588,8 +1733,8 @@ export function useGeneration({
     };
 
     const subtitle = level === 'deep'
-      ? 'Deep pipeline • Pro + Flash'
-      : level === 'detailed' ? 'Detailed pipeline' : 'Medium pipeline';
+      ? 'Deep pipeline • Pro'
+      : level === 'detailed' ? 'Detailed pipeline • Pro + Flash' : 'Medium pipeline';
 
     // Local mutable mind map; re-clone into state on every change to re-render.
     const mm: MindmapState = { title: topic, subtitle, nodes: [], errorNodeId: null, awaitingApproval: false, restructuring: false, complete: false, addBusy: false };
@@ -1605,27 +1750,43 @@ export function useGeneration({
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
 
-    setNotesProgress({ current: 0, total: 1, label: 'Preparing structure…' });
-    syncMm();
+    if (!resumeFrom) {
+      // A stale snapshot from an earlier, unrelated pipeline shouldn't be
+      // offered once a fresh generation is deliberately started.
+      clearResumeSnapshot();
+      setResumeSnapshot(null);
+    }
 
-    let outline = null as Awaited<ReturnType<typeof generateTopicOutline>> | Awaited<ReturnType<typeof generateDeepOutline>>;
+    let outline: { title: string; sections: TopicOutlineSection[] } | null = null;
     let focusAreas: string[] = [];
-    // One retry before giving up: a single transient failure here used to
-    // silently demote the whole run to the single-shot fallback.
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        if (level === 'deep') {
-          const deep = await generateDeepOutline(topic, language, DEEP_PRO_MODEL);
-          if (deep) { outline = deep; focusAreas = deep.focusAreas || []; }
-        } else {
-          outline = await generateTopicOutline(topic, language, aiModel, level);
+    if (resumeFrom) {
+      outline = { title: resumeFrom.title, sections: resumeFrom.sections };
+      focusAreas = resumeFrom.focusAreas;
+    } else {
+      setNotesProgress({ current: 0, total: 1, label: 'Preparing structure…' });
+      syncMm();
+      // One retry before giving up: a single transient failure here used to
+      // silently demote the whole run to the single-shot fallback.
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          if (level === 'deep' || level === 'detailed') {
+            // Detailed shares Deep's outline prompt/structure exactly (analyse
+            // focus areas, build the same 3-level plan) via Pro — outline
+            // quality is what makes the rest of the pipeline good, so both
+            // levels use the strongest model here; they only diverge on the
+            // model used to WRITE each section (see expandOne below).
+            const deep = await generateDeepOutline(topic, language, DEEP_PRO_MODEL);
+            if (deep) { outline = deep; focusAreas = deep.focusAreas || []; }
+          } else {
+            outline = await generateTopicOutline(topic, language, aiModel, level);
+          }
+        } catch (err) {
+          console.error(`Outline attempt ${attempt} failed:`, err);
         }
-      } catch (err) {
-        console.error(`Outline attempt ${attempt} failed:`, err);
+        if (outline && outline.sections.length) break;
+        outline = null;
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
       }
-      if (outline && outline.sections.length) break;
-      outline = null;
-      if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
     }
 
     // Outline failed — don't lose the request; fall back to a single-shot.
@@ -1642,32 +1803,42 @@ export function useGeneration({
     const total = sections.length + (hasCompletenessPass ? 1 : 0);
 
     mm.title = outline.title || topic;
-    mm.nodes = sections.map((s, i) => ({
-      id: `s${i}`,
-      label: s.heading,
-      status: 'pending' as const,
-      children: (s.subheadings || []).map((h, j) => ({ id: `s${i}-${j}`, label: h })),
-      groupId: `s${i}`,
-    }));
+    if (resumeFrom) {
+      mm.nodes = resumeFrom.nodes.map(n => ({ ...n, children: n.children.map(c => ({ ...c })) }));
+      parts.push(...resumeFrom.parts);
+    } else {
+      mm.nodes = sections.map((s, i) => ({
+        id: `s${i}`,
+        label: s.heading,
+        status: 'pending' as const,
+        children: (s.subheadings || []).map((h, j) => ({ id: `s${i}-${j}`, label: h })),
+        groupId: `s${i}`,
+      }));
+      parts.push(`<h1>${escapeHtml(outline.title || topic)}</h1>`);
+    }
     syncMm();
-
-    parts.push(`<h1>${escapeHtml(outline.title || topic)}</h1>`);
     pushLive();
 
     // A section's user-attached review instruction feeds its FIRST expansion.
     const refineFor = (i: number): RefinementOptions | undefined =>
       mm.nodes[i]?.instruction ? { customInstruction: mm.nodes[i].instruction } : undefined;
-    const expandOne = (i: number) => level === 'deep'
-      ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, DEEP_PRO_MODEL, refineFor(i))
-      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium' | 'detailed', refineFor(i));
+    // Deep writes every section with Pro; Detailed writes them with Flash —
+    // same expandDeepSection prompt/structure either way, only the model
+    // differs. Medium keeps the lighter expandTopicSection + user's model.
+    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : DETAILED_FLASH_MODEL;
+    const expandOne = (i: number) => (level === 'deep' || level === 'detailed')
+      ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, expandModel, refineFor(i))
+      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium', refineFor(i));
     // Clicking a node (done/error/never-attempted) always regenerates via Pro
     // at max depth, one strength level above whatever the automatic pass
     // used — carrying the existing draft + any typed instruction as a
     // revision pass rather than a blind rewrite.
     const deepenOne = (i: number, instruction?: string, existingHtml?: string) =>
       expandDeepSection(topic, sections[i], i + 1, allHeadings, [sections[i].heading], language, DEEP_PRO_MODEL, { existingHtml, customInstruction: instruction });
+    // Completeness pass always runs on Pro for both Deep and Detailed — it's
+    // the final accuracy check over the whole topic, same as the outline.
     const runCompleteness = (instruction?: string, existingHtml?: string) => generateAdditionalTopicAspects(
-      topic, allHeadings, sections.length + 1, language, level === 'deep' ? DEEP_PRO_MODEL : aiModel,
+      topic, allHeadings, sections.length + 1, language, (level === 'deep' || level === 'detailed') ? DEEP_PRO_MODEL : aiModel,
       { existingHtml, customInstruction: instruction },
     );
 
@@ -1677,18 +1848,68 @@ export function useGeneration({
     // generate/deepen on demand while the map is open.
     sections.forEach((_, i) => controller.registerGroup(`s${i}`, (instruction, existingHtml) => deepenOne(i, instruction, existingHtml)));
     if (hasCompletenessPass) controller.registerGroup('extra', runCompleteness);
+    if (resumeFrom) {
+      // Reconnect any "add a point" nodes carried over from the interrupted
+      // run so they stay clickable-to-refine, exactly like a freshly added one.
+      mm.nodes
+        .filter(n => !/^s\d+$/.test(n.groupId) && n.groupId !== 'extra')
+        .forEach((n, idx) => controller.registerGroup(n.groupId, (instruction, existingHtml) =>
+          extraExpand(n.label, sections.length + 2 + idx, allHeadings, { existingHtml, customInstruction: instruction })));
+    }
 
-    // Pause for the user to review the plan / attach per-section
-    // instructions. No Restructure here: a topic outline is already designed
-    // from scratch by the AI, so a restructure pass has nothing to fix —
-    // it's only offered where the outline was extracted from source material
-    // (transcript / text / files).
-    if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return; }
+    if (!resumeFrom) {
+      // Pause for the user to review the plan / attach per-section
+      // instructions. No Restructure here: a topic outline is already
+      // designed from scratch by the AI, so a restructure pass has nothing
+      // to fix — it's only offered where the outline was extracted from
+      // source material (transcript / text / files).
+      if (!(await runApprovalGate(mm, syncMm))) { setMindmap(null); return; }
+    }
 
     const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
-    let stoppedEarly = false;
+    let stoppedEarly = resumeFrom?.stoppedEarly ?? false;
+    if (resumeFrom) {
+      Object.entries(resumeFrom.partIndexByGroupId).forEach(([groupId, idx]) => controller.setGroupPartIndex(groupId, idx));
+      sections.forEach((_, i) => { sectionPartIndex[i] = controller.getGroupPartIndex(`s${i}`); });
+    }
+
+    // Snapshot progress to localStorage so a network drop / refresh / the app
+    // being reclaimed can resume from exactly here instead of losing
+    // everything already written. Cheap to redo (outline + approval) is NOT
+    // snapshotted — only the expensive per-section expansion below is.
+    const persistProgress = () => {
+      if (isResettingRef.current) return;
+      const partIndexByGroupId: Record<string, number> = {};
+      mm.nodes.forEach(n => {
+        const idx = controller.getGroupPartIndex(n.groupId);
+        if (idx >= 0) partIndexByGroupId[n.groupId] = idx;
+      });
+      const snapshot: TopicResumeSnapshot = {
+        kind: 'topic',
+        level,
+        topic,
+        language,
+        aiModel,
+        title: mm.title,
+        subtitle: mm.subtitle,
+        sections: sections.map(s => ({ heading: s.heading, subheadings: s.subheadings })),
+        focusAreas,
+        nodes: mm.nodes.map(n => ({ ...n, children: n.children.map(c => ({ ...c })) })),
+        parts: [...parts],
+        partIndexByGroupId,
+        stoppedEarly,
+        savedAt: Date.now(),
+      };
+      saveResumeSnapshot(snapshot);
+    };
+    persistProgress();
+
     for (let i = 0; i < sections.length; i++) {
       if (isResettingRef.current) { setMindmap(null); return; }
+      if (sectionPartIndex[i] >= 0 || mm.nodes[i].status === 'skipped') {
+        // Already settled by a previous run (resume) — nothing to redo.
+        continue;
+      }
       mm.nodes[i].status = 'active';
       mm.errorNodeId = null;
       syncMm();
@@ -1729,6 +1950,7 @@ export function useGeneration({
         // on demand later since its group was registered up front.
         mm.nodes[i].status = 'skipped';
         syncMm();
+        persistProgress();
         if (stoppedEarly) break;
         continue;
       }
@@ -1740,11 +1962,13 @@ export function useGeneration({
       mm.nodes[i].status = 'done';
       syncMm();
       pushLive();
+      persistProgress();
     }
 
     // Detailed & Deep: a final "what's still missing?" completeness pass —
     // skipped if the user chose to finish early (the node stays clickable).
-    if (hasCompletenessPass) {
+    // Skipped entirely if a resumed run already carries its result.
+    if (hasCompletenessPass && !mm.nodes.some(n => n.id === 'extra')) {
       const extraId = 'extra';
       mm.nodes.push({ id: extraId, label: 'Remaining key points', status: stoppedEarly ? 'skipped' : 'active', children: [], groupId: extraId });
       syncMm();
@@ -1766,6 +1990,7 @@ export function useGeneration({
           console.error('Completeness pass failed:', err);
           mm.nodes[mm.nodes.length - 1].status = 'skipped';
         }
+        persistProgress();
         syncMm();
       }
     }
@@ -1788,6 +2013,10 @@ export function useGeneration({
       nodeIds: [mm.nodes[i].id],
     })).filter(e => e.partIndex >= 0));
 
+    // The pipeline has reached its finished/reviewable state — the notes are
+    // already fully in the canvas, so there's nothing left worth resuming.
+    clearResumeSnapshot();
+    setResumeSnapshot(null);
     controller.markDone();
     await controller.waitForDone();
     if (isResettingRef.current) { setMindmap(null); return; }
@@ -1978,6 +2207,8 @@ export function useGeneration({
     activeEditIdRef.current = null;
     selectionRangeRef.current = null;
     localStorage.removeItem(STORAGE_KEY);
+    clearResumeSnapshot();
+    setResumeSnapshot(null);
     setTranslateProgress(null);
     setTranslateResumeState(null);
     setTranscriptProgress(null);
@@ -1995,6 +2226,51 @@ export function useGeneration({
     setMindmap(null);
     setOnePagerTopics([]);
     setTimeout(() => { isResettingRef.current = false; }, 100);
+  };
+
+  // Continue an interrupted leveled pipeline from its last saved snapshot
+  // (see resumeSnapshot / pipelineResume.ts) instead of losing everything
+  // already generated to a dropped connection, a refresh, or the app being
+  // reclaimed in the background.
+  const handleResumePipeline = async () => {
+    const snap = resumeSnapshot;
+    if (!snap) return;
+    setResumeSnapshot(null);
+    clearResumeSnapshot();
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    try {
+      setLanguage(snap.language);
+      setAiModel(snap.aiModel);
+      setDetailLevel(snap.level);
+      if (snap.kind === 'topic') {
+        setMode('topic');
+        setTopicInput(snap.topic);
+        await runLeveledTopicPipeline(snap.topic, snap.level, snap);
+      } else {
+        setMode(snap.chunkSourceKind === 'transcript' ? 'transcript' : 'text');
+        if (snap.chunkSourceKind === 'transcript') setTranscriptInput(snap.sourceText);
+        else setTextInput(snap.sourceText);
+        await runLeveledChunkPipeline(snap.sourceText, snap.level, snap.chunkSourceKind, snap);
+      }
+      if (!isResettingRef.current) toast.success('Notes generation resumed!');
+    } catch (error: any) {
+      if (!isResettingRef.current) {
+        console.error(error);
+        toast.error(`Resume failed: ${error.message || 'please try again.'}`);
+      }
+    } finally {
+      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      setNotesProgress(null);
+      setMindmap(null);
+      mindmapActionRef.current = null;
+      mindmapControllerRef.current?.cancel();
+      mindmapControllerRef.current = null;
+    }
+  };
+
+  const handleDismissResume = () => {
+    setResumeSnapshot(null);
+    clearResumeSnapshot();
   };
 
   return {
@@ -2019,6 +2295,9 @@ export function useGeneration({
     handleGenerate,
     handleGenerateTable,
     handleNextUPSCQuestion,
+    resumeSnapshot,
+    handleResumePipeline,
+    handleDismissResume,
     handleClearCanvas,
     translatePdfFile,
     setTranslatePdfFile,

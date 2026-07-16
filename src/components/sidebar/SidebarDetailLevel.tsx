@@ -19,7 +19,7 @@ const LEVELS: { id: DetailLevel; label: string; desc: string }[] = [
 
 const HELP: Record<Exclude<DetailLevel, 'normal'>, string> = {
   medium: 'AI first builds the structure, then expands each main heading in depth.',
-  detailed: 'AI first builds the full structure, then writes each heading + sub-heading in depth, and finally adds any remaining points.',
+  detailed: 'Same pipeline as Deep — Gemini 3 Pro analyses topic → subtopics → sub-subtopics and builds the structure, then Flash writes each part in depth, and Pro adds any remaining points. Faster than Deep, same structure.',
   deep: 'The biggest pipeline: Gemini 3 Pro analyses topic → subtopics → sub-subtopics and builds the structure, then expands every part in depth with Pro, and finally adds any remaining points. A live mind map is shown on screen during generation.',
 };
 

@@ -145,11 +145,11 @@ export const expandFilesSection = async (
       ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained.'
       : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
 
-  const depth = level === 'deep'
+  // Detailed uses the exact same depth instruction as Deep — only the model
+  // passed in by the caller (Pro for Deep, Flash for Detailed) differs.
+  const depth = (level === 'deep' || level === 'detailed')
     ? 'Go MAXIMALLY deep: every sub-section must have real explanation, mechanism, and every fact/date/number/name/example present in the files. Miss nothing.'
-    : level === 'detailed'
-      ? 'Explain every point and sub-point thoroughly, drawing on the concrete facts and examples in the files.'
-      : 'Give each point a solid, clear explanation using the key facts from the files.';
+    : 'Give each point a solid, clear explanation using the key facts from the files.';
 
   const prompt = `
     Role: Senior Subject-Matter Expert & Textbook Author.
