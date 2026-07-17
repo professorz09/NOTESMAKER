@@ -7,6 +7,7 @@ import { LoadingOverlay } from './components/LoadingOverlay';
 import { ClearConfirmModal } from './components/ClearConfirmModal';
 import { EditorCanvas } from './components/EditorCanvas';
 import { MindmapOverlay } from './components/MindmapOverlay';
+import { ResumeBanner } from './components/ResumeBanner';
 import { GenerationStatus } from './types';
 import { useHistory } from './hooks/useHistory';
 import { useEditorContent } from './hooks/useEditorContent';
@@ -127,6 +128,7 @@ const App: React.FC = () => {
     handleFileUpload, removeFile,
     handleGenerate, handleGenerateTable,
     handleNextUPSCQuestion,
+    resumeSnapshots, handleResumePipeline, handleDismissResume,
     handleClearCanvas,
     translatePdfFile, setTranslatePdfFile,
     handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
@@ -139,7 +141,8 @@ const App: React.FC = () => {
     handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
     youtubeUrl, setYoutubeUrl,
     mindmap, resolveMindmapAction, handleMindmapAddMore, handleMindmapNodeClick, handleMindmapDone,
-    handleMindmapApprove, handleMindmapRestructure, handleMindmapSetNodeInstruction,
+    handleMindmapApprove, handleMindmapRestructure, handleMindmapCompareApply, handleMindmapCompareDiscard,
+    handleMindmapSetNodeInstruction,
   } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml });
 
   const {
@@ -151,6 +154,7 @@ const App: React.FC = () => {
     rewriteType,
     editTab, setEditTab,
     rewriteModel, setRewriteModel,
+    rewriteGrounded, setRewriteGrounded,
     modalImages, setModalImages,
     selectionRangeRef,
     activeEditIdRef,
@@ -176,6 +180,14 @@ const App: React.FC = () => {
   } = useProjects();
 
   const handleSelectProject = async (id: string) => {
+    // A running pipeline keeps writing to the canvas as sections land — and
+    // the debounced auto-save would then write that generated content into
+    // the project being opened, silently corrupting it. Opening a project
+    // waits until the run is finished (or the user presses Clear).
+    if (status !== GenerationStatus.IDLE) {
+      toast.warning('Notes are still being generated — let it finish or press Clear before opening a project.');
+      return;
+    }
     const raw = await loadProjectContent(id);
     if (raw !== null) {
       // Re-sanitize on load: projects saved before the style-leak fix can
@@ -318,30 +330,38 @@ const App: React.FC = () => {
     setShowClearConfirm(false);
   };
 
-  // Auto-save before generating
+  // Auto-save before generating, then DETACH from the open project. A new
+  // generation produces a NEW document (it gets its own project entry when
+  // it completes) — if the old project stayed "active", the debounced
+  // auto-save below would keep writing every live-generated section INTO
+  // that old project (and even auto-rename it), silently replacing the
+  // user's saved notes with the new generation's content.
   const handleGenerateWithAutoSave = useCallback(async (e: React.FormEvent) => {
     if (activeProjectId && generatedHtml) {
       const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
       if (html) await saveToProject(activeProjectId, html);
     }
+    setActiveProjectId(null);
     handleGenerate(e);
-  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, handleGenerate]);
+  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, setActiveProjectId, handleGenerate]);
 
   const handleGenerateTableWithAutoSave = useCallback(async (e: React.MouseEvent) => {
     if (activeProjectId && generatedHtml) {
       const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
       if (html) await saveToProject(activeProjectId, html);
     }
+    setActiveProjectId(null);
     handleGenerateTable(e);
-  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, handleGenerateTable]);
+  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, setActiveProjectId, handleGenerateTable]);
 
   const handleGenerateTranscriptWithAutoSave = useCallback(async () => {
     if (activeProjectId && generatedHtml) {
       const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
       if (html) await saveToProject(activeProjectId, html);
     }
+    setActiveProjectId(null);
     handleGenerateTranscript();
-  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, handleGenerateTranscript]);
+  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, setActiveProjectId, handleGenerateTranscript]);
 
   // --- PDF EXPORT ---
   // Shared by both export paths: strip in-editor-only UI (edit triggers,
@@ -676,6 +696,8 @@ const App: React.FC = () => {
             onSetNodeInstruction={handleMindmapSetNodeInstruction}
             onApprove={handleMindmapApprove}
             onRestructure={handleMindmapRestructure}
+            onCompareApply={handleMindmapCompareApply}
+            onCompareDiscard={handleMindmapCompareDiscard}
             onAddMore={handleMindmapAddMore}
             onDone={handleMindmapDone}
           />
@@ -734,6 +756,7 @@ const App: React.FC = () => {
         rewriteType={rewriteType}
         editTab={editTab} setEditTab={setEditTab}
         rewriteModel={rewriteModel} setRewriteModel={setRewriteModel}
+        rewriteGrounded={rewriteGrounded} setRewriteGrounded={setRewriteGrounded}
         rewriteInstruction={rewriteInstruction} setRewriteInstruction={setRewriteInstruction}
         isRewriting={isRewriting}
         handleRewriteSubmit={handleRewriteSubmit}
@@ -748,6 +771,20 @@ const App: React.FC = () => {
         onConfirm={confirmClear}
         onCancel={() => setShowClearConfirm(false)}
       />
+
+      {!mindmap && status === GenerationStatus.IDLE && (
+        <ResumeBanner
+          snapshots={resumeSnapshots}
+          onResume={(snap) => {
+            // Same detach as the generate buttons: the resumed run is its
+            // own document — the debounced auto-save must not write its
+            // sections into whatever project happens to be open.
+            setActiveProjectId(null);
+            handleResumePipeline(snap);
+          }}
+          onDismiss={handleDismissResume}
+        />
+      )}
     </div>
   );
 };

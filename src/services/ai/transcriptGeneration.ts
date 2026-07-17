@@ -1,4 +1,4 @@
-import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
+import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG, withGoogleSearch } from './client';
 import { parseOutlineSectionsJson, type OutlineSection } from './outlineParsing';
 
 // ---------------------------------------------------------------------------
@@ -267,6 +267,7 @@ export const outlineTranscriptChunk = async (
   total: number,
   language: string,
   modelName: string,
+  grounded: boolean = false,
 ): Promise<TranscriptSection[]> => {
   const ai = createAIClient();
 
@@ -289,7 +290,7 @@ export const outlineTranscriptChunk = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
-    config: NOTES_GEN_CONFIG,
+    config: withGoogleSearch(NOTES_GEN_CONFIG, grounded),
   });
 
   return parseOutlineSectionsJson(response.text || '');

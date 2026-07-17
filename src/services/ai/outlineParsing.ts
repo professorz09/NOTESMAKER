@@ -10,17 +10,47 @@ export interface OutlineSection {
   subheadings: string[];
 }
 
+// Finds the FIRST top-level JSON object in `text` by tracking brace depth
+// (correctly skipping braces that appear inside quoted strings, including
+// escaped quotes) rather than naively slicing from the first `{` to the
+// LAST `}` in the whole text. That naive approach breaks whenever the model
+// adds any trailing prose after the JSON — which happens far more often
+// once Google Search grounding is active, since a grounded answer tends to
+// add citations/explanatory text ("...as of 2024 {approx.}") whose own
+// stray braces used to get swallowed into (and corrupt) the "JSON".
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null; // unbalanced — truncated response, let the caller's try/catch handle it
+}
+
 export function parseOutlineSectionsJson(raw: string): OutlineSection[] {
   if (!raw) return [];
-  let text = raw.trim()
+  const text = raw.trim()
     .replace(/^\s*```(?:json)?\s*/i, '')
     .replace(/\s*```\s*$/i, '');
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) return [];
-  text = text.slice(start, end + 1);
+  const jsonText = extractFirstJsonObject(text);
+  if (!jsonText) return [];
   try {
-    const obj = JSON.parse(text);
+    const obj = JSON.parse(jsonText);
     if (!Array.isArray(obj.sections)) return [];
     return obj.sections
       .map((s: any) => ({
@@ -39,14 +69,13 @@ export function parseOutlineSectionsJson(raw: string): OutlineSection[] {
  *  for callers that also need top-level fields like title/overview. */
 export function parseOutlineJsonObject(raw: string): any | null {
   if (!raw) return null;
-  let text = raw.trim()
+  const text = raw.trim()
     .replace(/^\s*```(?:json)?\s*/i, '')
     .replace(/\s*```\s*$/i, '');
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) return null;
+  const jsonText = extractFirstJsonObject(text);
+  if (!jsonText) return null;
   try {
-    return JSON.parse(text.slice(start, end + 1));
+    return JSON.parse(jsonText);
   } catch {
     return null;
   }

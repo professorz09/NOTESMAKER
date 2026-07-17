@@ -1,4 +1,4 @@
-import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG } from './client';
+import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG, withGoogleSearch } from './client';
 import { parseOutlineSectionsJson, parseOutlineJsonObject } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
 import { mapWithConcurrency } from '../../utils/concurrency';
@@ -15,6 +15,14 @@ const EXPLAIN_RULE =
 // Presentation is the model\'s choice — flexible, not a checklist.
 const FORMAT_CHOICE =
   'Present each part in whatever form explains it best — flowing prose, bulleted breakdowns, a comparison <table>, or a simple clean SVG diagram in <div class="flowchart-container"> (no border, use viewBox). Use any of these ONLY because it genuinely aids understanding here, never to fill a quota: do not force a table or a diagram where clear writing reads better, and do not omit one where it truly clarifies. You decide, based on the content.';
+
+// Appended to a call's RULES when the "Google Grounding" toggle is on and
+// this call carries the googleSearch tool (see withGoogleSearch in
+// client.ts) — used everywhere in the pipeline (outline + every section's
+// writing), not just the old end-of-pipeline scan, so current facts land in
+// the content as it's written instead of being patched on afterwards.
+const GROUNDING_RULE =
+  'You have live Google Search access for this call — use it wherever a fact genuinely benefits from being current (a scheme\'s latest status, recent statistics/rankings, a recent judgment or event, the latest state of a technology). Search and weave in the real, current, correctly-dated fact directly in the text. Do NOT search for purely conceptual, definitional or historical content that doesn\'t need it.';
 
 // A section whose sub-heading count exceeds MAX_SUBS_PER_CALL is expanded in
 // several calls of at most SUB_BATCH sub-headings each — all of them
@@ -110,6 +118,7 @@ export const generateTopicOutline = async (
   language: string,
   modelName: string = 'gemini-3.1-pro-preview',
   level: Exclude<DetailLevel, 'normal'> = 'medium',
+  grounded: boolean = false,
 ): Promise<TopicOutline | null> => {
   const ai = createAIClient();
 
@@ -125,6 +134,7 @@ export const generateTopicOutline = async (
     Language for the headings: ${language}
 
     Coverage to consider (include only those that fit, in a sensible order, plus anything topic-specific): definition & meaning, background/history & evolution, core concepts & principles, types/classification, structure/components, working/mechanism/process, key features, causes & effects, important facts/data/figures, key persons/committees/articles/dates, examples & case studies, comparisons, significance/applications, challenges/criticism, and way forward.
+    ${grounded ? 'You have live Google Search access for this call — if the topic has a current-affairs/time-sensitive dimension (an ongoing scheme, a recent development), use search so that dimension gets its own section grounded in reality, not just a generic placeholder.' : ''}
 
     Scale: ${scale}
 
@@ -142,7 +152,7 @@ export const generateTopicOutline = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
-    config: NOTES_GEN_CONFIG,
+    config: withGoogleSearch(NOTES_GEN_CONFIG, grounded),
   });
 
   return parseOutlineJson(response.text || '');
@@ -162,17 +172,26 @@ export const expandTopicSection = async (
   modelName: string = 'gemini-3.1-pro-preview',
   level: Exclude<DetailLevel, 'normal'> = 'medium',
   refine?: RefinementOptions,
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
   const callOnce = async (subs: string[], subStart: number, includeH2: boolean, refineOnce?: RefinementOptions) => {
+    const isRevision = !!(refineOnce && (refineOnce.existingHtml || refineOnce.customInstruction));
     const subGuidance = subs.length
       ? `Write EVERY one of these sub-points as its OWN full sub-section, using exactly these <h3> headings/numbers. Where a sub-point GENUINELY has distinct parts (definition, mechanism, examples, data…), break it further into its own <h4>${sectionNumber}.k.m …</h4> sub-sub-sections — but only where that truly fits; a rich flowing explanation is fine where it doesn't:
 ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join('\n')}
     **ANTI-SUMMARY RULE (most important):** each of these sub-points gets its own complete, multi-paragraph explanation — NEVER a single line, NEVER two sub-points folded into one, NEVER a bullet that just restates the heading.`
-      : (level === 'detailed'
-        ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained (with <h4> sub-parts where a sub-section is layered).'
-        : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
+      : isRevision
+        // A no-fixed-subheadings revision (e.g. an "add a point" section being
+        // improved) must NOT also be told to invent a fresh 3-5-section
+        // structure — that instruction fights the "revise this existing draft"
+        // directive below and is exactly why refine clicks used to come back
+        // as a generic rewrite instead of an actual improvement.
+        ? 'Keep this section\'s existing structure (its current sub-headings, if any) unless it is genuinely unclear — only reorganize into new <h3> sub-sections if that would make it noticeably clearer.'
+        : (level === 'detailed'
+          ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained (with <h4> sub-parts where a sub-section is layered).'
+          : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
 
     const depth = level === 'detailed'
       ? 'Go MAXIMALLY deep: every sub-section must have real explanation, mechanism, and at least one concrete real-world example. Aim for a thorough, textbook-grade treatment of this section — do not stop early.'
@@ -190,7 +209,7 @@ ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join(
       : `Do NOT output the <h2> heading (it is already written) — continue directly with the <h3> sub-sections below.`}
     ${subGuidance}
 
-    Full outline of the notes (for scope only — so you don't drift into other sections): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
+    Other sections ALREADY WRITTEN elsewhere in these notes (read them for context — do not repeat what they already cover, but do write this section so it fits naturally alongside them in scope and depth): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
 
     ${depth}
 
@@ -200,6 +219,7 @@ ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join(
     - When you use bullets, each <li> is a full, informative sentence — never 2-3 words.
     - ${FORMAT_CHOICE}
     - Never output an empty or one-line heading. No filler — but every point must be genuinely explained, not compressed into a keyword.
+    ${grounded ? '- ' + GROUNDING_RULE : ''}
     ${buildRefinementDirective(refineOnce)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
@@ -207,7 +227,7 @@ ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join(
     const response = await ai.models.generateContent({
       model: modelName,
       contents: prompt,
-      config: DETAILED_NOTES_CONFIG,
+      config: withGoogleSearch(DETAILED_NOTES_CONFIG, grounded),
     });
 
     return cleanHtmlOutput(response.text || '');
@@ -226,6 +246,7 @@ export const generateDeepOutline = async (
   topic: string,
   language: string,
   proModel: string,
+  grounded: boolean = false,
 ): Promise<DeepOutline | null> => {
   const ai = createAIClient();
 
@@ -239,6 +260,7 @@ export const generateDeepOutline = async (
     - Sub-topics = the main sections (aim for 8-16, as many as the topic genuinely needs).
     - Sub-sub-topics = 4-8 specific sub-headings under each section that break it into its real parts. Keep them SMALL and granular — each sub-heading is ONE specific point, never a bundle of several ideas; if a sub-point is broad, split it into its smaller parts (the expansion step will develop each one into its own fully-explained sub-section, so more granular = deeper notes).
     Also decide the focus areas that need the most depth.
+    ${grounded ? 'You have live Google Search access for this call — if the topic has a current-affairs/time-sensitive dimension, use search so that dimension is planned as its own sub-topic grounded in reality, not a generic placeholder.' : ''}
 
     Output STRICT JSON ONLY (no markdown, no code fences, no commentary):
     {
@@ -255,7 +277,7 @@ export const generateDeepOutline = async (
   const response = await ai.models.generateContent({
     model: proModel,
     contents: prompt,
-    config: DETAILED_NOTES_CONFIG,
+    config: withGoogleSearch(DETAILED_NOTES_CONFIG, grounded),
   });
 
   const base = parseOutlineJson(response.text || '');
@@ -281,6 +303,7 @@ export const expandDeepSection = async (
   language: string,
   modelName: string,
   refine?: RefinementOptions,
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -288,11 +311,18 @@ export const expandDeepSection = async (
     f && (section.heading.toLowerCase().includes(f.toLowerCase()) || f.toLowerCase().includes(section.heading.toLowerCase())));
 
   const callOnce = async (subs: string[], subStart: number, includeH2: boolean, refineOnce?: RefinementOptions) => {
+    const isRevision = !!(refineOnce && (refineOnce.existingHtml || refineOnce.customInstruction));
     const subGuidance = subs.length
       ? `Write EACH of these sub-sub-topics as its OWN full sub-section, using exactly these <h3> headings/numbers. Where a sub-sub-topic GENUINELY has distinct parts (definition, background, mechanism/working, examples, data/figures, significance…), break it further into its own <h4>${sectionNumber}.k.m …</h4> sub-parts — but only where that truly fits; a rich flowing explanation is fine where it doesn't:
 ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join('\n')}
     **ANTI-SUMMARY RULE (most important):** each sub-sub-topic gets its own complete, multi-paragraph, textbook-grade treatment — NEVER a heading with a single line under it, NEVER two sub-sub-topics folded into one, NEVER a bullet that just restates the heading.`
-      : 'Break this section into 3-5 logical <h3> sub-sections that fully cover it, each explained in depth with <h4> sub-parts where a sub-section is layered.';
+      : isRevision
+        // Don't fight the "revise this existing draft" directive below with a
+        // "build a brand-new structure" instruction — that contradiction is
+        // why a refine click used to come back as a generic rewrite instead
+        // of an actual improvement on what was already there.
+        ? 'Keep this section\'s existing structure (its current sub-headings, if any) unless it is genuinely unclear — only reorganize into new <h3> sub-sections if that would make it noticeably clearer.'
+        : 'Break this section into 3-5 logical <h3> sub-sections that fully cover it, each explained in depth with <h4> sub-parts where a sub-section is layered.';
 
     const prompt = `
     Role: Subject expert & textbook author.
@@ -307,13 +337,14 @@ ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join(
       : `Do NOT output the <h2> heading (it is already written) — continue directly with the <h3> sub-sections below.`}
     ${subGuidance}
 
-    Full outline (scope only, don't drift into other sections): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
+    Other sections ALREADY WRITTEN elsewhere in these notes (read them for context — do not repeat what they already cover, but do write this section so it fits naturally alongside them in scope and depth): ${allHeadings.map((h, i) => `${i + 1}. ${h}`).join(' | ')}
 
     RULES:
     - ${EXPLAIN_RULE}
     - State each point simply, then develop it in depth with concrete real facts (dates, numbers, names, articles) and at least one real example per sub-section. <strong> every key term, date and figure; full-sentence <li> bullets only.
     - ${FORMAT_CHOICE}
     - No empty or one-line headings. No filler — but nothing compressed into a bare keyword either; explain it.
+    ${grounded ? '- ' + GROUNDING_RULE : ''}
     ${buildRefinementDirective(refineOnce)}
     Output: Return ONLY raw HTML for this section. No markdown, no code fences.
   `;
@@ -321,7 +352,7 @@ ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join(
     const response = await ai.models.generateContent({
       model: modelName,
       contents: prompt,
-      config: DETAILED_NOTES_CONFIG,
+      config: withGoogleSearch(DETAILED_NOTES_CONFIG, grounded),
     });
 
     return cleanHtmlOutput(response.text || '');
@@ -342,6 +373,7 @@ export const generateAdditionalTopicAspects = async (
   language: string,
   modelName: string = 'gemini-3.1-pro-preview',
   refine?: RefinementOptions,
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -351,6 +383,7 @@ export const generateAdditionalTopicAspects = async (
     Identify any IMPORTANT dimensions of this topic that are still missing or under-covered (e.g., recent developments, comparisons, criticism, real case studies, applications, exceptions, related concepts) and write them as NEW sections. Do NOT repeat anything already covered above.
 
     Language: ${language}
+    ${grounded ? 'You have live Google Search access for this call — if "recent developments" is one of the missing dimensions, use search to write it with real, current, correctly-dated facts rather than a generic statement.' : ''}
 
     RULES:
     - Number new sections starting from <h2>${startSectionNumber}. …</h2> and continue (${startSectionNumber + 1}, …). Use <h3>/<h4> sub-sections with real depth and examples.
@@ -364,7 +397,7 @@ export const generateAdditionalTopicAspects = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
-    config: DETAILED_NOTES_CONFIG,
+    config: withGoogleSearch(DETAILED_NOTES_CONFIG, grounded),
   });
 
   return cleanHtmlOutput(response.text || '');
