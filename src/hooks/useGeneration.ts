@@ -228,7 +228,12 @@ function createMindmapController(
     if (r) r();
   };
 
-  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, getGroupPartIndex, setNodeInstruction, markDone, waitForDone, resolveDone, cancel };
+  // `isDead` is exposed so the OWNING pipeline can use it too: Clear Canvas
+  // only holds `isResettingRef` true for ~100ms, but an in-flight section
+  // call lands seconds later — `cancelled` is the permanent signal that this
+  // run was torn down, so late completions must not write to the canvas,
+  // re-open the overlay, or re-save a just-deleted resume snapshot.
+  return { onAddMore, onNodeClick, registerGroup, setGroupPartIndex, getGroupPartIndex, setNodeInstruction, markDone, waitForDone, resolveDone, cancel, isDead };
 }
 type MindmapController = ReturnType<typeof createMindmapController>;
 
@@ -290,6 +295,14 @@ export function useGeneration({
   const mindmapActionRef = useRef<((a: MindmapAction) => void) | null>(null);
   // Add-a-point / node-click / done-button bridge for the active pipeline.
   const mindmapControllerRef = useRef<MindmapController | null>(null);
+  // Monotonic run counter, bumped by Clear Canvas. The single-shot flows
+  // (simple transcript, PDF translation, UPSC answers, tables…) have no
+  // mind-map controller to carry a permanent "torn down" flag, and the
+  // isResettingRef window is only ~100ms — far shorter than an in-flight AI
+  // call — so each run captures the counter at start and refuses to write
+  // its result if Clear bumped it in the meantime.
+  const runSeqRef = useRef(0);
+  const isStaleRun = (run: number) => isResettingRef.current || runSeqRef.current !== run;
 
   const resolveMindmapAction = (action: MindmapAction) => {
     const r = mindmapActionRef.current;
@@ -476,6 +489,7 @@ export function useGeneration({
 
   const handleAnalyzeAnswer = async () => {
     if (!answerPdfFile) return;
+    const myRun = runSeqRef.current;
     setAnswerAnalyzing(true);
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
@@ -489,18 +503,19 @@ export function useGeneration({
         pageImages.push({ base64, mimeType: 'image/jpeg' });
       }
       const html = sanitizeHtml(await analyzeAnswerPdf(pageImages, aiModel));
+      if (isStaleRun(myRun)) return;
       setGeneratedHtml(html);
       pushToHistory(html);
       localStorage.setItem(STORAGE_KEY, html);
       if (window.innerWidth < 1024) setSidebarOpen(false);
       toast.success('Answer analysis complete!');
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         toast.error(`Analysis failed: ${error.message || 'Unknown error. Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      if (!isStaleRun(myRun)) setStatus(GenerationStatus.IDLE);
       setAnswerAnalyzing(false);
     }
   };
@@ -526,12 +541,13 @@ export function useGeneration({
   const handleGenerateFromTopperCopy = async () => {
     if (!topperCopyFile) return;
     const existing = getCurrentHtml();
+    const myRun = runSeqRef.current;
     setTopperGenerating(true);
     setStatus(GenerationStatus.GENERATING_CHAPTER);
 
     const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
     const loadingBody = `<p class="upsc-gen-loading">✍️ ${language === 'Hindi' ? 'टॉपर कॉपी पढ़कर उत्तर तैयार किया जा रहा है…' : 'Reading the topper copy…'}</p>`;
-    if (!isResettingRef.current) {
+    if (!isStaleRun(myRun)) {
       setGeneratedHtml(existing + divider + wrapUPSCBlock('टॉपर कॉपी', loadingBody, upscSubject, ' data-gen-pending="1"'));
       scrollToLatestAnswer();
     }
@@ -553,7 +569,7 @@ export function useGeneration({
       }
 
       const raw = sanitizeHtml(await generateAnswerFromTopperCopy(pageImages, language, aiModel));
-      if (isResettingRef.current) return;
+      if (isStaleRun(myRun)) return;
 
       // Split the identified question from the answer body, then wrap in the
       // standard answer-copy block so it exports with the framed template.
@@ -565,18 +581,18 @@ export function useGeneration({
       const body = holder.innerHTML.trim() || raw;
 
       const combined = existing + divider + wrapUPSCBlock(question, body, upscSubject);
-      finishGeneration(combined);
+      finishGeneration(combined, myRun);
       scrollToLatestAnswer();
       setTopperCopyFile(null);
       toast.success(language === 'Hindi' ? 'टॉपर कॉपी से उत्तर तैयार!' : 'Answer ready from topper copy!');
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         setGeneratedHtml(existing || null);
         toast.error(`Failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      if (!isStaleRun(myRun)) setStatus(GenerationStatus.IDLE);
       setTopperGenerating(false);
     }
   };
@@ -585,10 +601,14 @@ export function useGeneration({
   const MAX_RETRIES = 2;
 
   const runPdfTranslation = async (startPage: number, total: number, pdf: any, initialParts: string[]) => {
+    // See runSeqRef: a Clear Canvas mid-translation must permanently stop
+    // this loop — the bare isResettingRef flag flips back after ~100ms,
+    // sooner than an in-flight page-translation call lands.
+    const myRun = runSeqRef.current;
     const pageHtmlParts: string[] = [...initialParts];
 
     const pushLive = (failedPage?: number) => {
-      if (isResettingRef.current) return;
+      if (isStaleRun(myRun)) return;
       const parts = [...pageHtmlParts];
       if (failedPage != null) {
         parts.push(
@@ -606,7 +626,7 @@ export function useGeneration({
     const pageTimes: number[] = [];
 
     for (let i = startPage - 1; i < total; i++) {
-      if (isResettingRef.current) return;
+      if (isStaleRun(myRun)) return;
       const pageNum = i + 1;
 
       const avgMs = pageTimes.length > 0
@@ -632,7 +652,7 @@ export function useGeneration({
         } catch (err) {
           console.error(`Page ${pageNum} attempt ${attempt} failed:`, err);
           if (attempt === MAX_RETRIES) {
-            if (!isResettingRef.current && translatePdfFile) {
+            if (!isStaleRun(myRun) && translatePdfFile) {
               setTranslateResumeState({
                 pdfName: translatePdfFile.name,
                 startPage: pageNum,
@@ -656,6 +676,7 @@ export function useGeneration({
       pushLive();
     }
 
+    if (isStaleRun(myRun)) return;
     setTranslateResumeState(null);
     if (window.innerWidth < 1024) setSidebarOpen(false);
     toast.success(`PDF translation complete! All ${total} pages translated.`);
@@ -663,6 +684,7 @@ export function useGeneration({
 
   const handleTranslatePdf = async () => {
     if (!translatePdfFile) return;
+    const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     setTranslateProgress(null);
     try {
@@ -670,18 +692,21 @@ export function useGeneration({
       setTranslateProgress({ current: 1, total: numPages });
       await runPdfTranslation(1, numPages, pdf, []);
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         toast.error(`PDF load error: ${error.message || 'File could not be opened. Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
-      setTranslateProgress(null);
+      if (!isStaleRun(myRun)) {
+        setStatus(GenerationStatus.IDLE);
+        setTranslateProgress(null);
+      }
     }
   };
 
   const handleResumePdf = async () => {
     if (!translatePdfFile || !translateResumeState) return;
+    const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     setTranslateProgress(null);
     try {
@@ -702,13 +727,15 @@ export function useGeneration({
       setTranslateProgress({ current: resumeFrom, total: numPages });
       await runPdfTranslation(resumeFrom, numPages, pdf, prevParts);
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         toast.error(`Resume failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
-      setTranslateProgress(null);
+      if (!isStaleRun(myRun)) {
+        setStatus(GenerationStatus.IDLE);
+        setTranslateProgress(null);
+      }
     }
   };
 
@@ -888,6 +915,7 @@ export function useGeneration({
   const handleGenerateTranscript = async () => {
     let text = transcriptInput.trim();
     const url = youtubeUrl.trim();
+    const myRun = runSeqRef.current;
 
     // No pasted text but a video link is present → fetch its transcript first.
     if (!text && url) {
@@ -901,8 +929,9 @@ export function useGeneration({
         const fetched = await fetchVideoTranscript(url, {
           lang: language === 'Hindi' ? 'hi' : 'en',
           onStatus: (s) => setTranscriptProgress({ current: 0, total: 1, step: 'fetch', note: s }),
-          // Live view of the reset flag so a mid-fetch Clear actually aborts.
-          signal: { get aborted() { return isResettingRef.current; } },
+          // Live view of the torn-down state so a mid-fetch Clear actually
+          // aborts (the bare reset flag alone flips back after ~100ms).
+          signal: { get aborted() { return isStaleRun(myRun); } },
         });
         text = (fetched || '').trim();
         if (!text) throw new Error('Transcript came back empty.');
@@ -910,45 +939,53 @@ export function useGeneration({
         const words = (text.match(/\S+/g) || []).length;
         toast.success(`Transcript fetched (~${words.toLocaleString('en-IN')} words) — building notes…`);
       } catch (err: any) {
-        if (!isResettingRef.current) {
+        if (!isStaleRun(myRun)) {
           console.error(err);
           toast.error(`Could not fetch transcript: ${err?.message || 'please try again.'}`);
+          setStatus(GenerationStatus.IDLE);
+          setTranscriptProgress(null);
         }
-        setStatus(GenerationStatus.IDLE);
-        setTranscriptProgress(null);
         return;
       }
     }
 
     if (!text) {
       toast.warning('Please paste a transcript, upload a .txt, or enter a YouTube link.');
-      setStatus(GenerationStatus.IDLE);
+      if (!isStaleRun(myRun)) setStatus(GenerationStatus.IDLE);
       return;
     }
 
+    // Clear happened while the transcript was being fetched — don't flip the
+    // (already reset) status back to "generating" for a torn-down run.
+    if (isStaleRun(myRun)) return;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       if (detailLevel === 'normal') {
         await runSimpleTranscriptPipeline(text);
       } else {
         const built = await runLeveledTranscriptPipeline(text, detailLevel);
-        if (!built) await runSimpleTranscriptPipeline(text); // structure step failed → fall back
+        if (!built && !isStaleRun(myRun)) await runSimpleTranscriptPipeline(text); // structure step failed → fall back
       }
-      if (!isResettingRef.current) toast.success('Transcript notes ready!');
+      if (!isStaleRun(myRun)) toast.success('Transcript notes ready!');
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         toast.error(`Transcript notes failed: ${error.message || 'please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
-      setTranscriptProgress(null);
-      setNotesProgress(null);
-      setMindmap(null);
-      mindmapActionRef.current = null;
-      mindmapControllerRef.current?.cancel();
-      mindmapControllerRef.current = null;
-      activePipelineIdRef.current = null;
+      // If Clear Canvas tore this run down (and possibly a NEW run has
+      // already started), Clear did all of this cleanup itself — running it
+      // again here would wreck the new run's overlay/controller/status.
+      if (!isStaleRun(myRun)) {
+        setStatus(GenerationStatus.IDLE);
+        setTranscriptProgress(null);
+        setNotesProgress(null);
+        setMindmap(null);
+        mindmapActionRef.current = null;
+        mindmapControllerRef.current?.cancel();
+        mindmapControllerRef.current = null;
+        activePipelineIdRef.current = null;
+      }
       // Picks up this run's own snapshot if it got interrupted (e.g. an
       // uncaught error) without needing a page reload first.
       setResumeSnapshots(loadResumeSnapshots());
@@ -957,13 +994,17 @@ export function useGeneration({
 
   // Normal transcript path: title + straight per-chunk detailed notes.
   const runSimpleTranscriptPipeline = async (text: string) => {
+    // Capture the run id so a Clear Canvas mid-run permanently stops this
+    // pipeline from writing — the bare isResettingRef flag flips back after
+    // ~100ms, far sooner than an in-flight chunk call lands.
+    const myRun = runSeqRef.current;
     const chunks = chunkTranscript(text, 5500);
     const total = chunks.length;
     setTranscriptProgress({ current: 0, total, step: 'structure' });
 
     const parts: string[] = [];
     const pushLive = () => {
-      if (isResettingRef.current) return;
+      if (isStaleRun(myRun)) return;
       const html = parts.join('\n');
       setGeneratedHtml(html);
       pushToHistory(html);
@@ -979,7 +1020,7 @@ export function useGeneration({
 
     let sectionCount = 0;
     for (let i = 0; i < total; i++) {
-      if (isResettingRef.current) return;
+      if (isStaleRun(myRun)) return;
       setTranscriptProgress({ current: i + 1, total, step: 'detail' });
 
       let chunkHtml = '';
@@ -1025,6 +1066,10 @@ export function useGeneration({
     mm: MindmapState,
     syncMm: () => void,
     progressLabel: string,
+    // The calling pipeline's permanent torn-down check (see its `dead`) —
+    // the bare reset flag flips back ~100ms after Clear, long before an
+    // in-flight outline call lands.
+    dead: () => boolean = () => isResettingRef.current,
   ): Promise<{ chunkSections: TranscriptSection[][]; chunkRange: { start: number; end: number }[]; anyRealOutline: boolean }> => {
     const total = chunks.length;
     const chunkSections: TranscriptSection[][] = [];
@@ -1054,7 +1099,7 @@ export function useGeneration({
       }
     };
     await mapWithConcurrency(total, 3, async (i) => {
-      if (isResettingRef.current) return;
+      if (dead()) return;
       let secs: TranscriptSection[] = [];
       for (let attempt = 1; attempt <= 2 && !secs.length; attempt++) {
         try { secs = await outlineOne(chunks[i], i + 1, total); }
@@ -1067,7 +1112,7 @@ export function useGeneration({
       else secs = [{ heading: `Part ${i + 1}`, subheadings: [] }];
       results[i] = secs;
       completedCount++;
-      if (isResettingRef.current) return;
+      if (dead()) return;
       setNotesProgress({ current: completedCount, total, label: `${progressLabel} (${completedCount}/${total})` });
       appendReady();
       syncMm();
@@ -1126,9 +1171,17 @@ export function useGeneration({
       ? DEEP_PRO_MODEL
       : level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel;
 
+    // "This run was torn down" — starts as the bare reset flag, upgraded to
+    // the controller's permanent `cancelled` signal once it exists below.
+    // The bare flag alone is NOT enough: Clear Canvas only holds it true for
+    // ~100ms, but an in-flight section call lands seconds later and used to
+    // repopulate the cleared canvas, re-open the closed overlay, and re-save
+    // the just-deleted resume snapshot.
+    let dead: () => boolean = () => isResettingRef.current;
+
     const parts: string[] = [];
     const pushLive = (recordHistory = false) => {
-      if (isResettingRef.current) return;
+      if (dead()) return;
       const html = sanitizeHtml(parts.join('\n'));
       setGeneratedHtml(html);
       if (recordHistory) pushToHistory(html);
@@ -1146,15 +1199,19 @@ export function useGeneration({
       complete: false,
       addBusy: false,
     };
-    const syncMm = () => setMindmap({
-      ...mm,
-      nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
-    });
+    const syncMm = () => {
+      if (dead()) return;
+      setMindmap({
+        ...mm,
+        nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
+      });
+    };
 
     const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
       expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine, groundingEnabled);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
+    dead = () => controller.isDead();
 
     // A resumed run keeps upserting its own snapshot entry; a fresh run gets
     // a brand-new id — either way this does NOT touch any OTHER pending
@@ -1215,9 +1272,9 @@ export function useGeneration({
       (chunk, part, tot) => kind === 'transcript'
         ? outlineTranscriptChunk(chunk, part, tot, language, outlineModel, groundingEnabled)
         : outlineTextChunk(chunk, part, tot, language, outlineModel, groundingEnabled),
-      mm, syncMm, 'Building structure',
+      mm, syncMm, 'Building structure', dead,
     );
-    if (isResettingRef.current) { setMindmap(null); return true; }
+    if (dead()) { setMindmap(null); return true; }
 
     // Structure step wholesale-failed (e.g. network) → let the caller fall
     // back to the single-shot path the user knows works.
@@ -1376,7 +1433,7 @@ export function useGeneration({
     // everything already written. The (cheap, fast) outline/approval phase
     // above is NOT snapshotted — only this expensive per-section expansion is.
     const persistProgress = () => {
-      if (isResettingRef.current) return;
+      if (dead()) return;
       const partIndexByGroupId: Record<string, number> = {};
       mm.nodes.forEach(n => {
         const idx = controller.getGroupPartIndex(n.groupId);
@@ -1405,7 +1462,7 @@ export function useGeneration({
     persistProgress();
 
     for (let i = 0; i < total && !stoppedEarly; i++) {
-      if (isResettingRef.current) { setMindmap(null); return true; }
+      if (dead()) { setMindmap(null); return true; }
       const range = chunkRange[i];
       // Sections already settled by a prior (interrupted) run — done or
       // explicitly skipped — are left alone rather than redone.
@@ -1413,7 +1470,7 @@ export function useGeneration({
         .map((_, j) => j)
         .filter(j => !sectionDone[i][j] && mm.nodes[range.start + j].status !== 'skipped');
       while (remaining.length) {
-        if (isResettingRef.current) { setMindmap(null); return true; }
+        if (dead()) { setMindmap(null); return true; }
         remaining.forEach(j => { mm.nodes[range.start + j].status = 'active'; });
         mm.errorNodeId = null;
         syncMm();
@@ -1421,10 +1478,22 @@ export function useGeneration({
 
         const batch = remaining;
         const failed: number[] = [];
+        // A section failing (after its retries) pauses the run for
+        // Retry/Skip/Finish — so sections that haven't STARTED yet must not
+        // start either, or "Finish now" couldn't actually save the user any
+        // work/cost: everything would already have been attempted by the
+        // time the prompt appears. In-flight sections still land normally.
+        const notAttempted: number[] = [];
+        let pauseRequested = false;
         await mapWithConcurrency(batch.length, 3, async (r) => {
           const j = batch[r];
-          if (isResettingRef.current) return;
+          if (dead()) return;
           const node = mm.nodes[range.start + j];
+          if (pauseRequested) {
+            notAttempted.push(j);
+            node.status = 'pending';
+            return;
+          }
           let html = '';
           for (let attempt = 1; attempt <= 2 && !html; attempt++) {
             try {
@@ -1438,7 +1507,7 @@ export function useGeneration({
               if (attempt < 2) await new Promise(res => setTimeout(res, 1500));
             }
           }
-          if (isResettingRef.current) return;
+          if (dead()) return;
           if (html) {
             parts[sectionSlot[i][j]] = html;
             sectionDone[i][j] = true;
@@ -1454,28 +1523,30 @@ export function useGeneration({
           } else {
             failed.push(j);
             node.status = 'error';
+            pauseRequested = true;
           }
           syncMm();
         });
         persistProgress();
-        if (isResettingRef.current) { setMindmap(null); return true; }
+        if (dead()) { setMindmap(null); return true; }
         if (!failed.length) break;
 
         mm.errorNodeId = mm.nodes[range.start + failed[0]].id;
         syncMm();
         setNotesProgress({ current: written, total: totalSections, label: `${failed.length} section(s) ran into a problem — choose Retry, Skip or Finish` });
         const action = await waitForMindmapAction();
-        if (isResettingRef.current) { setMindmap(null); return true; }
+        if (dead()) { setMindmap(null); return true; }
         mm.errorNodeId = null;
-        if (action === 'retry') { remaining = failed; continue; }
+        if (action === 'retry') { remaining = [...failed, ...notAttempted]; continue; }
         // Skip / Finish: no placeholder text — the 'skipped' status is
         // enough, and the node stays clickable to generate on demand into
-        // its own slot.
+        // its own slot. Skip skips only the FAILED sections and carries on
+        // with the ones that never got attempted; Finish stops everything.
         failed.forEach(j => { mm.nodes[range.start + j].status = 'skipped'; });
         syncMm();
-        if (action === 'finish') stoppedEarly = true;
         persistProgress();
-        break;
+        if (action === 'finish') { stoppedEarly = true; break; }
+        remaining = notAttempted;
       }
     }
     if (stoppedEarly) {
@@ -1500,7 +1571,7 @@ export function useGeneration({
     activePipelineIdRef.current = null;
     controller.markDone();
     await controller.waitForDone();
-    if (isResettingRef.current) { setMindmap(null); return true; }
+    if (dead()) { setMindmap(null); return true; }
 
     pushLive(true);
     if (window.innerWidth < 1024) setSidebarOpen(false);
@@ -1530,9 +1601,14 @@ export function useGeneration({
     // expand, Medium keeps the user's own Sidebar model choice.
     const expandModel = level === 'deep' ? DEEP_PRO_MODEL : level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel;
 
+    // See runLeveledChunkPipeline: `dead` outlives Clear Canvas's ~100ms
+    // reset window, so a section call landing after Clear can't repopulate
+    // the cleared canvas or re-open the closed overlay.
+    let dead: () => boolean = () => isResettingRef.current;
+
     const parts: string[] = [];
     const pushLive = (recordHistory = false) => {
-      if (isResettingRef.current) return;
+      if (dead()) return;
       const html = sanitizeHtml(parts.join('\n'));
       setGeneratedHtml(html);
       if (recordHistory) pushToHistory(html);
@@ -1542,12 +1618,16 @@ export function useGeneration({
     const mm: MindmapState = {
       title: 'Notes', subtitle: `Files • ${level} pipeline`, nodes: [], errorNodeId: null, awaitingApproval: false, canRestructure: true, restructuring: false, complete: false, addBusy: false,
     };
-    const syncMm = () => setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
+    const syncMm = () => {
+      if (dead()) return;
+      setMindmap({ ...mm, nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })) });
+    };
 
     const extraExpand = (heading: string, num: number, allH: string[], refine?: RefinementOptions) =>
       expandTopicSection(mm.title || 'Notes', { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine, groundingEnabled);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
+    dead = () => controller.isDead();
 
     setNotesProgress({ current: 0, total: 1, label: 'Building the files structure…' });
     syncMm();
@@ -1637,7 +1717,7 @@ export function useGeneration({
     const sectionPartIndex: number[] = new Array(sections.length).fill(-1);
     let stoppedEarly = false;
     for (let i = 0; i < sections.length; i++) {
-      if (isResettingRef.current) { setMindmap(null); return true; }
+      if (dead()) { setMindmap(null); return true; }
       mm.nodes[i].status = 'active';
       mm.errorNodeId = null;
       syncMm();
@@ -1648,7 +1728,7 @@ export function useGeneration({
       retryLoop: while (true) {
         let ok = false;
         for (let attempt = 1; attempt <= 2; attempt++) {
-          if (isResettingRef.current) { setMindmap(null); return true; }
+          if (dead()) { setMindmap(null); return true; }
           try {
             html = await expandFilesSection(fileParts, sections[i], i + 1, allHeadings, language, expandModel, level, refineFor(i), groundingEnabled);
             ok = true;
@@ -1665,7 +1745,7 @@ export function useGeneration({
         syncMm();
         setNotesProgress({ current: i + 1, total, label: `Part ${i + 1} ran into a problem — choose Retry, Skip or Finish` });
         const action = await waitForMindmapAction();
-        if (isResettingRef.current) { setMindmap(null); return true; }
+        if (dead()) { setMindmap(null); return true; }
         mm.errorNodeId = null;
         if (action === 'finish') { skipped = true; stoppedEarly = true; break retryLoop; }
         if (action === 'skip') { skipped = true; break retryLoop; }
@@ -1701,7 +1781,7 @@ export function useGeneration({
 
     controller.markDone();
     await controller.waitForDone();
-    if (isResettingRef.current) { setMindmap(null); return true; }
+    if (dead()) { setMindmap(null); return true; }
 
     pushLive(true);
     if (window.innerWidth < 1024) setSidebarOpen(false);
@@ -1711,9 +1791,11 @@ export function useGeneration({
   const handleAddOnePager = async () => {
     const topic = onePagerTopicInput.trim();
     if (!topic) return;
+    const myRun = runSeqRef.current;
     setOnePagerLoading(true);
     try {
       const rawHtml = await generateOnePagerNotes(topic, language, aiModel);
+      if (isStaleRun(myRun)) return;
       const newHtml = sanitizeHtml(rawHtml);
       const existing = getCurrentHtml();
       const combined = existing
@@ -1727,7 +1809,7 @@ export function useGeneration({
       if (window.innerWidth < 1024) setSidebarOpen(false);
       toast.success(`"${topic}" one-pager added!`);
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         toast.error(`One Pager generation failed: ${error.message || 'Please try again.'}`);
       }
@@ -1736,8 +1818,11 @@ export function useGeneration({
     }
   };
 
-  const finishGeneration = (result: string) => {
-    if (isResettingRef.current) return;
+  // `myRun` — the runSeqRef value the calling handler captured when it
+  // started. If Clear Canvas bumped the counter while the AI call was in
+  // flight, this result belongs to a torn-down run and must not land.
+  const finishGeneration = (result: string, myRun?: number) => {
+    if (myRun !== undefined ? isStaleRun(myRun) : isResettingRef.current) return;
     const safe = sanitizeHtml(result);
     if (!safe) { toast.error('Generated content was empty. Please try again.'); return; }
     setGeneratedHtml(safe);
@@ -1799,12 +1884,18 @@ export function useGeneration({
     const aiModel = resumeFrom?.aiModel ?? uiAiModel;
     const groundingEnabled = resumeFrom?.groundingEnabled ?? uiGroundingEnabled;
 
+    // See runLeveledChunkPipeline: `dead` outlives Clear Canvas's ~100ms
+    // reset window, so a section call landing after Clear can't repopulate
+    // the cleared canvas, re-open the closed overlay, or re-save the
+    // just-deleted resume snapshot.
+    let dead: () => boolean = () => isResettingRef.current;
+
     const parts: string[] = [];
     // During the build we only update the canvas + storage; we record a single
     // undo-history entry at the very end (recordHistory=true) so Undo doesn't
     // have to step back through every intermediate section.
     const pushLive = (recordHistory = false) => {
-      if (isResettingRef.current) return;
+      if (dead()) return;
       const html = sanitizeHtml(parts.join('\n'));
       setGeneratedHtml(html);
       if (recordHistory) pushToHistory(html);
@@ -1817,10 +1908,13 @@ export function useGeneration({
 
     // Local mutable mind map; re-clone into state on every change to re-render.
     const mm: MindmapState = { title: topic, subtitle, nodes: [], errorNodeId: null, awaitingApproval: false, restructuring: false, complete: false, addBusy: false };
-    const syncMm = () => setMindmap({
-      ...mm,
-      nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
-    });
+    const syncMm = () => {
+      if (dead()) return;
+      setMindmap({
+        ...mm,
+        nodes: mm.nodes.map(n => ({ ...n, children: [...n.children] })),
+      });
+    };
 
     // "Add a point" always uses general-knowledge elaboration at max depth on
     // the chosen model — a lightweight companion to the main pipeline.
@@ -1828,6 +1922,7 @@ export function useGeneration({
       expandTopicSection(topic, { heading, subheadings: [] }, num, allH, language, aiModel, 'detailed', refine, groundingEnabled);
     const controller = createMindmapController(mm, syncMm, parts, pushLive, extraExpand, isResettingRef);
     mindmapControllerRef.current = controller;
+    dead = () => controller.isDead();
 
     // A resumed run keeps upserting its own snapshot entry; a fresh run gets
     // a brand-new id — either way this does NOT touch any OTHER pending
@@ -1870,7 +1965,9 @@ export function useGeneration({
     // Outline failed — don't lose the request; fall back to a single-shot.
     if (!outline || !outline.sections.length) {
       setMindmap(null);
+      if (dead()) return;
       const single = await generateTopicContent(topic, language, aiModel);
+      if (dead()) return;
       finishGeneration(single);
       return;
     }
@@ -1970,7 +2067,7 @@ export function useGeneration({
     // everything already written. Cheap to redo (outline + approval) is NOT
     // snapshotted — only the expensive per-section expansion below is.
     const persistProgress = () => {
-      if (isResettingRef.current) return;
+      if (dead()) return;
       const partIndexByGroupId: Record<string, number> = {};
       mm.nodes.forEach(n => {
         const idx = controller.getGroupPartIndex(n.groupId);
@@ -2008,7 +2105,7 @@ export function useGeneration({
     // at a time instead of one.
     let remaining = sections.map((_, i) => i).filter(i => !sectionDone[i] && mm.nodes[i].status !== 'skipped');
     while (remaining.length) {
-      if (isResettingRef.current) { setMindmap(null); return; }
+      if (dead()) { setMindmap(null); return; }
       remaining.forEach(i => { mm.nodes[i].status = 'active'; });
       mm.errorNodeId = null;
       syncMm();
@@ -2016,9 +2113,21 @@ export function useGeneration({
 
       const batch = remaining;
       const failed: number[] = [];
+      // A section failing (after its retries) pauses the run for
+      // Retry/Skip/Finish — so sections that haven't STARTED yet must not
+      // start either, or "Finish now" couldn't actually save the user any
+      // work/cost: everything would already have been attempted by the time
+      // the prompt appears. In-flight sections still land normally.
+      const notAttempted: number[] = [];
+      let pauseRequested = false;
       await mapWithConcurrency(batch.length, 3, async (r) => {
         const i = batch[r];
-        if (isResettingRef.current) return;
+        if (dead()) return;
+        if (pauseRequested) {
+          notAttempted.push(i);
+          mm.nodes[i].status = 'pending';
+          return;
+        }
         let html = '';
         for (let attempt = 1; attempt <= 2 && !html; attempt++) {
           try {
@@ -2028,7 +2137,7 @@ export function useGeneration({
             if (attempt < 2) await new Promise(res => setTimeout(res, 1500 * attempt));
           }
         }
-        if (isResettingRef.current) return;
+        if (dead()) return;
         if (html) {
           parts[sectionSlot[i]] = html;
           sectionDone[i] = true;
@@ -2044,28 +2153,36 @@ export function useGeneration({
         } else {
           failed.push(i);
           mm.nodes[i].status = 'error';
+          pauseRequested = true;
         }
         syncMm();
       });
       persistProgress();
-      if (isResettingRef.current) { setMindmap(null); return; }
+      if (dead()) { setMindmap(null); return; }
       if (!failed.length) break;
 
       mm.errorNodeId = mm.nodes[failed[0]].id;
       syncMm();
       setNotesProgress({ current: written, total, label: `${failed.length} section(s) ran into a problem — choose Retry, Skip or Finish` });
       const action = await waitForMindmapAction();
-      if (isResettingRef.current) { setMindmap(null); return; }
+      if (dead()) { setMindmap(null); return; }
       mm.errorNodeId = null;
-      if (action === 'retry') { remaining = failed; continue; }
+      if (action === 'retry') { remaining = [...failed, ...notAttempted]; continue; }
       // Skip / Finish: no placeholder text — the 'skipped' status is
       // enough, and the node stays clickable to generate on demand into
-      // its own slot.
+      // its own slot. Skip skips only the FAILED sections and carries on
+      // with the ones that never got attempted; Finish stops everything.
       failed.forEach(i => { mm.nodes[i].status = 'skipped'; });
       syncMm();
       persistProgress();
-      if (action === 'finish') stoppedEarly = true;
-      break;
+      if (action === 'finish') { stoppedEarly = true; break; }
+      remaining = notAttempted;
+    }
+    if (stoppedEarly) {
+      // "Finish now" — everything not yet generated becomes 'skipped', which
+      // (unlike 'pending') stays clickable to generate on demand later.
+      mm.nodes.forEach(n => { if (n.status === 'pending' || n.status === 'active') n.status = 'skipped'; });
+      syncMm();
     }
 
     // Detailed & Deep: a final "what's still missing?" completeness pass —
@@ -2075,7 +2192,7 @@ export function useGeneration({
       const extraId = 'extra';
       mm.nodes.push({ id: extraId, label: 'Remaining key points', status: stoppedEarly ? 'skipped' : 'active', children: [], groupId: extraId });
       syncMm();
-      if (!stoppedEarly && !isResettingRef.current) {
+      if (!stoppedEarly && !dead()) {
         setNotesProgress({ current: total, total, label: 'Adding remaining key points…' });
         try {
           const extra = await runCompleteness();
@@ -2101,7 +2218,9 @@ export function useGeneration({
     if (parts.length <= 1) {
       // Nothing but the title survived — fall back to single-shot.
       setMindmap(null);
+      if (dead()) return;
       const single = await generateTopicContent(topic, language, aiModel);
+      if (dead()) return;
       finishGeneration(single);
       return;
     }
@@ -2122,7 +2241,7 @@ export function useGeneration({
     activePipelineIdRef.current = null;
     controller.markDone();
     await controller.waitForDone();
-    if (isResettingRef.current) { setMindmap(null); return; }
+    if (dead()) { setMindmap(null); return; }
 
     pushLive(true); // record the finished notes as one clean undo entry
     if (window.innerWidth < 1024) setSidebarOpen(false);
@@ -2139,6 +2258,7 @@ export function useGeneration({
       return;
     }
 
+    const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       let result = '';
@@ -2163,7 +2283,7 @@ export function useGeneration({
           // Medium/Detailed → multi-step outline+expand pipeline (manages its
           // own live state); nothing more to finishGeneration here.
           await runLeveledTopicPipeline(topicInput.trim(), detailLevel);
-          if (!isResettingRef.current) toast.success('Detailed notes ready!');
+          if (!isStaleRun(myRun)) toast.success('Detailed notes ready!');
           return;
         }
         else result = await generateTopicContent(topicInput, language, aiModel);
@@ -2179,7 +2299,7 @@ export function useGeneration({
           if (docStyle === 'notes' && detailLevel !== 'normal') {
             const built = await runLeveledFilePipeline(files, detailLevel);
             if (!built) result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
-            else { if (!isResettingRef.current) toast.success('Detailed notes ready!'); return; }
+            else { if (!isStaleRun(myRun)) toast.success('Detailed notes ready!'); return; }
           } else {
             result = await generateFileNotes(files, language, aiModel, docStyle, wordLimit, detailLevel);
           }
@@ -2187,27 +2307,32 @@ export function useGeneration({
           if (docStyle === 'notes' && detailLevel !== 'normal') {
             const built = await runLeveledTextPipeline(textInput.trim(), detailLevel);
             if (!built) result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
-            else { if (!isResettingRef.current) toast.success('Detailed notes ready!'); return; }
+            else { if (!isStaleRun(myRun)) toast.success('Detailed notes ready!'); return; }
           } else {
             result = await generateFormattedNotes(textInput, language, aiModel, docStyle, wordLimit, detailLevel);
           }
         }
       }
-      finishGeneration(result);
-      toast.success('Content generated successfully!');
+      finishGeneration(result, myRun);
+      if (!isStaleRun(myRun)) toast.success('Content generated successfully!');
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         toast.error(`Generation failed: ${error.message || 'Please check your API key and try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
-      setNotesProgress(null);
-      setMindmap(null);
-      mindmapActionRef.current = null;
-      mindmapControllerRef.current?.cancel();
-      mindmapControllerRef.current = null;
-      activePipelineIdRef.current = null;
+      // If Clear Canvas tore this run down (and possibly a NEW run has
+      // already started), Clear did all of this cleanup itself — running it
+      // again here would wreck the new run's overlay/controller/status.
+      if (!isStaleRun(myRun)) {
+        setStatus(GenerationStatus.IDLE);
+        setNotesProgress(null);
+        setMindmap(null);
+        mindmapActionRef.current = null;
+        mindmapControllerRef.current?.cancel();
+        mindmapControllerRef.current = null;
+        activePipelineIdRef.current = null;
+      }
       // Picks up this run's own snapshot if it got interrupted (e.g. an
       // uncaught error) without needing a page reload first.
       setResumeSnapshots(loadResumeSnapshots());
@@ -2231,6 +2356,7 @@ export function useGeneration({
     const useSubject = subjectOverride ?? upscSubject;
     // Capture existing HTML BEFORE we flip status
     const existing = getCurrentHtml();
+    const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       let nextQuestion = typed;
@@ -2257,20 +2383,20 @@ export function useGeneration({
       const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
       const loadingBody = `<p class="upsc-gen-loading">✍️ ${language === 'Hindi' || useSubject === 'hindi_literature' ? 'उत्तर लिखा जा रहा है…' : 'Writing the answer…'}</p>`;
       const placeholder = wrapUPSCBlock(nextQuestion, loadingBody, useSubject, ' data-gen-pending="1"');
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         setGeneratedHtml(existing + divider + placeholder);
         scrollToLatestAnswer();
       }
 
       const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useMarks, useStyle, useSubject);
-      if (isResettingRef.current) return;
+      if (isStaleRun(myRun)) return;
       const newBlock = wrapUPSCBlock(nextQuestion, answer, useSubject);
       const combined = existing + divider + newBlock;
-      finishGeneration(combined);
+      finishGeneration(combined, myRun);
       scrollToLatestAnswer();
       toast.success('Next UPSC question is ready!');
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         // Roll back the optimistic placeholder so a failed run doesn't leave
         // a stuck "writing…" block behind.
@@ -2278,7 +2404,7 @@ export function useGeneration({
         toast.error(`Failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      if (!isStaleRun(myRun)) setStatus(GenerationStatus.IDLE);
     }
   };
 
@@ -2288,18 +2414,19 @@ export function useGeneration({
       toast.warning('Please enter a topic first.');
       return;
     }
+    const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_TABLE);
     try {
       const result = await generateSmartTable(topicInput, tableInstruction, language, aiModel);
-      finishGeneration(result);
-      toast.success('Table generated successfully!');
+      finishGeneration(result, myRun);
+      if (!isStaleRun(myRun)) toast.success('Table generated successfully!');
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         toast.error(`Table generation failed: ${error.message || 'Please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
+      if (!isStaleRun(myRun)) setStatus(GenerationStatus.IDLE);
     }
   };
 
@@ -2308,6 +2435,14 @@ export function useGeneration({
     selectionRangeRef: MutableRefObject<Range | null>,
   ) => {
     isResettingRef.current = true;
+    // Permanently invalidate any in-flight single-shot run (see runSeqRef) —
+    // its result must not repopulate the canvas when it lands seconds later.
+    runSeqRef.current++;
+    // The generation whose canvas was just cleared is over as far as the UI
+    // is concerned — without this the "Writing content…" pill stays on
+    // screen forever and the Generate button stays disabled (every pipeline
+    // `finally` skips setStatus while isResettingRef is true).
+    setStatus(GenerationStatus.IDLE);
     setGeneratedHtml(null);
     resetHistory();
     setIsEditing(false);
@@ -2349,6 +2484,7 @@ export function useGeneration({
   const handleResumePipeline = async (snap: PipelineResumeSnapshot) => {
     // Optimistically drop it from the pending list — it's now the active run.
     setResumeSnapshots(prev => prev.filter(s => s.id !== snap.id));
+    const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       setLanguage(snap.language);
@@ -2369,23 +2505,28 @@ export function useGeneration({
         // canvas, but it isn't honest to call this a successful resume.
         resumed = await runLeveledChunkPipeline(snap.sourceText, snap.level, snap.chunkSourceKind, snap);
       }
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         if (resumed) toast.success('Notes generation resumed!');
         else toast.warning('Could not continue this draft — the earlier content is still here, but please try regenerating the rest.');
       }
     } catch (error: any) {
-      if (!isResettingRef.current) {
+      if (!isStaleRun(myRun)) {
         console.error(error);
         toast.error(`Resume failed: ${error.message || 'please try again.'}`);
       }
     } finally {
-      if (!isResettingRef.current) setStatus(GenerationStatus.IDLE);
-      setNotesProgress(null);
-      setMindmap(null);
-      mindmapActionRef.current = null;
-      mindmapControllerRef.current?.cancel();
-      mindmapControllerRef.current = null;
-      activePipelineIdRef.current = null;
+      // If Clear Canvas tore this run down (and possibly a NEW run has
+      // already started), Clear did all of this cleanup itself — running it
+      // again here would wreck the new run's overlay/controller/status.
+      if (!isStaleRun(myRun)) {
+        setStatus(GenerationStatus.IDLE);
+        setNotesProgress(null);
+        setMindmap(null);
+        mindmapActionRef.current = null;
+        mindmapControllerRef.current?.cancel();
+        mindmapControllerRef.current = null;
+        activePipelineIdRef.current = null;
+      }
       // Re-read from storage: picks this one back up if it got interrupted
       // again mid-resume, and reflects any other pipeline's own outcome too.
       setResumeSnapshots(loadResumeSnapshots());
