@@ -1,10 +1,10 @@
 // How many sections/outline-chunks/sub-batches a pipeline works on at once.
 // The proxy imposes no rate limit of its own; the real ceiling is Vertex
-// AI's per-minute quota, and a GLOBAL cap of 10 simultaneous AI requests is
+// AI's per-minute quota, and a GLOBAL cap of 30 simultaneous AI requests is
 // enforced at the fetch-interceptor chokepoint in services/ai/client.ts —
-// so even when this per-level parallelism multiplies (10 sections × sub-
-// batches), the wire never carries more than 10 calls at once; extras queue.
-export const PIPELINE_CONCURRENCY = 10;
+// so even when this per-level parallelism multiplies (30 sections × sub-
+// batches), the wire never carries more than 30 calls at once; extras queue.
+export const PIPELINE_CONCURRENCY = 30;
 
 // Run `count` async jobs with at most `limit` in flight at once, preserving
 // nothing about completion order — callers that care about order write their

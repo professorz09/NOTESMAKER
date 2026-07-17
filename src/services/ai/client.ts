@@ -20,14 +20,16 @@ const PROXY_BASE_URL = supabaseUrl ? `${supabaseUrl}/functions/v1/gemini-proxy` 
 // The gemini-proxy edge function imposes NO rate limit of its own — the
 // real ceiling is Vertex AI's per-minute quota (a fresh GCP project gets
 // ~30-60 RPM; the proxy retries 429s with backoff). Our section calls are
-// long (30-60s each), so even 10 simultaneous calls only produce
-// ~10-15 requests/minute — comfortably inside quota. This semaphore sits
+// long (30-60s each), so ~30 simultaneous calls produce roughly
+// 30-60 requests/minute — around the quota ceiling; the proxy's own
+// 429 backoff-retries plus the client's per-section retries absorb
+// the occasional throttle. This semaphore sits
 // on the ONE chokepoint every AI call flows through (the proxy fetch
 // interceptor below), so no matter how pipeline-level and sub-batch
 // parallelism multiply (sections × sub-batches × add-a-point clicks…),
 // the wire never carries more than this many AI requests at once —
 // extras simply queue here until a slot frees.
-const MAX_CONCURRENT_AI_CALLS = 10;
+const MAX_CONCURRENT_AI_CALLS = 30;
 let aiCallsInFlight = 0;
 const aiSlotWaiters: (() => void)[] = [];
 const acquireAiSlot = (): Promise<void> => new Promise((resolve) => {
