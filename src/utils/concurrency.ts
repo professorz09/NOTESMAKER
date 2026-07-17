@@ -1,3 +1,11 @@
+// How many sections/outline-chunks/sub-batches a pipeline works on at once —
+// each batch level runs at most 10 in flight. The GLOBAL wire ceiling is
+// separate and higher (30, enforced at the fetch-interceptor chokepoint in
+// services/ai/client.ts): when levels multiply (10 sections × their
+// sub-batches), up to 30 AI calls may genuinely run at once; anything
+// beyond that queues for a free slot.
+export const PIPELINE_CONCURRENCY = 10;
+
 // Run `count` async jobs with at most `limit` in flight at once, preserving
 // nothing about completion order — callers that care about order write their
 // result into a slot keyed by the index they receive. Used by the leveled

@@ -42,7 +42,7 @@ import {
 } from '../services/ai/index';
 import { GenerationStatus, type MindmapState } from '../types';
 import { STORAGE_KEY } from '../utils/editorUtils';
-import { mapWithConcurrency } from '../utils/concurrency';
+import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../utils/concurrency';
 import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
 import { fetchVideoTranscript, looksLikeVideoUrl } from '../services/supadata';
@@ -1053,7 +1053,8 @@ export function useGeneration({
   };
 
   // Phase 1 shared by the transcript & text leveled pipelines: outline every
-  // chunk with bounded parallelism (3 calls in flight) instead of strictly
+  // chunk with bounded parallelism (PIPELINE_CONCURRENCY calls in flight)
+  // instead of strictly
   // one-by-one — structure building was the longest serial stretch of the
   // pipeline on multi-hour lectures. Each chunk gets one retry; a chunk that
   // still comes back empty degrades to a "Part N" placeholder node exactly
@@ -1098,7 +1099,7 @@ export function useGeneration({
         appended++;
       }
     };
-    await mapWithConcurrency(total, 3, async (i) => {
+    await mapWithConcurrency(total, PIPELINE_CONCURRENCY, async (i) => {
       if (dead()) return;
       let secs: TranscriptSection[] = [];
       for (let attempt = 1; attempt <= 2 && !secs.length; attempt++) {
@@ -1485,7 +1486,7 @@ export function useGeneration({
         // time the prompt appears. In-flight sections still land normally.
         const notAttempted: number[] = [];
         let pauseRequested = false;
-        await mapWithConcurrency(batch.length, 3, async (r) => {
+        await mapWithConcurrency(batch.length, PIPELINE_CONCURRENCY, async (r) => {
           const j = batch[r];
           if (dead()) return;
           const node = mm.nodes[range.start + j];
@@ -1516,7 +1517,7 @@ export function useGeneration({
             setNotesProgress({ current: written, total: totalSections, label: `Writing detailed notes (section ${written}/${totalSections})` });
             pushLive();
             // Persist THIS section's own completion immediately rather than
-            // waiting for the whole (up to 3-wide) concurrent batch to
+            // waiting for the whole concurrent batch to
             // finish — otherwise an interruption mid-batch could silently
             // lose sections that had already finished successfully.
             persistProgress();
@@ -2120,7 +2121,7 @@ export function useGeneration({
       // the prompt appears. In-flight sections still land normally.
       const notAttempted: number[] = [];
       let pauseRequested = false;
-      await mapWithConcurrency(batch.length, 3, async (r) => {
+      await mapWithConcurrency(batch.length, PIPELINE_CONCURRENCY, async (r) => {
         const i = batch[r];
         if (dead()) return;
         if (pauseRequested) {
@@ -2146,7 +2147,7 @@ export function useGeneration({
           setNotesProgress({ current: written, total, label: `Writing detailed notes (section ${written}/${total})` });
           pushLive();
           // Persist THIS section's own completion immediately rather than
-          // waiting for the whole (up to 3-wide) concurrent batch to
+          // waiting for the whole concurrent batch to
           // finish — otherwise an interruption mid-batch could silently
           // lose sections that had already finished successfully.
           persistProgress();
@@ -2196,19 +2197,26 @@ export function useGeneration({
         setNotesProgress({ current: total, total, label: 'Adding remaining key points…' });
         try {
           const extra = await runCompleteness();
-          const node = mm.nodes[mm.nodes.length - 1];
+          // Found by id, NOT by "last node" — the completeness call above
+          // awaits a 30-60s Pro request, and "add a point" stays usable the
+          // whole time (only gated by mm.addBusy), so a point added during
+          // that wait would otherwise become the new last node and this
+          // would clobber IT instead of the actual completeness node,
+          // leaving the real one stuck 'active' forever.
+          const node = mm.nodes.find(n => n.id === extraId);
           if (extra && extra.replace(/<[^>]*>/g, '').trim().length > 20) {
             const partIndex = parts.length;
             parts.push(extra);
             controller.setGroupPartIndex(extraId, partIndex);
             pushLive();
-            node.status = 'done';
-          } else {
+            if (node) node.status = 'done';
+          } else if (node) {
             node.status = 'skipped';
           }
         } catch (err) {
           console.error('Completeness pass failed:', err);
-          mm.nodes[mm.nodes.length - 1].status = 'skipped';
+          const node = mm.nodes.find(n => n.id === extraId);
+          if (node) node.status = 'skipped';
         }
         persistProgress();
         syncMm();

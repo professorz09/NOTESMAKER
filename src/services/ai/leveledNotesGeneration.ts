@@ -1,7 +1,7 @@
 import { createAIClient, cleanHtmlOutput, NOTES_GEN_CONFIG, DETAILED_NOTES_CONFIG, withGoogleSearch } from './client';
 import { parseOutlineSectionsJson, parseOutlineJsonObject } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
-import { mapWithConcurrency } from '../../utils/concurrency';
+import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../../utils/concurrency';
 
 // Shared guidance used by every expand-a-section prompt below. The guiding
 // principle is: EXPLAIN the material well, and let the model choose whatever
@@ -52,7 +52,7 @@ async function expandWithSubBatches(
   const starts: number[] = [];
   for (let start = 0; start < subheadings.length; start += SUB_BATCH) starts.push(start);
   const pieces: string[] = new Array(starts.length).fill('');
-  await mapWithConcurrency(starts.length, 3, async (b) => {
+  await mapWithConcurrency(starts.length, PIPELINE_CONCURRENCY, async (b) => {
     const start = starts[b];
     pieces[b] = await callOnce(subheadings.slice(start, start + SUB_BATCH), start, start === 0);
   });
