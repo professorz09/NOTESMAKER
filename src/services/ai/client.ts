@@ -16,6 +16,34 @@ import { getAccessToken } from "../supabase";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const PROXY_BASE_URL = supabaseUrl ? `${supabaseUrl}/functions/v1/gemini-proxy` : '';
 
+// --- Global AI concurrency cap -----------------------------------------
+// The gemini-proxy edge function imposes NO rate limit of its own — the
+// real ceiling is Vertex AI's per-minute quota (a fresh GCP project gets
+// ~30-60 RPM; the proxy retries 429s with backoff). Our section calls are
+// long (30-60s each), so even 10 simultaneous calls only produce
+// ~10-15 requests/minute — comfortably inside quota. This semaphore sits
+// on the ONE chokepoint every AI call flows through (the proxy fetch
+// interceptor below), so no matter how pipeline-level and sub-batch
+// parallelism multiply (sections × sub-batches × add-a-point clicks…),
+// the wire never carries more than this many AI requests at once —
+// extras simply queue here until a slot frees.
+const MAX_CONCURRENT_AI_CALLS = 10;
+let aiCallsInFlight = 0;
+const aiSlotWaiters: (() => void)[] = [];
+const acquireAiSlot = (): Promise<void> => new Promise((resolve) => {
+  if (aiCallsInFlight < MAX_CONCURRENT_AI_CALLS) {
+    aiCallsInFlight++;
+    resolve();
+  } else {
+    aiSlotWaiters.push(() => { aiCallsInFlight++; resolve(); });
+  }
+});
+const releaseAiSlot = () => {
+  aiCallsInFlight--;
+  const next = aiSlotWaiters.shift();
+  if (next) next();
+};
+
 function installProxyFetchInterceptor() {
   if (typeof window === 'undefined') return;
   if ((window as any).__notesmakerAiFetchPatched) return;
@@ -28,14 +56,19 @@ function installProxyFetchInterceptor() {
         ? input.toString()
         : (input as Request).url;
     if (url.startsWith(PROXY_BASE_URL)) {
-      const token = await getAccessToken();
-      if (!token) throw new Error('Sign-in required for AI features.');
-      const headers = new Headers(init?.headers || {});
-      headers.delete('x-goog-api-key');
-      headers.set('Authorization', `Bearer ${token}`);
-      const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-      if (anon && !headers.has('apikey')) headers.set('apikey', anon);
-      return origFetch(input, { ...init, headers });
+      await acquireAiSlot();
+      try {
+        const token = await getAccessToken();
+        if (!token) throw new Error('Sign-in required for AI features.');
+        const headers = new Headers(init?.headers || {});
+        headers.delete('x-goog-api-key');
+        headers.set('Authorization', `Bearer ${token}`);
+        const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+        if (anon && !headers.has('apikey')) headers.set('apikey', anon);
+        return await origFetch(input, { ...init, headers });
+      } finally {
+        releaseAiSlot();
+      }
     }
     return origFetch(input, init);
   };

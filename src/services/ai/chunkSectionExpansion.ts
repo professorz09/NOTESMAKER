@@ -1,7 +1,7 @@
 import { createAIClient, cleanHtmlOutput, DETAILED_NOTES_CONFIG, withGoogleSearch } from './client';
 import type { OutlineSection } from './outlineParsing';
 import { buildRefinementDirective, type RefinementOptions } from './refinement';
-import { mapWithConcurrency } from '../../utils/concurrency';
+import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../../utils/concurrency';
 
 // ---------------------------------------------------------------------------
 // Per-SECTION expansion for the chunked leveled pipelines (transcript and
@@ -162,7 +162,7 @@ export const expandChunkSection = async (
   const starts: number[] = [];
   for (let start = 0; start < subs.length; start += SUB_BATCH) starts.push(start);
   const pieces: string[] = new Array(starts.length).fill('');
-  await mapWithConcurrency(starts.length, 3, async (b) => {
+  await mapWithConcurrency(starts.length, PIPELINE_CONCURRENCY, async (b) => {
     const start = starts[b];
     pieces[b] = await expandOnce(
       kind, chunkText, section.heading, subs.slice(start, start + SUB_BATCH), sectionNumber, start, start === 0,
