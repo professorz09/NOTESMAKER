@@ -2197,19 +2197,26 @@ export function useGeneration({
         setNotesProgress({ current: total, total, label: 'Adding remaining key points…' });
         try {
           const extra = await runCompleteness();
-          const node = mm.nodes[mm.nodes.length - 1];
+          // Found by id, NOT by "last node" — the completeness call above
+          // awaits a 30-60s Pro request, and "add a point" stays usable the
+          // whole time (only gated by mm.addBusy), so a point added during
+          // that wait would otherwise become the new last node and this
+          // would clobber IT instead of the actual completeness node,
+          // leaving the real one stuck 'active' forever.
+          const node = mm.nodes.find(n => n.id === extraId);
           if (extra && extra.replace(/<[^>]*>/g, '').trim().length > 20) {
             const partIndex = parts.length;
             parts.push(extra);
             controller.setGroupPartIndex(extraId, partIndex);
             pushLive();
-            node.status = 'done';
-          } else {
+            if (node) node.status = 'done';
+          } else if (node) {
             node.status = 'skipped';
           }
         } catch (err) {
           console.error('Completeness pass failed:', err);
-          mm.nodes[mm.nodes.length - 1].status = 'skipped';
+          const node = mm.nodes.find(n => n.id === extraId);
+          if (node) node.status = 'skipped';
         }
         persistProgress();
         syncMm();
