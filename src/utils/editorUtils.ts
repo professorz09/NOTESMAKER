@@ -54,68 +54,62 @@ export const getSectionNodes = (startNode: Element): Element[] => {
 export const buildContentStyleRules = (prefix: string, fontSize: number, lineHeight: number = 1.7): string => {
   const p = prefix ? `${prefix} ` : '';
   return `
-    /* Headings */
-    ${p}h1 { font-size: 2em; font-weight: 800; color: #0f172a; border-bottom: 3px solid #0f172a; padding-bottom: 6px; margin: 0 0 14px; page-break-after: avoid; break-after: avoid; }
-    ${p}h2 { font-size: 1.5em; font-weight: 700; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin: 16px 0 8px; page-break-after: avoid; break-after: avoid; }
-    ${p}h3 { font-size: 1.2em; font-weight: 600; color: #334155; margin: 14px 0 6px; page-break-after: avoid; break-after: avoid; }
-    ${p}h4 { font-size: 1.05em; font-weight: 600; color: #475569; margin: 10px 0 4px; page-break-after: avoid; break-after: avoid; }
+    /* Headings — matches .editor-content (the live notes preview) exactly so
+       print/PDF output never looks different from what the user already
+       approved on screen; only page-break behaviour is print-specific. */
+    ${p}h1 { font-size: 1.5em; font-weight: 800; color: #1e293b; margin: 0 0 0.5em; page-break-after: avoid; break-after: avoid; }
+    ${p}h2 { font-size: 1.25em; font-weight: 700; color: #1e3a5f; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3em; margin: 0 0 0.4em; page-break-after: avoid; break-after: avoid; }
+    ${p}h3 { font-size: 1.1em; font-weight: 600; color: #2563eb; margin: 0 0 0.3em; page-break-after: avoid; break-after: avoid; }
+    ${p}h4 { font-size: 1em; font-weight: 600; color: #475569; margin: 0 0 0.25em; page-break-after: avoid; break-after: avoid; }
 
-    /* Body text */
-    ${p}p { margin-bottom: 8px; text-align: justify; line-height: ${lineHeight}; }
-    ${p}ul, ${p}ol { margin-bottom: 8px; padding-left: 20px; }
-    ${p}li { margin-bottom: 4px; line-height: ${lineHeight}; }
-    ${p}td { line-height: ${Math.max(1.3, lineHeight - 0.2)}; }
-    ${p}strong { color: #0f172a; font-weight: 700; }
+    /* Body text — left-aligned like the preview (not justified: justify makes
+       Devanagari, which doesn't hyphenate, stretch into uneven gaps in print). */
+    ${p}p { margin: 0 0 0.75em; line-height: ${lineHeight}; }
+    ${p}ul, ${p}ol { margin: 0 0 0.75em; padding-left: 1.5em; }
+    ${p}li { margin-bottom: 0.3em; line-height: ${lineHeight}; }
+    ${p}td { line-height: ${lineHeight}; }
+    ${p}strong { color: #1e293b; font-weight: 700; }
 
     /* Rich elements */
     ${p}.key-point {
-      background-color: #f8fafc !important;
-      border-left: 4px solid #3b82f6 !important;
+      background-color: #eff6ff !important;
+      border-left: 4px solid #2563eb !important;
       padding: 10px 14px;
       margin: 12px 0;
-      font-size: 0.95em;
+      font-size: 0.9em;
       page-break-inside: avoid; break-inside: avoid;
-      border-radius: 0 6px 6px 0;
+      border-radius: 0 8px 8px 0;
     }
     ${p}.note-box {
       background-color: #fefce8 !important;
-      border: 1px solid #facc15 !important;
-      border-left: 4px solid #eab308 !important;
+      border: 1px solid #fde68a !important;
       padding: 10px 14px;
       margin: 12px 0;
-      font-size: 0.95em;
-      color: #854d0e !important;
+      font-size: 0.9em;
+      border-radius: 8px;
       page-break-inside: avoid; break-inside: avoid;
     }
-    ${p}.note-box::before {
-      content: '💡 Note';
-      display: block;
-      font-weight: 700;
-      font-size: 0.82em;
-      text-transform: uppercase;
-      margin-bottom: 5px;
-      color: #a16207 !important;
-      letter-spacing: 0.05em;
-    }
 
-    /* Tables */
-    ${p}table { display: table !important; width: 100% !important; max-width: none !important; overflow: visible !important; border-collapse: collapse; margin: 12px 0; border: 1.5px solid #000 !important; page-break-inside: auto; font-size: 0.88em; }
+    /* Tables — same soft slate borders as the preview, not a heavy black grid */
+    ${p}table { display: table !important; width: 100% !important; max-width: none !important; overflow: visible !important; border-collapse: collapse; margin: 1em 0; border: 1px solid #cbd5e1 !important; page-break-inside: auto; font-size: 0.9em; }
     ${p}caption { font-weight: 600; font-size: 0.9em; text-align: center; padding: 4px 0 6px; color: #1e293b; }
     ${p}thead { display: table-header-group; }
     ${p}tr { page-break-inside: avoid; page-break-after: auto; }
-    ${p}th { background-color: #2d3748 !important; color: #f8fafc !important; padding: 7px 8px; font-weight: 700; text-align: left; border: 1px solid #2d3748 !important; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
-    ${p}td { border: 1px solid #000 !important; padding: 7px 8px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
+    ${p}th { background-color: #2d3748 !important; color: #f8fafc !important; padding: 9px 13px; font-weight: 700; text-align: left; font-size: 0.85em; border: 1px solid #4a5568 !important; letter-spacing: 0.01em; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
+    ${p}td { border: 1px solid #e2e8f0 !important; padding: 7px 12px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
     ${p}tr:nth-child(even) { background-color: #f8fafc !important; }
 
-    /* SVG / Flowchart */
-    ${p}.flowchart-container { display: flex; justify-content: center; margin: 14px 0; padding: 8px; border: 1px solid #e2e8f0; page-break-inside: avoid; break-inside: avoid; }
+    /* SVG / Flowchart — no border/padding box: the AI is explicitly told to
+       draw diagrams with no border, so print must not add one back. */
+    ${p}.flowchart-container { display: flex; justify-content: center; margin: 14px 0; page-break-inside: avoid; break-inside: avoid; }
     ${p}svg { max-width: 100% !important; height: auto !important; display: block; }
 
     /* Figures & Images */
     ${p}figure { margin: 14px 0; text-align: center; page-break-inside: avoid; break-inside: avoid; }
     ${p}figure.pdf-figure { display: block; margin: 14px auto; text-align: center; page-break-inside: avoid; break-inside: avoid; }
-    ${p}figure.pdf-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; border: 1px solid #e2e8f0 !important; }
+    ${p}figure.pdf-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
     ${p}img { max-width: 100%; height: auto; border: none; }
+    ${p}.generated-image-container img { border-radius: 12px; }
     ${p}figcaption, ${p}.pdf-figcaption { font-size: 0.82em; color: #555; font-style: italic; margin-top: 4px; display: block; text-align: center; }
 
     /* Page section */
@@ -149,17 +143,17 @@ export const buildContentStyleRules = (prefix: string, fontSize: number, lineHei
     ${p}.image-placeholder-desc { font-size: 0.8em; color: #78350f !important; margin-top: 4px; }
 
     /* Table of contents */
-    ${p}.table-of-contents { border: 1px solid #e2e8f0; padding: 16px 20px; margin-bottom: 20px; page-break-after: always; }
-    ${p}.table-of-contents h2 { font-size: 1.1em !important; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0 !important; }
+    ${p}.table-of-contents { background: #f8fafc !important; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; page-break-after: always; }
+    ${p}.table-of-contents h2 { font-size: 1.1em !important; border-bottom: none !important; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0 !important; }
     ${p}.table-of-contents ul { list-style: none !important; padding-left: 0 !important; }
-    ${p}.table-of-contents a { color: #475569 !important; text-decoration: none !important; display: flex; justify-content: space-between; }
+    ${p}.table-of-contents a { color: #2563eb !important; text-decoration: none !important; display: flex; justify-content: space-between; }
 
-    /* UPSC answer copy */
+    /* UPSC answer copy — same purple/blue gradient question box as the preview */
     ${p}.upsc-qa-block { margin-bottom: 20px; }
-    ${p}.upsc-subject-tag { display: inline-block; font-size: 0.72em; font-weight: 700; letter-spacing: 0.04em; padding: 2px 9px; border-radius: 20px; margin-bottom: 5px; background: #dbeafe !important; color: #1d4ed8 !important; border: 1px solid #93c5fd !important; }
+    ${p}.upsc-subject-tag { display: inline-block; font-size: 0.72em; font-weight: 700; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 20px; margin-bottom: 5px; background: #dbeafe !important; color: #1d4ed8 !important; border: 1px solid #93c5fd !important; }
     ${p}.upsc-subject-tag.upsc-subject-hl { background: #ffedd5 !important; color: #c2410c !important; border-color: #fdba74 !important; }
-    ${p}.upsc-question { display: block; background: #f1f5f9 !important; color: #0f172a !important; border-left: 4px solid #3b82f6 !important; padding: 10px 14px; margin: 0 0 14px; border-radius: 0 6px 6px 0; font-size: 1.05em; font-weight: 700; line-height: 1.45; page-break-inside: avoid; break-inside: avoid; page-break-after: avoid; break-after: avoid; }
-    ${p}.upsc-qa-divider { border: none; border-top: 2px dashed #cbd5e1; margin: 24px 0 20px; }
+    ${p}.upsc-question { display: block; background: linear-gradient(135deg, #ede9fe 0%, #dbeafe 100%) !important; color: #1e293b !important; border-left: 5px solid #7c3aed !important; padding: 14px 18px; margin: 0 0 18px; border-radius: 0 12px 12px 0; font-size: 1.05em; font-weight: 700; line-height: 1.45; page-break-inside: avoid; break-inside: avoid; page-break-after: avoid; break-after: avoid; }
+    ${p}.upsc-qa-divider { border: none; border-top: 2px dashed #cbd5e1; margin: 36px 0 28px; }
 
     /* Answer analysis */
     ${p}.answer-analysis .section-card { page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; padding: 14px; }

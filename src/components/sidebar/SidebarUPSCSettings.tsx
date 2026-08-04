@@ -1,5 +1,5 @@
 import React from 'react';
-import { GraduationCap, Bot, Trophy, List, Brain, Type, BookOpen, BookText } from 'lucide-react';
+import { GraduationCap, Bot, Trophy, List, Brain, Type, BookOpen, BookText, Sparkles } from 'lucide-react';
 import type { UPSCAnswerStyle, UPSCSubject } from '../../services/ai/index';
 
 interface SidebarUPSCSettingsProps {
@@ -20,15 +20,17 @@ const MARKS_OPTIONS: { marks: number; pages: string }[] = [
 ];
 
 const ANSWER_STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: string }>; label: string; desc: string }[] = [
-  { id: 'auto',       icon: Bot,    label: 'AI Auto',    desc: 'AI decides all'  },
-  { id: 'topper',     icon: Trophy, label: "Topper's",   desc: 'Adaptive smart'  },
-  { id: 'bullets',    icon: List,   label: 'Bullet',     desc: 'Scannable pts'   },
-  { id: 'analytical', icon: Brain,  label: 'Analytical', desc: 'Deep critical'   },
+  { id: 'auto',       icon: Bot,      label: 'AI Auto',    desc: 'AI decides all'  },
+  { id: 'topper',     icon: Trophy,   label: "Topper's",   desc: 'Adaptive smart'  },
+  { id: 'classic',    icon: Sparkles, label: 'Classic',    desc: 'Hook→body→end'   },
+  { id: 'bullets',    icon: List,     label: 'Bullet',     desc: 'Scannable pts'   },
+  { id: 'analytical', icon: Brain,    label: 'Analytical', desc: 'Deep critical'   },
 ];
 
 const STYLE_HINTS: Record<UPSCAnswerStyle, string> = {
   auto:       '🤖 Simple prompt — AI freely chooses structure, evidence & style',
   topper:     '🏆 Adaptive prompt — structure & evidence match the subject/topic',
+  classic:    '✨ Fixed intro (quote/example/definition) → body → nishkarsh — example-rich, top-level',
   bullets:    '📋 Bullet-heavy — dense, scannable, ideal for quick exam writing',
   analytical: '🔍 Deep analysis — weighs multiple angles, takes a clear stand',
 };

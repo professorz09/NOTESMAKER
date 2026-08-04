@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronUp, GraduationCap, BookText, Loader2 } from 'lucide-react';
+import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronUp, GraduationCap, BookText, Loader2, Sparkles } from 'lucide-react';
 import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 
 interface NextQuestionPanelProps {
@@ -11,10 +11,11 @@ interface NextQuestionPanelProps {
 }
 
 const STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
-  { id: 'auto',       icon: Bot,    label: 'AI Auto' },
-  { id: 'topper',     icon: Trophy, label: "Topper's" },
-  { id: 'bullets',    icon: List,   label: 'Bullet' },
-  { id: 'analytical', icon: Brain,  label: 'Analytical' },
+  { id: 'auto',       icon: Bot,      label: 'AI Auto' },
+  { id: 'topper',     icon: Trophy,   label: "Topper's" },
+  { id: 'classic',    icon: Sparkles, label: 'Classic' },
+  { id: 'bullets',    icon: List,     label: 'Bullet' },
+  { id: 'analytical', icon: Brain,    label: 'Analytical' },
 ];
 
 const MARKS_OPTIONS: { marks: number; pages: string }[] = [
@@ -147,7 +148,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
             Answer Style
           </label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {STYLES.map(({ id, icon: Icon, label }) => {
               const active = style === id;
               return (

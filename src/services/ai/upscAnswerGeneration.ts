@@ -32,7 +32,20 @@ Present the answer like a topper's exam copy — an examiner should grasp the st
 (Bring your own relevant evidence naturally where it strengthens a point — this rule is about layout, not about which examples to use.)
 `;
 
-export type UPSCAnswerStyle = 'auto' | 'topper' | 'bullets' | 'analytical';
+// Shared anti-repetition rule. Without this, every answer from a given style
+// tends to collapse into the exact same skeleton (same opening move, same
+// number of sections, same closing formula) regardless of what the question
+// actually asks — which is what makes AI-written answers feel templated.
+// This tells the model to let the QUESTION drive the shape.
+const VARIETY_RULE = `
+━━━ LET THE QUESTION SHAPE THE ANSWER ━━━
+Do not force this answer into the same skeleton you'd use for every other question:
+• The opening move, the number/naming of sections, and how the ending lands should come from what THIS question needs — not a habit.
+• A comparison question should read like a comparison; a dilemma should read like a dilemma is being worked through; a "discuss all aspects" question should read like it's covering aspects — don't flatten every question into three generic body paragraphs.
+• Vary the opening device (a quote, a real incident, a statistic, a sharp definition, a real contrast) rather than reaching for the same type of hook every time.
+`;
+
+export type UPSCAnswerStyle = 'auto' | 'topper' | 'bullets' | 'analytical' | 'classic';
 export type UPSCSubject = 'gs' | 'hindi_literature';
 
 // UPSC answers are sized by MARKS, not raw word counts — that's how the exam
@@ -92,7 +105,7 @@ const buildHindiLiteraturePrompt = (
 प्रश्न: "${question}"
 भाषा: हिंदी (देवनागरी लिपि) — सब कुछ हिंदी में लिखें
 ${lengthLineHi(marks)}
-उत्तर शैली: ${style === 'bullets' ? 'बिंदुवार (Bullet Points)' : style === 'analytical' ? 'विश्लेषणात्मक' : 'टॉपर की प्रतिलिपि'}
+उत्तर शैली: ${style === 'bullets' ? 'बिंदुवार (Bullet Points)' : style === 'analytical' ? 'विश्लेषणात्मक' : style === 'classic' ? 'शास्त्रीय शैली — उद्धरण/उदाहरण से भूमिका, विवेचना, सशक्त निष्कर्ष' : 'टॉपर की प्रतिलिपि'}
 
 ━━━ ग्राउंडिंग — सही तथ्यों हेतु Google Search का प्रयोग करें ━━━
 आपके पास live Google Search ग्राउंडिंग उपलब्ध है। लिखने से पहले इसका प्रयोग करके सुनिश्चित करें:
@@ -153,18 +166,23 @@ const buildUPSCPrompt = (
   const words = marksToWordLimit(marks);
 
   if (style === 'auto') return `
-Write a high-scoring UPSC Mains answer.
+Write a high-scoring UPSC Mains answer. YOU decide the best shape for this specific question — do not default to the same template every time.
 
 Question/Topic: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
-STRUCTURE:
-• Introduction (<h2>): A sharp opening — a real fact, data point, quote, or constitutional/legal reference relevant to the question (verified via search), followed by 1-2 lines of context/definition. Under 50 words.
-• Body (<h3> sub-headings): Cover the question's multiple dimensions in logical order. Every claim must be backed by a REAL, verified example — an actual scheme, case, data point, article, or event, never a vague generality standing alone.
-• Conclusion (<h2>): A genuine forward-looking or balanced verdict tied back to the question's core ask. Do NOT start with "Thus" / "Hence" / "In conclusion". Under 50 words.
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
+━━━ PICK THE SHAPE THAT ACTUALLY FITS THIS QUESTION ━━━
+Choose whichever of these (or a genuine blend) the directive word and content call for — never force intro→body→conclusion onto a question that would read better another way:
+• Classic essay — a hook (quote/fact/definition/incident), a multi-dimensional body, a landing conclusion. Good default for "Discuss"/"Examine"/"Elaborate".
+• For/against — lay out the case for, the case against, then a reasoned verdict. Fits "Critically evaluate"/"Critically examine".
+• Problem → cause → solution — for questions asking how to fix or address something.
+• Compare/contrast — shared context, then a dimension-by-dimension comparison, then the implication. Fits "Compare"/"Distinguish".
+• Thematic sections — when the question itself lists 2-4 sub-parts (e.g. "Discuss X. What is the role of Y?"), give each its own clearly-labelled section answering it directly.
 
-Use proper HTML: <h2> for Introduction & Conclusion, <h3> for body sections,
+Whatever shape you pick, every claim needs a REAL, verified example — never a vague generality standing alone.
+
+Use proper HTML: <h2>/<h3> for whatever structure the chosen shape needs,
 <ul><li> for points, <strong> for key terms/data/names.
 Use <div class="note-box"> for important facts/data if relevant.
 
@@ -177,7 +195,7 @@ You are a seasoned UPSC Mains examiner and IAS mentor. Write an answer that read
 Question: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
 ━━━ STEP 1 — READ THE QUESTION
 Before writing, silently identify:
 • Subject/paper (Polity, Economy, History, Geography, Environment, Ethics, Literature, Science…)
@@ -235,13 +253,40 @@ RULES: ~${words} words total. No "It is well known that…", no hollow filler, n
 Return ONLY raw HTML. No markdown fences.
 `;
 
+  if (style === 'classic') return `
+Write a polished, top-of-the-class UPSC Mains answer using the classic three-part structure, executed to the highest standard. The SHAPE is fixed on purpose — introduction, body, conclusion — but nothing inside it should feel templated: every part must be sharp, specific to this question, and dense with real examples.
+
+Question: "${question}"
+Language: ${lang}
+${lengthLine}
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
+━━━ THE STRUCTURE (always these three parts, never skip one) ━━━
+
+1. INTRODUCTION (<h2>) — Open with exactly ONE real, verified hook, choosing whichever type genuinely fits this question — don't default to the same type answer after answer:
+   • an exactly-quoted line from a relevant thinker, leader, or poet, correctly attributed
+   • a striking real historical or contemporary incident/event
+   • a precise definition of the core concept the question turns on
+   • a real, current data point or fact (with its actual source)
+   Follow the hook with 1-2 lines bridging it to exactly what this answer is about to cover. Under 60 words total — every word earning its place.
+
+2. BODY (<h3> sub-headings named from the question's own sub-themes, never "Body" or "Point 1") — Cover the question's real dimensions in logical order. This is what makes the answer feel "top level": PACK almost every paragraph/bullet with a real, verified example — a scheme, case, data point, committee, quote, or event — so claims are backed by evidence rather than left as assertions. Depth comes from the evidence density, not from extra words.
+
+3. CONCLUSION (<h2>) — A genuine निष्कर्ष: synthesize the answer's actual argument (don't just restate the question), then close with one forward-looking, balanced, or resolving line that would stay with an examiner reading dozens of copies. Do NOT open with "Thus" / "Hence" / "In conclusion" / "अतः" / "इस प्रकार". Under 50 words.
+
+Use <div class="note-box"> for a tight set of supporting facts/quotes that don't repeat the body, and <div class="key-point"> for the one core definition/claim anchoring the whole answer (name the actual term — never "Key Concept"). Use <table> only if comparative/timeline data is genuinely clearer than prose.
+Use <strong> for every key term, name, data point, article number.
+
+RULES: ~${words} words total. No filler, no invented facts — every example must be real and verified via search.
+Return ONLY raw HTML. No markdown fences.
+`;
+
   if (style === 'bullets') return `
 Write a UPSC Mains answer in a clean, scannable bullet-point format — the kind toppers write when they want maximum information density and readability in minimum time.
 
 Question: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
 FORMAT RULES:
 • Introduction: 2-3 crisp lines. One striking, VERIFIED fact, data point, or quote to open (real source, real number — not approximated), then context. No <h2> heading needed — just a strong opening paragraph.
 • Body: Use <h3> sub-headings (4-6 words max). Under each, use tight <ul><li> bullet points:
@@ -264,7 +309,7 @@ Write a deeply analytical UPSC Mains answer that examines the question from mult
 Question: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
+${GROUNDING_RULE}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
 APPROACH:
 This is NOT a recall answer. It is an ANALYSIS answer. The examiner wants to see:
 1. That you understand the complexity and tensions in the issue

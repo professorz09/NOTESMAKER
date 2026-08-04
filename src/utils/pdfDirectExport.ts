@@ -186,7 +186,11 @@ const ANSWER_COPY_OVERRIDES = (prefix: string) => {
       background: #fff !important; border: 1px solid #333 !important;
       border-left: 3px solid #111 !important; color: #111 !important;
     }
-    ${p}.note-box::before { color: #111 !important; content: 'तथ्य' !important; }
+    ${p}.note-box::before {
+      display: block !important; content: 'तथ्य' !important; color: #111 !important;
+      font-weight: 700 !important; font-size: 0.82em !important; text-transform: uppercase !important;
+      letter-spacing: 0.05em !important; margin-bottom: 5px !important;
+    }
     ${p}.key-point {
       background: #fff !important; border-left: 3px solid #111 !important; color: #111 !important;
     }
