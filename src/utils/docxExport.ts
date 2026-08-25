@@ -61,6 +61,16 @@ export async function exportContentAsDocx(
     WidthType, ImageRun, AlignmentType, ShadingType, LevelFormat, BorderStyle,
   } = await import('docx');
 
+  // Word has no Devanagari glyphs in its own default font (Calibri) — when a
+  // run doesn't name a font at all, different viewers substitute DIFFERENT
+  // fallback fonts for the Hindi text, often heavier/inconsistent-looking
+  // next to the (correctly-Calibri) English words on the same line — this is
+  // the actual cause of Hindi notes coming out "bold and different" in
+  // export. `cs` (complex-script) is what Word actually uses to render
+  // Devanagari; Nirmala UI ships with Word/Windows and is the standard
+  // choice. Ascii/hAnsi stay Calibri for clean Latin/English text.
+  const BODY_FONT = { ascii: 'Calibri', hAnsi: 'Calibri', cs: 'Nirmala UI' };
+
   // --- inline run collection (bold/italic/underline/code + real line breaks) ---
   const collectRuns = (node: Node, style: InlineStyle): InstanceType<typeof TextRun>[] => {
     const runs: InstanceType<typeof TextRun>[] = [];
@@ -70,10 +80,13 @@ export async function exportContentAsDocx(
         if (text) {
           runs.push(new TextRun({
             text,
-            bold: style.bold,
-            italics: style.italics,
+            // Always a definite boolean (never undefined) — leaving these
+            // unset relies on style inheritance to resolve to "off", which
+            // is exactly what went wrong: plain paragraphs came out bold.
+            bold: !!style.bold,
+            italics: !!style.italics,
             underline: style.underline ? {} : undefined,
-            font: style.code ? 'Consolas' : undefined,
+            font: style.code ? { ascii: 'Consolas', hAnsi: 'Consolas', cs: 'Consolas' } : BODY_FONT,
           }));
         }
         return;
@@ -283,14 +296,18 @@ export async function exportContentAsDocx(
     // nothing like the on-screen preview. Matches .editor-content in index.css.
     styles: {
       default: {
-        document: { run: { size: 24 } }, // 12pt body text, same as the editor's default
-        heading1: { run: { color: '1E293B', bold: true, size: 36 }, paragraph: { spacing: { before: 240, after: 160 } } },
+        // Every field spelled out explicitly (bold/font included, not just
+        // size) — leaving any of these unset is what let Word fall back to
+        // its own inconsistent defaults (bold body text, wrong Devanagari
+        // font) instead of the app's actual look.
+        document: { run: { size: 24, bold: false, italics: false, font: BODY_FONT } }, // 12pt body text, same as the editor's default
+        heading1: { run: { color: '1E293B', bold: true, size: 40, font: BODY_FONT }, paragraph: { spacing: { before: 240, after: 160 } } },
         heading2: {
-          run: { color: '1E3A5F', bold: true, size: 30 },
+          run: { color: '1E3A5F', bold: true, size: 32, font: BODY_FONT },
           paragraph: { spacing: { before: 220, after: 140 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'E2E8F0', space: 4 } } },
         },
-        heading3: { run: { color: '2563EB', bold: true, size: 26 }, paragraph: { spacing: { before: 200, after: 120 } } },
-        heading4: { run: { color: '475569', bold: true, size: 24 }, paragraph: { spacing: { before: 180, after: 100 } } },
+        heading3: { run: { color: '2563EB', bold: true, size: 28, font: BODY_FONT }, paragraph: { spacing: { before: 200, after: 120 } } },
+        heading4: { run: { color: '475569', bold: true, size: 25, font: BODY_FONT }, paragraph: { spacing: { before: 180, after: 100 } } },
       },
     },
     numbering: {
