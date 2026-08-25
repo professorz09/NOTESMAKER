@@ -174,7 +174,37 @@ export async function exportContentAsDocx(
     return items;
   };
 
+  // Word auto-fits column widths from cell content when none are given,
+  // which is exactly what made exported tables look "off" — a table that's
+  // clean and evenly spaced on screen comes out with erratic, content-driven
+  // column widths and (with no borders set at all) either invisible or
+  // default-style gridlines that don't match the app's thin slate borders.
+  const CELL_BORDER = { style: BorderStyle.SINGLE, size: 4, color: 'CBD5E1' } as const;
+  const TABLE_WIDTH_DXA = 9000; // usable content width at default 1" margins
+
   const tableToDocxTable = async (tableEl: Element): Promise<InstanceType<typeof Table>> => {
+    const colCount = (() => {
+      let max = 0;
+      tableEl.querySelectorAll('tr').forEach((tr) => {
+        let count = 0;
+        tr.querySelectorAll(':scope > th, :scope > td').forEach((cell) => {
+          count += parseInt(cell.getAttribute('colspan') || '1', 10);
+        });
+        if (count > max) max = count;
+      });
+      return max || 1;
+    })();
+
+    // Honor a manually-resized table's <colgroup> (see utils/tableEditor.ts)
+    // if the column count still matches it; otherwise split evenly.
+    const colgroupCols = Array.from(tableEl.querySelectorAll(':scope > colgroup > col'));
+    const columnWidths = colgroupCols.length === colCount
+      ? colgroupCols.map((c) => {
+          const pct = parseFloat((c as HTMLElement).style.width) || (100 / colCount);
+          return Math.max(400, Math.round((pct / 100) * TABLE_WIDTH_DXA));
+        })
+      : new Array(colCount).fill(Math.round(TABLE_WIDTH_DXA / colCount));
+
     const rows: InstanceType<typeof TableRow>[] = [];
     for (const tr of Array.from(tableEl.querySelectorAll('tr'))) {
       const cells: InstanceType<typeof TableCell>[] = [];
@@ -188,12 +218,22 @@ export async function exportContentAsDocx(
           shading: isHeader ? { type: ShadingType.SOLID, color: 'E2E8F0', fill: 'E2E8F0' } : undefined,
           columnSpan: colSpan ? parseInt(colSpan, 10) : undefined,
           rowSpan: rowSpan ? parseInt(rowSpan, 10) : undefined,
+          margins: { top: 80, bottom: 80, left: 100, right: 100 },
+          borders: { top: CELL_BORDER, bottom: CELL_BORDER, left: CELL_BORDER, right: CELL_BORDER },
         }));
       }
       if (cells.length) rows.push(new TableRow({ children: cells }));
     }
     if (!rows.length) rows.push(new TableRow({ children: [new TableCell({ children: [new Paragraph('')] })] }));
-    return new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } });
+    return new Table({
+      rows,
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      columnWidths,
+      borders: {
+        top: CELL_BORDER, bottom: CELL_BORDER, left: CELL_BORDER, right: CELL_BORDER,
+        insideHorizontal: CELL_BORDER, insideVertical: CELL_BORDER,
+      },
+    });
   };
 
   const isInlineOnly = (el: Element) => !Array.from(el.children).some((c) => BLOCK_TAGS.has(c.tagName.toLowerCase()));
@@ -237,6 +277,22 @@ export async function exportContentAsDocx(
   if (!elements.length) elements.push(new Paragraph(''));
 
   const wordDoc = new Document({
+    // Without this, Word's own built-in Heading 1-4 styles are used (a
+    // generic, differently-sized blue that has nothing to do with the app's
+    // own heading colors) — the biggest reason the exported doc looked
+    // nothing like the on-screen preview. Matches .editor-content in index.css.
+    styles: {
+      default: {
+        document: { run: { size: 24 } }, // 12pt body text, same as the editor's default
+        heading1: { run: { color: '1E293B', bold: true, size: 36 }, paragraph: { spacing: { before: 240, after: 160 } } },
+        heading2: {
+          run: { color: '1E3A5F', bold: true, size: 30 },
+          paragraph: { spacing: { before: 220, after: 140 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'E2E8F0', space: 4 } } },
+        },
+        heading3: { run: { color: '2563EB', bold: true, size: 26 }, paragraph: { spacing: { before: 200, after: 120 } } },
+        heading4: { run: { color: '475569', bold: true, size: 24 }, paragraph: { spacing: { before: 180, after: 100 } } },
+      },
+    },
     numbering: {
       config: [{
         reference: 'nm-numbered',
