@@ -1,4 +1,4 @@
-const CACHE_NAME = 'notesmaker-v1';
+const CACHE_NAME = 'notesmaker-v2';
 
 // Core shell assets to pre-cache
 const SHELL_ASSETS = [
@@ -33,7 +33,20 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: serve from cache, fall back to network, cache new responses
+// Fetch strategy:
+//   - HTML (navigations, "/", "/index.html") → NETWORK-FIRST. This is the
+//     one response that names which JS/CSS bundle to load next; Vite gives
+//     every build's bundle a new content hash, so serving even a SLIGHTLY
+//     stale index.html permanently pins the browser to an old bundle — every
+//     future visit re-fetches that same old (still-cached, still "working")
+//     bundle and the user never sees a single further deploy, no matter how
+//     many times the app is actually fixed and redeployed. Falls back to
+//     cache only when the network is unreachable (offline support).
+//   - Everything else (the hashed /assets/*.js, *.css, images) → CACHE-FIRST
+//     with a background refresh. These filenames change when their content
+//     does, so a cached copy is never stale for a given URL — safe to serve
+//     instantly, and old-hash entries simply stop being requested after the
+//     next deploy rather than needing to be invalidated.
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
@@ -45,6 +58,25 @@ self.addEventListener('fetch', (event) => {
 
   // Skip API calls and Supabase
   if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase')) return;
+
+  const isHtmlRequest = event.request.mode === 'navigate'
+    || url.pathname === '/'
+    || url.pathname === '/index.html';
+
+  if (isHtmlRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

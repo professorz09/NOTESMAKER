@@ -32,6 +32,63 @@ async function loadImageBytes(src: string): Promise<Uint8Array> {
   return new Uint8Array(await res.arrayBuffer());
 }
 
+// Named system fonts (Arial, Nirmala UI, ...) render DIFFERENTLY on every
+// platform — even when a name resolves to "a font that exists" everywhere,
+// each OS ships its own actual typeface under that name, so Hindi/English
+// text never looks pixel-consistent across devices, and never matches the
+// app's own on-screen/print look (which uses Noto Sans + Noto Sans
+// Devanagari via Google Fonts). The only way to guarantee identical
+// rendering everywhere is to EMBED the real font file inside the .docx
+// itself — Word then uses the embedded font directly instead of asking the
+// OS to substitute something. Same font family the app already uses.
+const FONT_URLS = {
+  latin: '/fonts/NotoSans-Regular.ttf',
+  devanagari: '/fonts/NotoSansDevanagari-Regular.ttf',
+};
+async function loadEmbeddedFonts(): Promise<{ latin: Uint8Array; devanagari: Uint8Array } | null> {
+  try {
+    const [latinRes, devRes] = await Promise.all([fetch(FONT_URLS.latin), fetch(FONT_URLS.devanagari)]);
+    if (!latinRes.ok || !devRes.ok) return null;
+    const [latin, devanagari] = await Promise.all([
+      latinRes.arrayBuffer().then((b) => new Uint8Array(b)),
+      devRes.arrayBuffer().then((b) => new Uint8Array(b)),
+    ]);
+    return { latin, devanagari };
+  } catch (err) {
+    console.error('DOCX font embedding fetch failed — falling back to named system fonts:', err);
+    return null;
+  }
+}
+
+// The `docx` package writes the font table (word/fontTable.xml) and the
+// obfuscated font files, but has no public option to also flip the
+// <w:embedTrueTypeFonts> switch in word/settings.xml — and without that
+// switch Word treats the embedded fonts as informational only and still
+// resolves "Noto Sans" / "Noto Sans Devanagari" against the OS's installed
+// fonts, silently defeating the whole embed. Patched in directly here.
+async function enableEmbeddedFontRendering(blob: Blob): Promise<Blob> {
+  try {
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(blob);
+    const settingsFile = zip.file('word/settings.xml');
+    if (!settingsFile) return blob;
+    let xml = await settingsFile.async('string');
+    const flag = '<w:embedTrueTypeFonts w:val="true"/>';
+    if (/<w:displayBackgroundShape[^/]*\/>/.test(xml)) {
+      xml = xml.replace(/<w:displayBackgroundShape[^/]*\/>/, (m) => `${m}${flag}`);
+    } else if (xml.includes('<w:evenAndOddHeaders')) {
+      xml = xml.replace('<w:evenAndOddHeaders', `${flag}<w:evenAndOddHeaders`);
+    } else {
+      xml = xml.replace(/<w:settings[^>]*>/, (m) => `${m}${flag}`);
+    }
+    zip.file('word/settings.xml', xml);
+    return await zip.generateAsync({ type: 'blob', mimeType: blob.type });
+  } catch (err) {
+    console.error('DOCX embedTrueTypeFonts patch failed — fonts are embedded but Word may not use them:', err);
+    return blob;
+  }
+}
+
 function naturalSize(src: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -61,20 +118,19 @@ export async function exportContentAsDocx(
     WidthType, ImageRun, AlignmentType, ShadingType, LevelFormat, BorderStyle,
   } = await import('docx');
 
-  // Word has no Devanagari glyphs in its own default font — when a run
-  // doesn't name a font at all, different viewers substitute DIFFERENT
-  // fallback fonts for the Hindi text, often heavier/inconsistent-looking
-  // next to the English words on the same line. `cs` (complex-script) is
-  // what Word actually uses to render Devanagari; Nirmala UI is the
-  // Windows/Word standard for it. Ascii/hAnsi (the Latin slot) use Arial,
-  // NOT Calibri — Calibri is a Microsoft-licensed font that ships with
-  // Windows/Office but is ABSENT on iOS/Android/most Linux installs, so a
-  // doc opened there silently substitutes a generic serif for every English
-  // word (exactly what made "(Reactive)", "(NDMA Act)" etc. look like a
-  // different, wrong-looking font next to the Hindi). Arial is a genuine
-  // system font on every major platform, so it renders identically instead
-  // of falling back.
-  const BODY_FONT = { ascii: 'Arial', hAnsi: 'Arial', cs: 'Nirmala UI' };
+  // A NAMED font (even a genuinely cross-platform one like Arial) still
+  // resolves to a DIFFERENT actual typeface file per OS/viewer — so text
+  // never comes out pixel-identical across devices, and never matches the
+  // app's own on-screen/print look. Embedding the real font FILE (same
+  // family the app already uses everywhere else — Noto Sans + Noto Sans
+  // Devanagari) is what actually guarantees identical rendering, because
+  // Word draws directly from the embedded font instead of asking the OS to
+  // substitute something for the name. Falls back to named system fonts
+  // only if the font files can't be fetched (e.g. fully offline).
+  const embeddedFonts = await loadEmbeddedFonts();
+  const LATIN_FONT_NAME = embeddedFonts ? 'Noto Sans' : 'Arial';
+  const DEVANAGARI_FONT_NAME = embeddedFonts ? 'Noto Sans Devanagari' : 'Nirmala UI';
+  const BODY_FONT = { ascii: LATIN_FONT_NAME, hAnsi: LATIN_FONT_NAME, cs: DEVANAGARI_FONT_NAME };
 
   // --- inline run collection (bold/italic/underline/code + real line breaks) ---
   const collectRuns = (node: Node, style: InlineStyle): InstanceType<typeof TextRun>[] => {
@@ -333,6 +389,16 @@ export async function exportContentAsDocx(
   if (!elements.length) elements.push(new Paragraph(''));
 
   const wordDoc = new Document({
+    // Registers the actual font DATA in the document's font table so Word
+    // renders from the embedded file instead of resolving "Noto Sans" /
+    // "Noto Sans Devanagari" against whatever (if anything) the OS has
+    // installed under those names.
+    fonts: embeddedFonts
+      ? ([
+          { name: LATIN_FONT_NAME, data: embeddedFonts.latin },
+          { name: DEVANAGARI_FONT_NAME, data: embeddedFonts.devanagari },
+        ] as any)
+      : undefined,
     // Without this, Word's own built-in Heading 1-4 styles are used (a
     // generic, differently-sized blue that has nothing to do with the app's
     // own heading colors) — the biggest reason the exported doc looked
@@ -368,7 +434,8 @@ export async function exportContentAsDocx(
     sections: [{ properties: {}, children: elements }],
   });
 
-  const blob = await Packer.toBlob(wordDoc);
+  let blob = await Packer.toBlob(wordDoc);
+  if (embeddedFonts) blob = await enableEmbeddedFontRendering(blob);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
