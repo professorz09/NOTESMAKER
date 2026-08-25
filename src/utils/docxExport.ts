@@ -61,15 +61,20 @@ export async function exportContentAsDocx(
     WidthType, ImageRun, AlignmentType, ShadingType, LevelFormat, BorderStyle,
   } = await import('docx');
 
-  // Word has no Devanagari glyphs in its own default font (Calibri) — when a
-  // run doesn't name a font at all, different viewers substitute DIFFERENT
+  // Word has no Devanagari glyphs in its own default font — when a run
+  // doesn't name a font at all, different viewers substitute DIFFERENT
   // fallback fonts for the Hindi text, often heavier/inconsistent-looking
-  // next to the (correctly-Calibri) English words on the same line — this is
-  // the actual cause of Hindi notes coming out "bold and different" in
-  // export. `cs` (complex-script) is what Word actually uses to render
-  // Devanagari; Nirmala UI ships with Word/Windows and is the standard
-  // choice. Ascii/hAnsi stay Calibri for clean Latin/English text.
-  const BODY_FONT = { ascii: 'Calibri', hAnsi: 'Calibri', cs: 'Nirmala UI' };
+  // next to the English words on the same line. `cs` (complex-script) is
+  // what Word actually uses to render Devanagari; Nirmala UI is the
+  // Windows/Word standard for it. Ascii/hAnsi (the Latin slot) use Arial,
+  // NOT Calibri — Calibri is a Microsoft-licensed font that ships with
+  // Windows/Office but is ABSENT on iOS/Android/most Linux installs, so a
+  // doc opened there silently substitutes a generic serif for every English
+  // word (exactly what made "(Reactive)", "(NDMA Act)" etc. look like a
+  // different, wrong-looking font next to the Hindi). Arial is a genuine
+  // system font on every major platform, so it renders identically instead
+  // of falling back.
+  const BODY_FONT = { ascii: 'Arial', hAnsi: 'Arial', cs: 'Nirmala UI' };
 
   // --- inline run collection (bold/italic/underline/code + real line breaks) ---
   const collectRuns = (node: Node, style: InlineStyle): InstanceType<typeof TextRun>[] => {
@@ -86,7 +91,7 @@ export async function exportContentAsDocx(
             bold: !!style.bold,
             italics: !!style.italics,
             underline: style.underline ? {} : undefined,
-            font: style.code ? { ascii: 'Consolas', hAnsi: 'Consolas', cs: 'Consolas' } : BODY_FONT,
+            font: style.code ? { ascii: 'Courier New', hAnsi: 'Courier New', cs: 'Courier New' } : BODY_FONT,
           }));
         }
         return;
@@ -265,7 +270,7 @@ export async function exportContentAsDocx(
       case 'hr': return [new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CBD5E1', space: 4 } }, spacing: { before: 200, after: 200 } })];
       case 'svg': return [await svgToImageParagraph(el)];
       case 'img': return [await imgToImageParagraph(el as HTMLImageElement)];
-      case 'pre': return [new Paragraph({ children: [new TextRun({ text: el.textContent || '', font: 'Consolas' })] })];
+      case 'pre': return [new Paragraph({ children: [new TextRun({ text: el.textContent || '', font: 'Courier New' })] })];
       default: {
         if (isInlineOnly(el)) {
           const runs = collectRuns(el, {});
