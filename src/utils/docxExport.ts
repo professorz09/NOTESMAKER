@@ -47,7 +47,7 @@ function scaleToMaxWidth(width: number, height: number): { width: number; height
   return { width: MAX_IMAGE_WIDTH_PX, height: Math.max(1, Math.round(height * scale)) };
 }
 
-interface InlineStyle { bold?: boolean; italics?: boolean; underline?: boolean; code?: boolean }
+interface InlineStyle { bold?: boolean; italics?: boolean; underline?: boolean; code?: boolean; size?: number }
 
 export async function exportContentAsDocx(
   content: string,
@@ -92,6 +92,7 @@ export async function exportContentAsDocx(
             italics: !!style.italics,
             underline: style.underline ? {} : undefined,
             font: style.code ? { ascii: 'Courier New', hAnsi: 'Courier New', cs: 'Courier New' } : BODY_FONT,
+            size: style.size,
           }));
         }
         return;
@@ -111,17 +112,42 @@ export async function exportContentAsDocx(
     return runs;
   };
 
-  const isNoteBox = (el: Element) => el.classList?.contains('note-box');
+  // Colored callout boxes — matches .note-box / .key-point / .ca-verified in
+  // index.css exactly (colors, not just presence) so these don't come out a
+  // different color from the on-screen preview, and .key-point wasn't
+  // getting ANY box styling at all before (fell through to a plain paragraph).
+  const BOX_STYLE: Record<string, { fill: string; border: string }> = {
+    'note-box': { fill: 'FEFCE8', border: 'FDE68A' },
+    'key-point': { fill: 'EFF6FF', border: '2563EB' },
+    'ca-verified': { fill: 'EFF6FF', border: '38BDF8' },
+  };
+  const getBoxStyle = (el: Element) => {
+    for (const cls of Object.keys(BOX_STYLE)) if (el.classList?.contains(cls)) return BOX_STYLE[cls];
+    return null;
+  };
+
+  // .upsc-question / .essay-title are real <h1>/<h2> tags structurally, but
+  // must NOT pick up the generic Heading style (blue, underlined, oversized)
+  // — the app deliberately renders them as a plain bold (or italic, for the
+  // essay title) line instead. See index.css .upsc-question / .essay-title.
+  const isPlainHeadingOverride = (el: Element) =>
+    el.classList?.contains('upsc-question') || el.classList?.contains('essay-title');
 
   const paragraphFromInline = (el: Element, headingLevel?: any): InstanceType<typeof Paragraph> => {
-    const runs = collectRuns(el, {});
-    const noteBox = isNoteBox(el);
+    const box = getBoxStyle(el);
+    const plainOverride = !!headingLevel && isPlainHeadingOverride(el);
+    // Force bold (and italics for the essay title) through collectRuns itself
+    // rather than post-processing the resulting TextRuns — a fresh run built
+    // with the right style, not a reach into another run's internals.
+    const runs = plainOverride
+      ? collectRuns(el, { bold: true, italics: el.classList?.contains('essay-title'), size: 26 })
+      : collectRuns(el, {});
     return new Paragraph({
-      heading: headingLevel,
-      children: runs.length ? runs : [new TextRun('')],
+      heading: plainOverride ? undefined : headingLevel,
+      children: runs.length ? runs : [new TextRun(plainOverride ? { text: '', bold: true, size: 26 } : '')],
       spacing: headingLevel ? { before: 240, after: 120 } : { before: 60, after: 120 },
-      shading: noteBox ? { type: ShadingType.SOLID, color: 'FFF7ED', fill: 'FFF7ED' } : undefined,
-      border: noteBox ? { left: { style: BorderStyle.SINGLE, size: 18, color: 'F97316', space: 8 } } : undefined,
+      shading: box ? { type: ShadingType.SOLID, color: box.fill, fill: box.fill } : undefined,
+      border: box ? { left: { style: BorderStyle.SINGLE, size: 18, color: box.border, space: 8 } } : undefined,
     });
   };
 
@@ -172,7 +198,14 @@ export async function exportContentAsDocx(
     }
   };
 
-  const listToParagraphs = async (listEl: Element, ordered: boolean, level: number): Promise<any[]> => {
+  // Word restarts an ordered list's numbering per NUMBERING INSTANCE, not
+  // per <ol> element — every list sharing the same `instance` continues
+  // counting from the last one. Each top-level <ol> gets its own instance
+  // (bumped in convertNode's 'ol' case below) so two separate numbered lists
+  // in one document both correctly start at 1 instead of the second
+  // continuing where the first left off; a nested <ol> shares its parent's
+  // instance (same list, just one level deeper), which is correct.
+  const listToParagraphs = async (listEl: Element, ordered: boolean, level: number, olInstance: number): Promise<any[]> => {
     const items: any[] = [];
     for (const li of Array.from(listEl.children)) {
       if (li.tagName.toLowerCase() !== 'li') continue;
@@ -182,12 +215,14 @@ export async function exportContentAsDocx(
       items.push(new Paragraph({
         children: runs.length ? runs : [new TextRun('')],
         bullet: ordered ? undefined : { level },
-        numbering: ordered ? { reference: 'nm-numbered', level } : undefined,
+        numbering: ordered ? { reference: 'nm-numbered', level, instance: olInstance } : undefined,
         indent: { left: 360 + level * 360 },
         spacing: { before: 40, after: 40 },
       }));
       for (const blk of otherBlocks) items.push(...await convertNode(blk));
-      for (const nested of nestedLists) items.push(...await listToParagraphs(nested, nested.tagName.toLowerCase() === 'ol', level + 1));
+      for (const nested of nestedLists) {
+        items.push(...await listToParagraphs(nested, nested.tagName.toLowerCase() === 'ol', level + 1, olInstance));
+      }
     }
     return items;
   };
@@ -256,6 +291,9 @@ export async function exportContentAsDocx(
 
   const isInlineOnly = (el: Element) => !Array.from(el.children).some((c) => BLOCK_TAGS.has(c.tagName.toLowerCase()));
 
+  // Bumped once per top-level <ol> — see listToParagraphs for why.
+  let olInstanceCounter = 0;
+
   const convertNode = async (el: Element): Promise<any[]> => {
     const tag = el.tagName.toLowerCase();
     switch (tag) {
@@ -264,8 +302,8 @@ export async function exportContentAsDocx(
       case 'h3': return [paragraphFromInline(el, HeadingLevel.HEADING_3)];
       case 'h4': case 'h5': case 'h6': return [paragraphFromInline(el, HeadingLevel.HEADING_4)];
       case 'p': case 'blockquote': return [paragraphFromInline(el)];
-      case 'ul': return listToParagraphs(el, false, 0);
-      case 'ol': return listToParagraphs(el, true, 0);
+      case 'ul': return listToParagraphs(el, false, 0, 0);
+      case 'ol': return listToParagraphs(el, true, 0, olInstanceCounter++);
       case 'table': return [await tableToDocxTable(el)];
       case 'hr': return [new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CBD5E1', space: 4 } }, spacing: { before: 200, after: 200 } })];
       case 'svg': return [await svgToImageParagraph(el)];
