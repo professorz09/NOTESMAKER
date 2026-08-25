@@ -79,7 +79,7 @@ export const SidebarCurrentAffairs: React.FC<SidebarCurrentAffairsProps> = ({
       <p className="text-[9.5px] text-slate-600 leading-relaxed px-0.5">
         {caStyle === 'quick'
           ? 'One fast Flash call reads the transcript(s) and extracts only the exam-relevant points.'
-          : 'Perplexity-style deep research: Flash first lists every news item, then ONE grounded call verifies and expands each against live Google Search, with a source line per item.'}
+          : 'Perplexity-style deep research: Flash first lists every news item, then ONE grounded Flash call verifies and expands each against live Google Search, with a source line per item.'}
       </p>
 
       {caProgress && (

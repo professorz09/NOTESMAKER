@@ -154,7 +154,18 @@ export const cleanHtmlOutput = (text: string): string => {
 
 export const buildContents = (prompt: string, images?: { base64: string; mimeType: string }[]) => {
   if (!images || images.length === 0) return prompt;
+  // MUST include an explicit role. The @google/genai SDK's tContent() only
+  // adds `role: 'user'` when the value it's given does NOT already look like
+  // a Content object; a plain `{ parts }` object (no role key) already
+  // satisfies that "looks like a Content" check, so it gets forwarded
+  // AS-IS with no role at all. Vertex AI's REST endpoint then defaults the
+  // missing field to an empty string and rejects it — "Please use a valid
+  // role: user, model" — which is why every image-attached AI edit (Magic
+  // AI Editor with an attached image) failed while plain text-only edits
+  // worked fine (a bare string prompt goes through the SDK's OTHER branch,
+  // which does add role: 'user').
   return {
+    role: 'user',
     parts: [
       ...images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } })),
       { text: prompt },

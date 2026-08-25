@@ -26,6 +26,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     clone.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
     clone.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
     clone.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
+    clone.querySelectorAll('.col-resize-handle').forEach(h => h.remove());
     clone.querySelectorAll('[data-table-id]').forEach(el => el.removeAttribute('data-table-id'));
     clone.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
     clone.querySelectorAll('caption.empty-caption').forEach(c => c.remove());
@@ -55,6 +56,7 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
       temp.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
       temp.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
       temp.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
+      temp.querySelectorAll('.col-resize-handle').forEach(h => h.remove());
       temp.querySelectorAll('[data-table-id]').forEach(el => el.removeAttribute('data-table-id'));
       temp.querySelectorAll('tfoot.table-extend-tfoot').forEach(tf => tf.remove());
       temp.querySelectorAll('caption.empty-caption').forEach(c => c.remove());

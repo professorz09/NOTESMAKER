@@ -78,6 +78,20 @@ const DEEP_PRO_MODEL = 'gemini-3.1-pro-preview';
 // Pro for the outline/completeness passes and this Flash model for the bulk
 // per-section expand (faster, cheaper, still solid quality).
 const DETAILED_FLASH_MODEL = 'gemini-3.1-flash-lite';
+// Grounding-safe Flash: gemini-3.7-flash (launched Aug 2026) ships with
+// "Pro-level agentic capabilities" — unlike Flash Lite it can be trusted to
+// actually ACT on the googleSearch tool during a long section-writing call,
+// not just accept it. Whenever the user turns Grounding on, section-writing
+// calls that would otherwise run on Flash Lite are upgraded to this model
+// instead of jumping all the way to Pro — keeps the speed/cost the
+// Medium/Detailed levels promise while still making the search results real.
+const GROUNDING_FLASH_MODEL = 'gemini-3.7-flash';
+// Swaps Flash Lite for the grounding-safe Flash whenever grounding is on —
+// leaves Pro (or any other explicit model choice) untouched, so this only
+// ever affects the specific case that was actually broken (a Flash-Lite
+// section-write call that's supposed to be using live search).
+const groundingSafeModel = (model: string, grounded: boolean): string =>
+  (grounded && model === 'gemini-3.1-flash-lite') ? GROUNDING_FLASH_MODEL : model;
 
 type MindmapAction = 'retry' | 'skip' | 'finish';
 
@@ -1303,9 +1317,18 @@ export function useGeneration({
     // (same prompts as Deep — see depthDirective — just written by Flash).
     const outlineModel = DEEP_PRO_MODEL;
     const expandLevel: 'medium' | 'detailed' | 'deep' = kind === 'transcript' ? 'deep' : level;
+    // Grounding needs a model that reliably ACTS on the googleSearch tool
+    // during a long section-writing call, not just a short outline call —
+    // Flash Lite accepts the tool but has been observed to rarely invoke it
+    // once it's also juggling a big structured-HTML generation, which is
+    // exactly why turning Grounding on used to visibly affect the outline
+    // step (always Pro) but not the actual notes content. groundingSafeModel
+    // swaps ONLY a Flash-Lite pick for the grounding-safe Flash — Deep/
+    // transcript still get Pro regardless (unrelated to grounding), and an
+    // explicit Pro choice is never touched.
     const expandModel = kind === 'transcript' || level === 'deep'
       ? DEEP_PRO_MODEL
-      : level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel;
+      : groundingSafeModel(level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel, groundingEnabled);
 
     // "This run was torn down" — starts as the bare reset flag, upgraded to
     // the controller's permanent `cancelled` signal once it exists below.
@@ -1734,8 +1757,12 @@ export function useGeneration({
     const outlineModel = DEEP_PRO_MODEL;
     // Same prompts/structure for Detailed and Deep (see expandFilesSection's
     // depth directive) — Deep is all-Pro, Detailed is Pro outline + Flash
-    // expand, Medium keeps the user's own Sidebar model choice.
-    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel;
+    // expand, Medium keeps the user's own Sidebar model choice. groundingSafeModel
+    // swaps a Flash-Lite pick for the grounding-safe Flash — see
+    // runLeveledChunkPipeline for why.
+    const expandModel = level === 'deep'
+      ? DEEP_PRO_MODEL
+      : groundingSafeModel(level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel, groundingEnabled);
 
     // See runLeveledChunkPipeline: `dead` outlives Clear Canvas's ~100ms
     // reset window, so a section call landing after Clear can't repopulate
@@ -1970,10 +1997,11 @@ export function useGeneration({
   const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  const wrapUPSCBlock = (question: string, answerHtml: string, subject: UPSCSubject, extraAttr = '') => {
-    const tagClass = subject === 'hindi_literature' ? 'upsc-subject-tag upsc-subject-hl' : 'upsc-subject-tag upsc-subject-gs';
-    const tagLabel = subject === 'hindi_literature' ? 'Hindi Literature' : 'General Studies';
-    return `<section class="upsc-qa-block"${extraAttr}><div class="upsc-question-header"><span class="${tagClass}">${tagLabel}</span><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
+  // Plain question — no subject-tag pill, no background box. Just a bold
+  // "Q. ..." line so the question reads like a normal exam-copy heading
+  // instead of a styled card (see .upsc-question in index.css).
+  const wrapUPSCBlock = (question: string, answerHtml: string, _subject: UPSCSubject, extraAttr = '') => {
+    return `<section class="upsc-qa-block"${extraAttr}><div class="upsc-question-header"><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
   };
 
   // Smoothly bring the most recently appended answer into view so a non-
@@ -2136,10 +2164,12 @@ export function useGeneration({
     // Deep writes every section with Pro; Detailed writes them with Flash —
     // same expandDeepSection prompt/structure either way, only the model
     // differs. Medium keeps the lighter expandTopicSection + user's model.
-    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : DETAILED_FLASH_MODEL;
+    // groundingSafeModel swaps a Flash-Lite pick for the grounding-safe
+    // Flash — see runLeveledChunkPipeline for why.
+    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : groundingSafeModel(DETAILED_FLASH_MODEL, groundingEnabled);
     const expandOne = (i: number) => (level === 'deep' || level === 'detailed')
       ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, expandModel, refineFor(i), groundingEnabled)
-      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium', refineFor(i), groundingEnabled);
+      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, groundingSafeModel(aiModel, groundingEnabled), level as 'medium', refineFor(i), groundingEnabled);
     // Clicking a node (done/error/never-attempted) always regenerates via Pro
     // at max depth, one strength level above whatever the automatic pass
     // used — carrying the existing draft + any typed instruction as a
@@ -2149,7 +2179,8 @@ export function useGeneration({
     // Completeness pass always runs on Pro for both Deep and Detailed — it's
     // the final accuracy check over the whole topic, same as the outline.
     const runCompleteness = (instruction?: string, existingHtml?: string) => generateAdditionalTopicAspects(
-      topic, allHeadings, sections.length + 1, language, (level === 'deep' || level === 'detailed') ? DEEP_PRO_MODEL : aiModel,
+      topic, allHeadings, sections.length + 1, language,
+      (level === 'deep' || level === 'detailed') ? DEEP_PRO_MODEL : groundingSafeModel(aiModel, groundingEnabled),
       { existingHtml, customInstruction: instruction }, groundingEnabled,
     );
 

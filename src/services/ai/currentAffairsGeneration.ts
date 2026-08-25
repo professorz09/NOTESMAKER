@@ -22,6 +22,15 @@ import { parseOutlineJsonObject } from './outlineParsing';
 
 export const CURRENT_AFFAIRS_FLASH_MODEL = 'gemini-3.1-flash-lite';
 
+// The grounded (search-verification) step specifically needs a model that
+// reliably ACTS on the googleSearch tool during a real writing call, not
+// just accepts it — Flash Lite has been observed to skip invoking search on
+// long generation calls even with the tool attached. gemini-3.7-flash ships
+// with "Pro-level agentic capabilities" (launched Aug 2026) — fast and cheap
+// like Flash, but trustworthy for tool-use like Pro, so the one call that IS
+// the entire point of Deep Research gets both speed and real search results.
+const CURRENT_AFFAIRS_GROUNDED_MODEL = 'gemini-3.7-flash';
+
 const sourceLabel = (dateLabel: string) => `daily current affairs video(s) dated ${dateLabel}`;
 
 /**
@@ -141,7 +150,7 @@ const writeGroundedCurrentAffairsNotes = async (
   `;
 
   const response = await ai.models.generateContent({
-    model: CURRENT_AFFAIRS_FLASH_MODEL,
+    model: CURRENT_AFFAIRS_GROUNDED_MODEL,
     contents: prompt,
     config: { ...DETAILED_NOTES_CONFIG, tools: [{ googleSearch: {} }] },
   });

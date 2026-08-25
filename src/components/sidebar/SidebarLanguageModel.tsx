@@ -10,6 +10,7 @@ interface SidebarLanguageModelProps {
 
 const MODELS = [
   { id: 'gemini-3.1-pro-preview', label: 'Pro 3.1', isFlash: false },
+  { id: 'gemini-3.7-flash',       label: 'Flash 3.7', isFlash: true },
   { id: 'gemini-3.1-flash-lite',  label: 'Flash Lite', isFlash: true  },
 ];
 

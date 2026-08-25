@@ -414,6 +414,10 @@ const App: React.FC = () => {
     const temp = document.createElement('div');
     temp.innerHTML = content;
     temp.querySelectorAll('.ai-edit-trigger').forEach(t => t.remove());
+    temp.querySelectorAll('.table-sparkle-bar').forEach(t => t.remove());
+    temp.querySelectorAll('.table-extend-bar').forEach(t => t.remove());
+    temp.querySelectorAll('.col-resize-handle').forEach(t => t.remove());
+    temp.querySelectorAll('[data-table-id]').forEach(el => el.removeAttribute('data-table-id'));
     return temp.innerHTML;
   };
 
