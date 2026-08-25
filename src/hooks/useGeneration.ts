@@ -34,6 +34,7 @@ import {
   scanSectionsForGroundingAdditions,
   generateCurrentAffairsQuick,
   generateCurrentAffairsDeep,
+  type CASource,
   generateEssay,
   type UPSCAnswerStyle,
   type UPSCSubject,
@@ -1091,61 +1092,68 @@ export function useGeneration({
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
-  // Daily Current Affairs pipeline — fetch the transcript for every pasted
-  // video link (one per line), then turn them into exam-focused notes in the
-  // chosen style ('quick' = one Flash call per chunk, no search; 'deep' =
-  // Perplexity-style: extract topics then one grounded Flash call that
-  // verifies/expands each against live Google Search). The result is tagged
+  // Daily Current Affairs pipeline — three ways in, split from the pasted
+  // lines: lines that look like a video link are fetched as transcripts
+  // ("video" source — facts come straight from the transcript, no search
+  // needed); any other non-empty line is treated as a typed topic/keyword
+  // ("topics" source — researched via live Google Search grounding, since
+  // there's no transcript to draw facts from); an empty box just uses the
+  // picked date ("general" source — grounding discovers whatever's actually
+  // exam-relevant that day). If both video links and typed topics are
+  // present, the video transcript(s) drive it and the typed lines are passed
+  // along as topics to make sure they're specifically covered too.
+  // Style ('quick' = one call, no search for "video" / one grounded call for
+  // "topics"/"general"; 'deep' = Perplexity-style two-call research, always
+  // grounded except when purely transcript-sourced). The result is tagged
   // with the chosen date via pendingProjectMetaRef so the generic
   // generation→project effect in App.tsx files it under the Current Affairs
   // tag instead of as a plain note — that's what makes it filterable in
   // history and pullable into the date-range combined read.
   const handleGenerateCurrentAffairs = async () => {
-    const urls = caUrls.split('\n').map(u => u.trim()).filter(Boolean);
+    const lines = caUrls.split('\n').map(u => u.trim()).filter(Boolean);
+    const urls = lines.filter(looksLikeVideoUrl);
+    const topics = lines.filter(l => !looksLikeVideoUrl(l));
     const myRun = runSeqRef.current;
-    if (!urls.length) {
-      toast.warning('Please paste at least one current affairs video link.');
-      return;
-    }
-    const invalid = urls.find(u => !looksLikeVideoUrl(u));
-    if (invalid) {
-      toast.warning(`This doesn't look like a valid video link: "${invalid.slice(0, 60)}"`);
-      return;
-    }
     if (!caDate) {
       toast.warning('Please pick a date for these current affairs.');
       return;
     }
 
     setStatus(GenerationStatus.GENERATING_CHAPTER);
-    setCaProgress({ current: 0, total: urls.length, note: 'Fetching transcripts…' });
     const dateLabel = new Date(`${caDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
     try {
-      const transcripts: string[] = [];
-      for (let i = 0; i < urls.length; i++) {
-        if (isStaleRun(myRun)) return;
-        setCaProgress({ current: i + 1, total: urls.length, note: `Fetching transcript ${i + 1}/${urls.length}…` });
-        try {
-          const t = await fetchVideoTranscript(urls[i], {
-            lang: language === 'Hindi' ? 'hi' : 'en',
-            onStatus: (s) => setCaProgress({ current: i + 1, total: urls.length, note: s }),
-            signal: { get aborted() { return isStaleRun(myRun); } },
-          });
-          if (t.trim()) transcripts.push(urls.length > 1 ? `[Video ${i + 1}]\n${t.trim()}` : t.trim());
-        } catch (err: any) {
-          console.error(`Transcript fetch failed for ${urls[i]}:`, err);
-          toast.warning(`Could not fetch transcript for video ${i + 1} — skipping it.`);
-        }
-      }
-      if (isStaleRun(myRun)) return;
-      if (!transcripts.length) throw new Error('No transcript could be fetched from the link(s) given.');
+      let source: CASource;
 
-      // A daily CA batch (especially several videos at once) can still be
-      // long enough to risk the output-token cap on a single call — chunk
-      // exactly like the class-transcript pipeline so nothing is silently
-      // truncated, and run the chosen style per chunk.
-      const chunks = chunkTranscript(transcripts.join('\n\n---\n\n'), 6000);
+      if (urls.length) {
+        setCaProgress({ current: 0, total: urls.length, note: 'Fetching transcripts…' });
+        const transcripts: string[] = [];
+        for (let i = 0; i < urls.length; i++) {
+          if (isStaleRun(myRun)) return;
+          setCaProgress({ current: i + 1, total: urls.length, note: `Fetching transcript ${i + 1}/${urls.length}…` });
+          try {
+            const t = await fetchVideoTranscript(urls[i], {
+              lang: language === 'Hindi' ? 'hi' : 'en',
+              onStatus: (s) => setCaProgress({ current: i + 1, total: urls.length, note: s }),
+              signal: { get aborted() { return isStaleRun(myRun); } },
+            });
+            if (t.trim()) transcripts.push(urls.length > 1 ? `[Video ${i + 1}]\n${t.trim()}` : t.trim());
+          } catch (err: any) {
+            console.error(`Transcript fetch failed for ${urls[i]}:`, err);
+            toast.warning(`Could not fetch transcript for video ${i + 1} — skipping it.`);
+          }
+        }
+        if (isStaleRun(myRun)) return;
+        if (!transcripts.length) throw new Error('No transcript could be fetched from the link(s) given.');
+        let transcriptText = transcripts.join('\n\n---\n\n');
+        if (topics.length) transcriptText += `\n\n---\nAlso make sure to specifically cover these topics:\n${topics.join('\n')}`;
+        source = { kind: 'video', transcriptText };
+      } else if (topics.length) {
+        source = { kind: 'topics', topics };
+      } else {
+        source = { kind: 'general' };
+      }
+
       const generateFn = caStyle === 'deep' ? generateCurrentAffairsDeep : generateCurrentAffairsQuick;
 
       const parts: string[] = [];
@@ -1157,41 +1165,71 @@ export function useGeneration({
         localStorage.setItem(STORAGE_KEY, html);
       };
 
-      for (let i = 0; i < chunks.length; i++) {
-        if (isStaleRun(myRun)) return;
+      // Only "video" needs chunking — a daily CA batch (especially several
+      // videos at once) can be long enough to risk the output-token cap on a
+      // single call. "topics"/"general" are a single short grounded call.
+      if (source.kind === 'video') {
+        const chunks = chunkTranscript(source.transcriptText, 6000);
+        for (let i = 0; i < chunks.length; i++) {
+          if (isStaleRun(myRun)) return;
+          setCaProgress({
+            current: i + 1,
+            total: chunks.length,
+            note: caStyle === 'deep'
+              ? `Deep research — Flash + Google grounding (part ${i + 1}/${chunks.length})…`
+              : `Extracting notes (part ${i + 1}/${chunks.length})…`,
+          });
+          let html = '';
+          let ok = false;
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              html = sanitizeHtml(await generateFn({ kind: 'video', transcriptText: chunks[i] }, dateLabel, language));
+              ok = true;
+              break;
+            } catch (err) {
+              console.error(`Current affairs chunk ${i + 1} attempt ${attempt} failed:`, err);
+              if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
+            }
+          }
+          if (!ok || !html) {
+            parts.push(`<div class="note-box">⚠️ Part ${i + 1}/${chunks.length} could not be generated — please retry.</div>`);
+            pushLive();
+            continue;
+          }
+          // Only the first chunk's <h1> title survives — later chunks would
+          // otherwise repeat "Daily Current Affairs — <date>" mid-document.
+          if (i > 0) html = html.replace(/<h1[^>]*>[\s\S]*?<\/h1>/i, '');
+          parts.push(html);
+          pushLive();
+        }
+      } else {
         setCaProgress({
-          current: i + 1,
-          total: chunks.length,
+          current: 1,
+          total: 1,
           note: caStyle === 'deep'
-            ? `Deep research — Flash + Google grounding (part ${i + 1}/${chunks.length})…`
-            : `Extracting notes (part ${i + 1}/${chunks.length})…`,
+            ? '🌐 Researching — PIB + trusted sources…'
+            : '🌐 Searching live for today\'s current affairs…',
         });
         let html = '';
         let ok = false;
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
-            html = sanitizeHtml(await generateFn(chunks[i], dateLabel, language));
+            html = sanitizeHtml(await generateFn(source, dateLabel, language));
             ok = true;
             break;
           } catch (err) {
-            console.error(`Current affairs chunk ${i + 1} attempt ${attempt} failed:`, err);
+            console.error(`Current affairs generation attempt ${attempt} failed:`, err);
             if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
           }
         }
-        if (!ok || !html) {
-          parts.push(`<div class="note-box">⚠️ Part ${i + 1}/${chunks.length} could not be generated — please retry.</div>`);
+        if (ok && html) {
+          parts.push(html);
           pushLive();
-          continue;
         }
-        // Only the first chunk's <h1> title survives — later chunks would
-        // otherwise repeat "Daily Current Affairs — <date>" mid-document.
-        if (i > 0) html = html.replace(/<h1[^>]*>[\s\S]*?<\/h1>/i, '');
-        parts.push(html);
-        pushLive();
       }
 
       if (isStaleRun(myRun)) return;
-      if (!parts.some(p => p.trim())) throw new Error('No notes could be generated from the transcript(s).');
+      if (!parts.some(p => p.trim())) throw new Error('No notes could be generated — please retry.');
 
       pendingProjectMetaRef.current = { tags: [CURRENT_AFFAIRS_TAG], entryDate: caDate };
       if (window.innerWidth < 1024) setSidebarOpen(false);

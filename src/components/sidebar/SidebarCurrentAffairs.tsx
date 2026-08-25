@@ -1,5 +1,6 @@
 import React from 'react';
 import { Newspaper, Zap, Globe2, CalendarDays } from 'lucide-react';
+import { looksLikeVideoUrl } from '../../services/supadata';
 
 interface SidebarCurrentAffairsProps {
   caUrls: string;
@@ -14,7 +15,9 @@ interface SidebarCurrentAffairsProps {
 export const SidebarCurrentAffairs: React.FC<SidebarCurrentAffairsProps> = ({
   caUrls, setCaUrls, caDate, setCaDate, caStyle, setCaStyle, caProgress,
 }) => {
-  const urlCount = caUrls.split('\n').map(u => u.trim()).filter(Boolean).length;
+  const lines = caUrls.split('\n').map(u => u.trim()).filter(Boolean);
+  const urlCount = lines.filter(looksLikeVideoUrl).length;
+  const topicCount = lines.length - urlCount;
 
   return (
     <div className="space-y-3">
@@ -37,12 +40,18 @@ export const SidebarCurrentAffairs: React.FC<SidebarCurrentAffairsProps> = ({
       <textarea
         value={caUrls}
         onChange={(e) => setCaUrls(e.target.value)}
-        placeholder={'Paste today\'s current affairs video link(s)…\none per line, e.g. from multiple channels'}
+        placeholder={'Optional — paste video link(s) or type topic(s), one per line.\nLeave empty to just use the date above.'}
         rows={4}
         className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
       />
-      {urlCount > 0 && (
-        <p className="text-[10px] text-slate-600 px-0.5">{urlCount} video link{urlCount !== 1 ? 's' : ''}</p>
+      {(urlCount > 0 || topicCount > 0) ? (
+        <p className="text-[10px] text-slate-600 px-0.5">
+          {urlCount > 0 && `${urlCount} video link${urlCount !== 1 ? 's' : ''}`}
+          {urlCount > 0 && topicCount > 0 && ' · '}
+          {topicCount > 0 && `${topicCount} topic${topicCount !== 1 ? 's' : ''}`}
+        </p>
+      ) : (
+        <p className="text-[10px] text-slate-600 px-0.5">Nothing pasted — will research today's news for the date above via live search.</p>
       )}
 
       {/* Generation style — Quick (1 call, fast) vs Deep Research
@@ -73,13 +82,15 @@ export const SidebarCurrentAffairs: React.FC<SidebarCurrentAffairsProps> = ({
         >
           <Globe2 className="w-3.5 h-3.5" />
           <span className="text-[11px] font-bold leading-none">Deep Research</span>
-          <span className={`text-[8px] leading-tight ${caStyle === 'deep' ? 'text-indigo-100/90' : 'text-slate-600'}`}>Flash + grounding</span>
+          <span className={`text-[8px] leading-tight ${caStyle === 'deep' ? 'text-indigo-100/90' : 'text-slate-600'}`}>PIB + trusted sources</span>
         </button>
       </div>
       <p className="text-[9.5px] text-slate-600 leading-relaxed px-0.5">
         {caStyle === 'quick'
-          ? 'One fast Flash call reads the transcript(s) and extracts only the exam-relevant points.'
-          : 'Perplexity-style deep research: Flash first lists every news item, then ONE grounded Flash call verifies and expands each against live Google Search, with a source line per item.'}
+          ? (urlCount > 0
+            ? 'One fast Flash call reads the transcript(s) and extracts only the exam-relevant points — no search needed, facts already come from the video.'
+            : 'One Flash call, grounded with live Google Search — no video given, so it searches for real facts itself instead of relying on the video.')
+          : 'Perplexity-style deep research: Flash first lists the news items (from the video, your topics, or discovered fresh via search), then ONE grounded call verifies and expands each against PIB and other trusted UPSC sources, with a source line per item.'}
       </p>
 
       {caProgress && (
