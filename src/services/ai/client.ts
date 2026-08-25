@@ -128,9 +128,23 @@ export const RESEARCH_GEN_CONFIG = {
 // answers; output cap is smaller than the notes generators (an answer is a
 // few hundred words of HTML, not a whole chapter) but still generous enough
 // that grounding citations + formatting never truncate the answer.
+// temperature is nudged up from the model default (~1.0) so regenerating the
+// SAME question twice — e.g. clicking "Topper's" again, or a student
+// re-running a practice question — doesn't come back near-identical every
+// time; still low enough that structure/facts stay reliable, not erratic.
 export const UPSC_ANSWER_CONFIG = {
   maxOutputTokens: 24576,
   thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+  temperature: 1.15,
+} as const;
+
+// UPSC Essay Paper — same reasoning depth as an answer, larger output cap
+// since a full essay (~1000-1500 words) runs longer than a marks-based
+// answer, and the same variety-friendly temperature.
+export const ESSAY_CONFIG = {
+  maxOutputTokens: 32768,
+  thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+  temperature: 1.15,
 } as const;
 
 // Attaches live Google Search grounding to a call's config when the user has

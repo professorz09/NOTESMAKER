@@ -18,7 +18,7 @@ interface EditorCanvasProps {
   mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
   onGetStarted?: () => void;
   // UPSC next question flow
-  outputStyle: 'notes' | 'upsc' | 'research' | 'table';
+  outputStyle: 'notes' | 'upsc' | 'essay' | 'research' | 'table';
   upscAnswerStyle: UPSCAnswerStyle;
   upscSubject: UPSCSubject;
   marks: number;

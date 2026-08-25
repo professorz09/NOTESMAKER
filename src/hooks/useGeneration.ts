@@ -34,6 +34,7 @@ import {
   scanSectionsForGroundingAdditions,
   generateCurrentAffairsQuick,
   generateCurrentAffairsDeep,
+  generateEssay,
   type UPSCAnswerStyle,
   type UPSCSubject,
   type RefinementOptions,
@@ -274,7 +275,7 @@ export function useGeneration({
   setSidebarOpen,
 }: UseGenerationProps) {
   const [mode, setMode] = useState<'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs'>('topic');
-  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
+  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'essay' | 'research' | 'table'>('notes');
   const [upscAnswerStyle, setUpscAnswerStyle] = useState<UPSCAnswerStyle>('topper');
   const [upscSubject, setUpscSubject] = useState<UPSCSubject>('gs');
   const [tableInstruction, setTableInstruction] = useState('');
@@ -294,6 +295,11 @@ export function useGeneration({
   // currently shows while the resumed run continues generating sections.
   const [uiGroundingEnabled, setGroundingEnabled] = useState(false);
   const groundingEnabled = uiGroundingEnabled;
+  // Separate grounding toggle for UPSC answers/Essay — defaults ON (real
+  // facts/quotes matter there more than almost anywhere else in the app),
+  // unlike the general pipeline toggle above which defaults off. Kept apart
+  // from `groundingEnabled` so switching one doesn't silently flip the other.
+  const [upscGroundingEnabled, setUpscGroundingEnabled] = useState(true);
   // Multi-step notes-pipeline progress (Medium/Detailed/Deep topic generation).
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
@@ -2449,8 +2455,13 @@ export function useGeneration({
               }
             } catch { /* keep original if correction fails */ }
           }
-          const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject);
+          const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject, upscGroundingEnabled);
           result = wrapUPSCBlock(question, answer, upscSubject);
+        }
+        else if (outputStyle === 'essay') {
+          const essayTopic = topicInput.trim();
+          const body = await generateEssay(essayTopic, language, aiModel, upscGroundingEnabled);
+          result = `<section class="essay-block"><h1 class="essay-title">${escapeHtml(essayTopic)}</h1>${body}</section>`;
         }
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
         else if (detailLevel !== 'normal') {
@@ -2724,6 +2735,7 @@ export function useGeneration({
     upscMarks, setUpscMarks,
     detailLevel, setDetailLevel,
     groundingEnabled, setGroundingEnabled,
+    upscGroundingEnabled, setUpscGroundingEnabled,
     notesProgress,
     status,
     language, setLanguage,

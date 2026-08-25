@@ -20,3 +20,4 @@ export { rewriteContent, rewriteSection, expandSection, generateNextContent, gen
 export { generateDiagram, generateSectionImage } from './diagramAndImage';
 export { generateResearchPaper, translatePdfToHindi, analyzeAnswerPdf, generateAnswerFromTopperCopy, translatePdfPageToHindi } from './researchAndPdf';
 export { generateCurrentAffairsQuick, generateCurrentAffairsDeep, CURRENT_AFFAIRS_FLASH_MODEL } from './currentAffairsGeneration';
+export { generateEssay } from './essayGeneration';

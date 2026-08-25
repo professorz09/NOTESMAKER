@@ -12,6 +12,7 @@ import {
   SidebarUPSCSettings,
   SidebarLanguageModel,
   SidebarDetailLevel,
+  SidebarGroundingToggle,
   SidebarPdfTools,
   SidebarOnePager,
   SidebarFooter,
@@ -22,8 +23,8 @@ interface SidebarProps {
   setSidebarOpen: (open: boolean) => void;
   mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
   setMode: (mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs') => void;
-  outputStyle: 'notes' | 'upsc' | 'research' | 'table';
-  setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'table') => void;
+  outputStyle: 'notes' | 'upsc' | 'essay' | 'research' | 'table';
+  setOutputStyle: (style: 'notes' | 'upsc' | 'essay' | 'research' | 'table') => void;
   upscAnswerStyle: UPSCAnswerStyle;
   setUpscAnswerStyle: (s: UPSCAnswerStyle) => void;
   upscSubject: UPSCSubject;
@@ -36,6 +37,8 @@ interface SidebarProps {
   setDetailLevel: (level: DetailLevel) => void;
   groundingEnabled: boolean;
   setGroundingEnabled: (v: boolean) => void;
+  upscGroundingEnabled: boolean;
+  setUpscGroundingEnabled: (v: boolean) => void;
   notesProgress: { current: number; total: number; label: string } | null;
   topicInput: string;
   setTopicInput: (input: string) => void;
@@ -123,6 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   upscMarks, setUpscMarks,
   detailLevel, setDetailLevel,
   groundingEnabled, setGroundingEnabled,
+  upscGroundingEnabled, setUpscGroundingEnabled,
   notesProgress,
   topicInput, setTopicInput,
   textInput, setTextInput,
@@ -270,6 +274,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <SidebarDetailLevel
               detailLevel={detailLevel} setDetailLevel={setDetailLevel} mode={mode}
               groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled}
+            />
+          )}
+
+          {mode === 'topic' && (outputStyle === 'upsc' || outputStyle === 'essay') && (
+            <SidebarGroundingToggle
+              groundingEnabled={upscGroundingEnabled}
+              setGroundingEnabled={setUpscGroundingEnabled}
+              label="Google Grounding"
+              description="Verifies quotes, dates, article numbers and figures via live search before writing — real facts instead of plausible-sounding guesses. On by default; turn off for a faster answer without live search."
             />
           )}
 

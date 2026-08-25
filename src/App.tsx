@@ -119,6 +119,7 @@ const App: React.FC = () => {
     upscMarks, setUpscMarks,
     detailLevel, setDetailLevel,
     groundingEnabled, setGroundingEnabled,
+    upscGroundingEnabled, setUpscGroundingEnabled,
     notesProgress,
     status,
     language, setLanguage,
@@ -665,6 +666,7 @@ const App: React.FC = () => {
         upscMarks={upscMarks} setUpscMarks={setUpscMarks}
         detailLevel={detailLevel} setDetailLevel={setDetailLevel}
         groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled}
+        upscGroundingEnabled={upscGroundingEnabled} setUpscGroundingEnabled={setUpscGroundingEnabled}
         notesProgress={notesProgress}
         topicInput={topicInput} setTopicInput={setTopicInput}
         textInput={textInput} setTextInput={setTextInput}

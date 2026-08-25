@@ -3,7 +3,7 @@ import { FileText, Upload, X, Youtube, Wand2 } from 'lucide-react';
 
 interface SidebarInputSectionProps {
   mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
-  outputStyle: 'notes' | 'upsc' | 'research' | 'table';
+  outputStyle: 'notes' | 'upsc' | 'essay' | 'research' | 'table';
   topicInput: string;
   setTopicInput: (v: string) => void;
   textInput: string;
@@ -52,11 +52,11 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
     </label>
     <form onSubmit={handleGenerate} id="main-form">
       {mode === 'topic' ? (
-        outputStyle === 'upsc' ? (
+        outputStyle === 'upsc' || outputStyle === 'essay' ? (
           <textarea
             value={topicInput}
             onChange={(e) => setTopicInput(e.target.value)}
-            placeholder="Discuss the impact of climate change on Indian agriculture..."
+            placeholder={outputStyle === 'essay' ? '"The roof needs mending most when the sun is shining" — write an essay on this...' : 'Discuss the impact of climate change on Indian agriculture...'}
             rows={4}
             className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
           />

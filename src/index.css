@@ -67,6 +67,13 @@ html, body {
 .table-manual-btn:active { transform: scale(0.96); }
 .dark .table-manual-btn { background: #1e293b !important; border-color: #334155 !important; color: #cbd5e1 !important; }
 .dark .table-manual-btn:hover { background: #334155 !important; }
+/* Touchscreens (phones/tablets) get a wider resize handle and taller
+   buttons — a 9px drag strip and an 11px-tall button are fine for a mouse
+   pointer but too small to reliably tap with a finger. */
+@media (pointer: coarse) {
+  .col-resize-handle { width: 18px !important; right: -9px !important; }
+  .table-manual-btn { padding: 6px 10px !important; font-size: 12px !important; }
+}
 .editor-content th { background: #2d3748; color: #f8fafc; padding: 9px 13px; text-align: left; font-weight: 700; font-size: 0.85em; border: 1px solid #4a5568; letter-spacing: 0.01em; }
 .editor-content td { padding: 7px 12px; border: 1px solid #e2e8f0; vertical-align: top; line-height: var(--editor-lh, 1.5); }
 .editor-content tr:nth-child(even) td { background: #f8fafc; }
@@ -74,6 +81,11 @@ html, body {
 .editor-content .key-point { background: #eff6ff; border-left: 4px solid #2563eb; padding: 10px 14px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9em; }
 .editor-content .note-box { background: #fefce8; border: 1px solid #fde68a; padding: 10px 14px; margin: 12px 0; border-radius: 8px; font-size: 0.9em; }
 .editor-content .ca-verified { background: #eff6ff; border-left: 3px solid #38bdf8; color: #0369a1; padding: 6px 12px; margin: 6px 0 16px; border-radius: 0 8px 8px 0; font-size: 0.82em; }
+.editor-content .essay-block { line-height: 1.85; }
+.editor-content .essay-title { font-style: italic; font-weight: 700; margin-bottom: 22px; }
+.editor-content .essay-block p { margin: 0 0 16px 0; text-align: justify; }
+.editor-content .essay-block blockquote { border-left: 3px solid #94a3b8; margin: 16px 0; padding: 2px 16px; font-style: italic; color: #475569; }
+.dark .editor-content .essay-block blockquote { border-left-color: #64748b; color: #94a3b8; }
 .editor-content .ca-range-meta { color: #64748b; font-size: 0.85em; margin: -6px 0 20px; font-style: italic; }
 .editor-content .table-of-contents { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
 .editor-content .table-of-contents h2 { border: none; margin-bottom: 12px; }

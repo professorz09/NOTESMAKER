@@ -1,4 +1,4 @@
-import { createAIClient, cleanHtmlOutput, UPSC_ANSWER_CONFIG } from './client';
+import { createAIClient, cleanHtmlOutput, UPSC_ANSWER_CONFIG, withGoogleSearch } from './client';
 
 // Shared instruction injected into every answer style: use live Google
 // Search grounding to pull real, current, and verifiable facts rather than
@@ -98,7 +98,8 @@ export const correctQuestionHindi = async (
 const buildHindiLiteraturePrompt = (
   question: string,
   marks: number,
-  style: UPSCAnswerStyle
+  style: UPSCAnswerStyle,
+  grounded: boolean
 ): string => `
 आप UPSC हिंदी साहित्य (वैकल्पिक विषय) के विशेषज्ञ परीक्षक और टॉपर मेंटर हैं।
 
@@ -107,12 +108,12 @@ const buildHindiLiteraturePrompt = (
 ${lengthLineHi(marks)}
 उत्तर शैली: ${style === 'bullets' ? 'बिंदुवार (Bullet Points)' : style === 'analytical' ? 'विश्लेषणात्मक' : style === 'classic' ? 'शास्त्रीय शैली — उद्धरण/उदाहरण से भूमिका, विवेचना, सशक्त निष्कर्ष' : 'टॉपर की प्रतिलिपि'}
 
-━━━ ग्राउंडिंग — सही तथ्यों हेतु Google Search का प्रयोग करें ━━━
+${grounded ? `━━━ ग्राउंडिंग — सही तथ्यों हेतु Google Search का प्रयोग करें ━━━
 आपके पास live Google Search ग्राउंडिंग उपलब्ध है। लिखने से पहले इसका प्रयोग करके सुनिश्चित करें:
 • काव्य-पंक्तियाँ/दोहे बिल्कुल सही शब्दों में उद्धृत हों (गलत उद्धरण से अंक कटते हैं)
 • रचनाकारों की सही जन्म/रचनाकाल तिथियाँ और रचनाओं के सही नाम
 • आलोचकों (रामचंद्र शुक्ल, हजारीप्रसाद द्विवेदी, नामवर सिंह आदि) के मत सही ढंग से संदर्भित हों
-अनुमान या अस्पष्ट-सा लगने वाला उद्धरण देने से बेहतर है सामान्य किंतु सही बात लिखना।
+अनुमान या अस्पष्ट-सा लगने वाला उद्धरण देने से बेहतर है सामान्य किंतु सही बात लिखना।` : ''}
 
 ━━━ UPSC हिंदी साहित्य पाठ्यक्रम के अनुसार ━━━
 यह उत्तर UPSC IAS हिंदी साहित्य वैकल्पिक पेपर के पाठ्यक्रम पर आधारित होना चाहिए:
@@ -153,10 +154,11 @@ const buildUPSCPrompt = (
   language: string,
   marks: number,
   style: UPSCAnswerStyle,
-  subject: UPSCSubject = 'gs'
+  subject: UPSCSubject = 'gs',
+  grounded: boolean = true
 ): string => {
   if (subject === 'hindi_literature') {
-    return buildHindiLiteraturePrompt(question, marks, style);
+    return buildHindiLiteraturePrompt(question, marks, style, grounded);
   }
 
   const lang = language === 'Hindi'
@@ -171,7 +173,7 @@ Write a high-scoring UPSC Mains answer. YOU decide the best shape for this speci
 Question/Topic: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
+${grounded ? GROUNDING_RULE : ''}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
 ━━━ PICK THE SHAPE THAT ACTUALLY FITS THIS QUESTION ━━━
 Choose whichever of these (or a genuine blend) the directive word and content call for — never force intro→body→conclusion onto a question that would read better another way:
 • Classic essay — a hook (quote/fact/definition/incident), a multi-dimensional body, a landing conclusion. Good default for "Discuss"/"Examine"/"Elaborate".
@@ -195,7 +197,7 @@ You are a seasoned UPSC Mains examiner and IAS mentor. Write an answer that read
 Question: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
+${grounded ? GROUNDING_RULE : ''}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
 ━━━ STEP 1 — READ THE QUESTION
 Before writing, silently identify:
 • Subject/paper (Polity, Economy, History, Geography, Environment, Ethics, Literature, Science…)
@@ -259,7 +261,7 @@ Write a polished, top-of-the-class UPSC Mains answer using the classic three-par
 Question: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}
+${grounded ? GROUNDING_RULE : ''}${CLEAN_FORMAT_RULE}
 ━━━ THE STRUCTURE (always these three parts, never skip one) ━━━
 
 1. INTRODUCTION (<h2>) — Open with exactly ONE real, verified hook, choosing whichever type genuinely fits this question — don't default to the same type answer after answer:
@@ -286,7 +288,7 @@ Write a UPSC Mains answer in a clean, scannable bullet-point format — the kind
 Question: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
+${grounded ? GROUNDING_RULE : ''}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
 FORMAT RULES:
 • Introduction: 2-3 crisp lines. One striking, VERIFIED fact, data point, or quote to open (real source, real number — not approximated), then context. No <h2> heading needed — just a strong opening paragraph.
 • Body: Use <h3> sub-headings (4-6 words max). Under each, use tight <ul><li> bullet points:
@@ -309,7 +311,7 @@ Write a deeply analytical UPSC Mains answer that examines the question from mult
 Question: "${question}"
 Language: ${lang}
 ${lengthLine}
-${GROUNDING_RULE}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
+${grounded ? GROUNDING_RULE : ''}${CLEAN_FORMAT_RULE}${VARIETY_RULE}
 APPROACH:
 This is NOT a recall answer. It is an ANALYSIS answer. The examiner wants to see:
 1. That you understand the complexity and tensions in the issue
@@ -343,14 +345,19 @@ export const generateUPSCAnswer = async (
   modelName: string = "gemini-3.1-pro-preview",
   marks: number = 15,
   answerStyle: UPSCAnswerStyle = 'topper',
-  subject: UPSCSubject = 'gs'
+  subject: UPSCSubject = 'gs',
+  // Defaults ON — grounding is what makes article numbers, case names/years
+  // and figures trustworthy rather than plausible-sounding guesses, so it
+  // stays the default. The Sidebar exposes this as an optional toggle so a
+  // user who wants faster/cheaper answers without live search can turn it off.
+  grounded: boolean = true,
 ): Promise<string> => {
   const ai = createAIClient();
-  const prompt = buildUPSCPrompt(question, language, marks, answerStyle, subject);
+  const prompt = buildUPSCPrompt(question, language, marks, answerStyle, subject, grounded);
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
-    config: { ...UPSC_ANSWER_CONFIG, tools: [{ googleSearch: {} }] },
+    config: withGoogleSearch(UPSC_ANSWER_CONFIG, grounded),
   });
   return cleanHtmlOutput(response.text || "");
 };

@@ -2,7 +2,7 @@ import React from 'react';
 import { Sparkles, Table as TableIcon, Eraser, Undo } from 'lucide-react';
 
 interface SidebarFooterProps {
-  outputStyle: 'notes' | 'upsc' | 'research' | 'table';
+  outputStyle: 'notes' | 'upsc' | 'essay' | 'research' | 'table';
   mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
   isGenerating: boolean;
   canUndo: boolean;
@@ -14,6 +14,7 @@ interface SidebarFooterProps {
 const GENERATE_LABELS: Record<string, string> = {
   table: 'Generate Table',
   upsc: 'Generate UPSC Answer',
+  essay: 'Generate Essay',
   research: 'Generate Research Paper',
 };
 

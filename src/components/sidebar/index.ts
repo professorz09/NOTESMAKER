@@ -6,6 +6,7 @@ export { SidebarOutputStyleSelector } from './SidebarOutputStyleSelector';
 export { SidebarUPSCSettings } from './SidebarUPSCSettings';
 export { SidebarLanguageModel } from './SidebarLanguageModel';
 export { SidebarDetailLevel } from './SidebarDetailLevel';
+export { SidebarGroundingToggle } from './SidebarGroundingToggle';
 export { SidebarPdfTools } from './SidebarPdfTools';
 export { SidebarOnePager } from './SidebarOnePager';
 export { SidebarFooter } from './SidebarFooter';
