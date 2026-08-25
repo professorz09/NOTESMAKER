@@ -57,12 +57,36 @@ html, body {
 .editor-content li { margin-bottom: 0.3em; line-height: var(--editor-lh, 1.6); }
 .editor-content strong { font-weight: 700; color: #1e293b; }
 .editor-content table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.9em; border: 1px solid #cbd5e1; }
+/* Once a table has been manually resized, honor the <colgroup> widths
+   exactly instead of letting cell content stretch columns further. */
+.editor-content table.table-resized { table-layout: fixed; }
+.editor-content table.table-resized td,
+.editor-content table.table-resized th { overflow-wrap: break-word; }
+.col-resize-handle:hover, .col-resize-handle:active { background: rgba(59,130,246,0.35); }
+.table-manual-btn:hover { background: #e2e8f0 !important; border-color: #94a3b8 !important; }
+.table-manual-btn:active { transform: scale(0.96); }
+.dark .table-manual-btn { background: #1e293b !important; border-color: #334155 !important; color: #cbd5e1 !important; }
+.dark .table-manual-btn:hover { background: #334155 !important; }
+/* Touchscreens (phones/tablets) get a wider resize handle and taller
+   buttons — a 9px drag strip and an 11px-tall button are fine for a mouse
+   pointer but too small to reliably tap with a finger. */
+@media (pointer: coarse) {
+  .col-resize-handle { width: 18px !important; right: -9px !important; }
+  .table-manual-btn { padding: 6px 10px !important; font-size: 12px !important; }
+}
 .editor-content th { background: #2d3748; color: #f8fafc; padding: 9px 13px; text-align: left; font-weight: 700; font-size: 0.85em; border: 1px solid #4a5568; letter-spacing: 0.01em; }
 .editor-content td { padding: 7px 12px; border: 1px solid #e2e8f0; vertical-align: top; line-height: var(--editor-lh, 1.5); }
 .editor-content tr:nth-child(even) td { background: #f8fafc; }
 .editor-content tr:hover td { background: #f1f5f9; }
 .editor-content .key-point { background: #eff6ff; border-left: 4px solid #2563eb; padding: 10px 14px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9em; }
 .editor-content .note-box { background: #fefce8; border: 1px solid #fde68a; padding: 10px 14px; margin: 12px 0; border-radius: 8px; font-size: 0.9em; }
+.editor-content .ca-verified { background: #eff6ff; border-left: 3px solid #38bdf8; color: #0369a1; padding: 6px 12px; margin: 6px 0 16px; border-radius: 0 8px 8px 0; font-size: 0.82em; }
+.editor-content .essay-block { line-height: 1.85; }
+.editor-content .essay-title { font-style: italic; font-weight: 700; margin-bottom: 22px; }
+.editor-content .essay-block p { margin: 0 0 16px 0; text-align: justify; }
+.editor-content .essay-block blockquote { border-left: 3px solid #94a3b8; margin: 16px 0; padding: 2px 16px; font-style: italic; color: #475569; }
+.dark .editor-content .essay-block blockquote { border-left-color: #64748b; color: #94a3b8; }
+.editor-content .ca-range-meta { color: #64748b; font-size: 0.85em; margin: -6px 0 20px; font-style: italic; }
 .editor-content .table-of-contents { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
 .editor-content .table-of-contents h2 { border: none; margin-bottom: 12px; }
 .editor-content .table-of-contents nav ul { list-style: none; padding: 0; }
@@ -72,16 +96,9 @@ html, body {
 .editor-content .toc-link-icon { color: #93c5fd; }
 .editor-content .upsc-qa-block { margin-bottom: 32px; }
 .editor-content .upsc-question-header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 0; }
-.editor-content .upsc-question { background: linear-gradient(135deg, #ede9fe 0%, #dbeafe 100%); border-left: 5px solid #7c3aed; color: #1e293b; padding: 14px 18px; margin: 0 0 18px 0; border-radius: 0 12px 12px 0; font-size: 1.05em; font-weight: 700; line-height: 1.45; border-bottom: none; }
+.editor-content .upsc-question { background: none; border: none; color: inherit; padding: 0; margin: 0 0 18px 0; font-size: 1.05em; font-weight: 700; line-height: 1.45; }
 .editor-content .upsc-qa-divider { border: none; border-top: 2px dashed #cbd5e1; margin: 36px 0 28px 0; }
-/* Subject tags */
-.editor-content .upsc-subject-tag { display: inline-flex; align-items: center; font-size: 0.72em; font-weight: 700; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 20px; margin-bottom: 4px; width: fit-content; }
-.editor-content .upsc-subject-gs { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
-.editor-content .upsc-subject-hl { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
-.dark .editor-content .upsc-question { background: linear-gradient(135deg, #312e81 0%, #1e3a5f 100%); color: #e2e8f0; border-left-color: #a78bfa; }
 .dark .editor-content .upsc-qa-divider { border-top-color: #334155; }
-.dark .editor-content .upsc-subject-gs { background: rgba(37,99,235,0.2); color: #93c5fd; border-color: #1d4ed8; }
-.dark .editor-content .upsc-subject-hl { background: rgba(234,88,12,0.2); color: #fb923c; border-color: #c2410c; }
 .editor-content .upsc-gen-loading { color: #7c3aed; font-weight: 600; padding: 10px 0; display: flex; align-items: center; gap: 6px; animation: upscPulse 1.3s ease-in-out infinite; }
 .dark .editor-content .upsc-gen-loading { color: #c4b5fd; }
 @keyframes upscPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
@@ -108,6 +125,8 @@ html, body {
 .dark .editor-content tr:hover td { background: #243347; }
 .dark .editor-content .key-point { background: #1e3a5f; border-left-color: #3b82f6; }
 .dark .editor-content .note-box { background: #292524; border-color: #78350f; }
+.dark .editor-content .ca-verified { background: #0c1e2e; border-left-color: #0ea5e9; color: #7dd3fc; }
+.dark .editor-content .ca-range-meta { color: #94a3b8; }
 .dark .editor-content .table-of-contents { background: #1e293b; border-color: #334155; }
 .dark .editor-content .table-of-contents nav li { border-bottom-color: #334155; }
 .dark .editor-content .toc-dots { border-bottom-color: #475569; }

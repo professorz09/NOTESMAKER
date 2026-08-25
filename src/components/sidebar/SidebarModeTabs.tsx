@@ -1,7 +1,7 @@
 import React from 'react';
-import { Sparkles, FileText, Mic } from 'lucide-react';
+import { Sparkles, FileText, Mic, Newspaper } from 'lucide-react';
 
-type Mode = 'topic' | 'text' | 'file' | 'transcript';
+type Mode = 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
 
 interface SidebarModeTabsProps {
   mode: Mode;
@@ -13,13 +13,14 @@ interface SidebarModeTabsProps {
 // up front. Whichever one actually has content at generate-time decides
 // which pipeline runs (see useGeneration's handleGenerate).
 const TABS = [
-  { id: 'topic'      as const, icon: Sparkles, label: 'Topic'      },
-  { id: 'text'       as const, icon: FileText, label: 'Text / File' },
-  { id: 'transcript' as const, icon: Mic,      label: 'Transcript' },
+  { id: 'topic'          as const, icon: Sparkles, label: 'Topic'       },
+  { id: 'text'           as const, icon: FileText, label: 'Text / File' },
+  { id: 'transcript'     as const, icon: Mic,      label: 'Transcript'  },
+  { id: 'currentAffairs' as const, icon: Newspaper,label: 'Current Affairs' },
 ];
 
 export const SidebarModeTabs: React.FC<SidebarModeTabsProps> = ({ mode, setMode }) => (
-  <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/4 border border-white/6">
+  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/4 border border-white/6">
     {TABS.map(({ id, icon: Icon, label }) => {
       const isActive = id === 'text' ? (mode === 'text' || mode === 'file') : mode === id;
       return (

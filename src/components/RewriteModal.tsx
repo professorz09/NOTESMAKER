@@ -142,7 +142,8 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                 onChange={(e) => setRewriteModel(e.target.value)}
                 className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg focus:ring-teal-500 focus:border-teal-500 block p-1.5 font-medium shadow-sm"
               >
-                <option value="gemini-3.1-flash-lite">Flash (Fast)</option>
+                <option value="gemini-3.1-flash-lite">Flash Lite (Fast)</option>
+                <option value="gemini-3.7-flash">Flash 3.7</option>
                 <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
               </select>
               {isRewriting && (
@@ -248,7 +249,8 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
               className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-medium shadow-sm"
               disabled={isRewriting}
             >
-              <option value="gemini-3.1-flash-lite">Flash (Fast)</option>
+              <option value="gemini-3.1-flash-lite">Flash Lite (Fast)</option>
+              <option value="gemini-3.7-flash">Flash 3.7</option>
               <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
             </select>
             {isRewriting && (

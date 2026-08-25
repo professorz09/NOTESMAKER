@@ -12,6 +12,7 @@ import {
 import { getSectionNodes, extractImagesFromHtml, getScrollParent, STORAGE_KEY } from '../utils/editorUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import { toast } from '../components/Toast';
+import { ensureColgroup, resizeColumn, insertRow, deleteRow, insertColumn, deleteColumn, getColumnCount } from '../utils/tableEditor';
 
 type EditTab = 'rewrite' | 'expand' | 'continue' | 'next_topic' | 'image' | 'diagram' | 'table';
 
@@ -53,6 +54,10 @@ export function useAIEdit({
   const isTableExtendMode = useRef(false);
   const extendTableRef = useRef<Element | null>(null);
   const extendContextRef = useRef<{ headersHtml: string; lastRowsHtml: string } | null>(null);
+  // Last cell the user clicked inside a table — the manual +Row/−Row/+Col/
+  // −Col buttons act relative to it (falls back to the last row/column when
+  // nothing's been clicked in that table yet).
+  const activeTableCellRef = useRef<{ table: HTMLTableElement; cell: HTMLTableCellElement } | null>(null);
 
   const [isExtendTableOpen, setIsExtendTableOpen] = useState(false);
   const [extendHeadersPreview, setExtendHeadersPreview] = useState('');
@@ -66,6 +71,7 @@ export function useAIEdit({
       editorRef.current.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
       editorRef.current.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
       editorRef.current.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
+      editorRef.current.querySelectorAll('.col-resize-handle').forEach(h => h.remove());
       editorRef.current.querySelectorAll('[data-table-id]').forEach(el => (el as HTMLElement).removeAttribute('data-table-id'));
 
       const elements = editorRef.current.querySelectorAll('h1, h2, h3, h4, li, table, .flowchart-container');
@@ -85,12 +91,54 @@ export function useAIEdit({
             topBar.className = 'table-sparkle-bar no-print';
             topBar.contentEditable = 'false';
             topBar.dataset.for = tableId;
-            topBar.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:2px;';
+            topBar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;';
+
+            // Manual (non-AI) row/column controls — act on whichever cell
+            // was last clicked inside this table (see activeCellRef below).
+            const manualBar = document.createElement('div');
+            manualBar.className = 'table-manual-toolbar no-print';
+            manualBar.contentEditable = 'false';
+            manualBar.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;';
+            const mkManualBtn = (label: string, title: string, action: string) => {
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'table-manual-btn no-print';
+              b.contentEditable = 'false';
+              b.textContent = label;
+              b.title = title;
+              b.dataset.tableAction = action;
+              b.style.cssText = 'font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;cursor:pointer;line-height:1.3;user-select:none;';
+              return b;
+            };
+            manualBar.appendChild(mkManualBtn('+ Row', 'Insert a row below the selected cell', 'add-row'));
+            manualBar.appendChild(mkManualBtn('− Row', 'Delete the selected row', 'del-row'));
+            manualBar.appendChild(mkManualBtn('+ Col', 'Insert a column after the selected cell', 'add-col'));
+            manualBar.appendChild(mkManualBtn('− Col', 'Delete the selected column', 'del-col'));
+            topBar.appendChild(manualBar);
+
             btn.contentEditable = 'false';
             btn.style.cssText = 'display:inline-flex;align-items:center;cursor:pointer;font-size:15px;padding:2px 6px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#2563eb;user-select:none;';
             btn.title = 'Edit / Expand this table';
             topBar.appendChild(btn);
             parentEl.insertBefore(topBar, el);
+
+            // Column resize handles — one thin drag strip on the right edge
+            // of every header cell except the last (dragging borrows/gives
+            // width between that column and its right neighbor).
+            const headerRow = (el as HTMLTableElement).rows[0];
+            if (headerRow) {
+              Array.from(headerRow.cells).forEach((cell, idx) => {
+                if (idx === headerRow.cells.length - 1) return;
+                (cell as HTMLElement).style.position = 'relative';
+                const handle = document.createElement('span');
+                handle.className = 'col-resize-handle no-print';
+                handle.contentEditable = 'false';
+                handle.dataset.colIndex = String(idx);
+                handle.title = 'Drag to resize this column';
+                handle.style.cssText = 'position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:5;touch-action:none;';
+                cell.appendChild(handle);
+              });
+            }
           }
 
           if (!el.nextElementSibling?.classList.contains('table-extend-bar')) {
@@ -126,6 +174,7 @@ export function useAIEdit({
       editorRef.current.querySelectorAll('.ai-edit-trigger').forEach(b => b.remove());
       editorRef.current.querySelectorAll('.table-sparkle-bar').forEach(bar => bar.remove());
       editorRef.current.querySelectorAll('.table-extend-bar').forEach(bar => bar.remove());
+      editorRef.current.querySelectorAll('.col-resize-handle').forEach(h => h.remove());
       editorRef.current.querySelectorAll('[data-table-id]').forEach(el => (el as HTMLElement).removeAttribute('data-table-id'));
       editorRef.current.querySelectorAll('caption.empty-caption').forEach(cap => cap.remove());
       editorRef.current.querySelectorAll('tfoot.table-extend-tfoot').forEach(tfoot => tfoot.remove());
@@ -201,10 +250,63 @@ export function useAIEdit({
     setRewriteModalOpen(true);
   }, [getCurrentHtml, pushToHistory, setGeneratedHtml, editorRef]);
 
+  // Manual (non-AI) row/column structure edits — resolves which cell/table
+  // the click's toolbar belongs to, applies the DOM change, then syncs state
+  // exactly like every other in-editor mutation (history push + autosave).
+  const handleManualTableAction = useCallback((btn: HTMLElement) => {
+    const sparkleBar = btn.closest('.table-sparkle-bar') as HTMLElement | null;
+    const table = sparkleBar?.nextElementSibling as HTMLTableElement | null;
+    if (!table || table.tagName !== 'TABLE') return;
+    const action = btn.dataset.tableAction;
+
+    const active = activeTableCellRef.current?.table === table ? activeTableCellRef.current.cell : null;
+    const row = active?.closest('tr') as HTMLTableRowElement | null;
+    const colIndex = active && row ? Array.from(row.children).indexOf(active) : getColumnCount(table) - 1;
+
+    pushToHistory(getCurrentHtml());
+
+    if (action === 'add-row') {
+      insertRow(table, row && row.parentElement?.tagName === 'TBODY' ? row : null);
+    } else if (action === 'del-row') {
+      if (!row) { toast.info('Click a row first, then press − Row.'); return; }
+      if (!deleteRow(row)) toast.warning(row.parentElement?.tagName !== 'TBODY' ? 'The header row can\'t be deleted.' : 'At least one row must remain.');
+    } else if (action === 'add-col') {
+      insertColumn(table, colIndex, 'right');
+    } else if (action === 'del-col') {
+      if (!deleteColumn(table, colIndex)) toast.warning('At least one column must remain.');
+    } else {
+      return;
+    }
+
+    activeTableCellRef.current = null;
+    if (!editorRef.current) return;
+    const raw = getCurrentHtml();
+    setGeneratedHtml(raw);
+    saveToStorage();
+  }, [editorRef, pushToHistory, getCurrentHtml, setGeneratedHtml, saveToStorage]);
+
   // Click listener for AI edit trigger buttons
   useEffect(() => {
     const handleEditorClick = (e: MouseEvent) => {
-      const trigger = (e.target as HTMLElement).closest('.ai-edit-trigger') as HTMLElement;
+      const target = e.target as HTMLElement;
+
+      // Track the last-clicked table cell regardless of what else the click
+      // does — this is what the manual row/column buttons act on.
+      const clickedCell = target.closest('td, th') as HTMLTableCellElement | null;
+      if (clickedCell) {
+        const clickedTable = clickedCell.closest('table') as HTMLTableElement | null;
+        if (clickedTable) activeTableCellRef.current = { table: clickedTable, cell: clickedCell };
+      }
+
+      const manualBtn = target.closest('.table-manual-btn') as HTMLElement | null;
+      if (manualBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleManualTableAction(manualBtn);
+        return;
+      }
+
+      const trigger = target.closest('.ai-edit-trigger') as HTMLElement;
       if (!trigger) return;
       if (isRewriting) return; // block new edits while one is in progress
       e.preventDefault();
@@ -238,7 +340,57 @@ export function useAIEdit({
     const editor = editorRef.current;
     if (editor) editor.addEventListener('click', handleEditorClick);
     return () => { if (editor) editor.removeEventListener('click', handleEditorClick); };
-  }, [isEditing, isRewriting, handleSectionEdit, handleTableExtend, editorRef]);
+  }, [isEditing, isRewriting, handleSectionEdit, handleTableExtend, handleManualTableAction, editorRef]);
+
+  // Column-resize drag — pointer events unify mouse/touch/pen so this works
+  // the same way on a desktop trackpad and a phone's touchscreen. Dragging a
+  // handle borrows/gives width between its column and the next one, so the
+  // table's total width never changes (see resizeColumn).
+  useEffect(() => {
+    if (!isEditing || !editorRef.current) return;
+    const editor = editorRef.current;
+    let drag: { table: HTMLTableElement; colIndex: number; startX: number; tableWidth: number } | null = null;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const handle = (e.target as HTMLElement).closest('.col-resize-handle') as HTMLElement | null;
+      if (!handle) return;
+      const table = handle.closest('table') as HTMLTableElement | null;
+      if (!table) return;
+      e.preventDefault();
+      ensureColgroup(table);
+      drag = {
+        table,
+        colIndex: parseInt(handle.dataset.colIndex || '0', 10),
+        startX: e.clientX,
+        tableWidth: table.getBoundingClientRect().width || 1,
+      };
+      handle.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!drag) return;
+      const deltaPercent = ((e.clientX - drag.startX) / drag.tableWidth) * 100;
+      resizeColumn(drag.table, drag.colIndex, deltaPercent);
+      drag.startX = e.clientX;
+    };
+    const onPointerUp = () => {
+      if (!drag) return;
+      drag = null;
+      if (!editorRef.current) return;
+      const raw = getCurrentHtml();
+      setGeneratedHtml(raw);
+      pushToHistory(raw);
+      saveToStorage();
+    };
+
+    editor.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      editor.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [isEditing, editorRef, getCurrentHtml, setGeneratedHtml, pushToHistory, saveToStorage]);
 
   const openSelectionRewriteModal = () => {
     const selection = window.getSelection();

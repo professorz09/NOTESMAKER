@@ -124,10 +124,10 @@ export const generateTopicOutline = async (
 
   const scale = level === 'detailed'
     ? 'Produce 8-15 main sections, and for EACH give 4-8 specific sub-headings that break the section into its real sub-dimensions. Keep sub-headings SMALL and granular — each one a single specific point, never a bundle of several ideas; split a broad sub-point into its smaller parts instead. Be exhaustive — every angle of the topic should map to a section or sub-heading.'
-    : 'Produce 5-9 main sections. Add 2-4 sub-headings only where a section genuinely has distinct parts (otherwise an empty list is fine).';
+    : `Produce 5-9 main sections. This is NOT a uniform outline — for EACH section, first judge how exam-relevant/high-yield it genuinely is for THIS topic (how often it's actually asked, how central it is to understanding the topic, whether it's foundational vs a minor footnote), then size its sub-headings to match: give 4-6 sub-headings to a section that's clearly high-yield or foundational, 2-3 to a moderately important one, and leave the sub-heading list empty (or just 1) for a genuinely minor/peripheral section. Don't pad every section to look equally important — a flat, uniform outline is exactly what this should NOT be.`;
 
   const prompt = `
-    Role: Expert curriculum designer and subject-matter specialist.
+    Role: Expert curriculum designer, subject-matter specialist, and UPSC exam-pattern analyst.
     Task: Plan the COMPLETE structure for exhaustive, well-organized study notes on the topic below. First think about ALL the dimensions this SPECIFIC topic genuinely has, then lay them out as an ordered list of sections that flow logically. Adapt the structure to the topic — do NOT force a generic template; only include sections that actually fit, and ADD any topic-specific sections that matter.
 
     Topic: "${topic}"
@@ -191,11 +191,19 @@ ${subs.map((s, i) => `<h3>${sectionNumber}.${subStart + i + 1} ${s}</h3>`).join(
         ? 'Keep this section\'s existing structure (its current sub-headings, if any) unless it is genuinely unclear — only reorganize into new <h3> sub-sections if that would make it noticeably clearer.'
         : (level === 'detailed'
           ? 'Break this section into 3-5 logical <h3> sub-sections of your own that fully cover it, each properly explained (with <h4> sub-parts where a sub-section is layered).'
-          : 'Break this section into 2-4 logical <h3> sub-sections where it helps, each properly explained.');
+          // Medium, no sub-headings from the outline: that was a DELIBERATE
+          // signal (see generateTopicOutline) that this section is minor for
+          // this topic — cover it correctly, not inflate it with an invented
+          // sub-structure it doesn't deserve.
+          : 'The outline gave this section no sub-headings on purpose — that means it\'s a genuinely minor/peripheral point for this topic. Cover it correctly in 1-2 solid paragraphs; do NOT invent a 2-4 sub-section structure to pad it out.');
 
     const depth = level === 'detailed'
       ? 'Go MAXIMALLY deep: every sub-section must have real explanation, mechanism, and at least one concrete real-world example. Aim for a thorough, textbook-grade treatment of this section — do not stop early.'
-      : 'Give a solid, detailed treatment of this section with clear explanation and concrete examples.';
+      : subs.length >= 4
+        ? 'This section carries many sub-points, which means the outline judged it high-yield/foundational for this topic — go genuinely deep here: real explanation, mechanism, and at least one concrete example per sub-point.'
+        : subs.length > 0
+          ? 'Give a solid, detailed treatment of this section with clear explanation and concrete examples.'
+          : 'Keep this concise and correct — a couple of well-written paragraphs is the right amount here, not padding.';
 
     const prompt = `
     Role: Senior Subject-Matter Expert & Textbook Author.

@@ -2,8 +2,8 @@ import React from 'react';
 import { Sparkles, Table as TableIcon, Eraser, Undo } from 'lucide-react';
 
 interface SidebarFooterProps {
-  outputStyle: 'notes' | 'upsc' | 'research' | 'table';
-  mode: 'topic' | 'text' | 'file' | 'transcript';
+  outputStyle: 'notes' | 'upsc' | 'essay' | 'research' | 'table';
+  mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
   isGenerating: boolean;
   canUndo: boolean;
   handleMainClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -14,6 +14,7 @@ interface SidebarFooterProps {
 const GENERATE_LABELS: Record<string, string> = {
   table: 'Generate Table',
   upsc: 'Generate UPSC Answer',
+  essay: 'Generate Essay',
   research: 'Generate Research Paper',
 };
 
@@ -23,9 +24,11 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({
 }) => {
   const label = isGenerating
     ? 'Generating…'
-    : mode === 'transcript'
-      ? 'Start Notes Making'
-      : GENERATE_LABELS[outputStyle] ?? 'Generate Notes';
+    : mode === 'currentAffairs'
+      ? 'Generate Current Affairs Notes'
+      : mode === 'transcript'
+        ? 'Start Notes Making'
+        : GENERATE_LABELS[outputStyle] ?? 'Generate Notes';
 
   return (
     <div

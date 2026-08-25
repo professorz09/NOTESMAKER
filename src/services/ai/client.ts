@@ -128,9 +128,23 @@ export const RESEARCH_GEN_CONFIG = {
 // answers; output cap is smaller than the notes generators (an answer is a
 // few hundred words of HTML, not a whole chapter) but still generous enough
 // that grounding citations + formatting never truncate the answer.
+// temperature is nudged up from the model default (~1.0) so regenerating the
+// SAME question twice — e.g. clicking "Topper's" again, or a student
+// re-running a practice question — doesn't come back near-identical every
+// time; still low enough that structure/facts stay reliable, not erratic.
 export const UPSC_ANSWER_CONFIG = {
   maxOutputTokens: 24576,
   thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+  temperature: 1.15,
+} as const;
+
+// UPSC Essay Paper — same reasoning depth as an answer, larger output cap
+// since a full essay (~1000-1500 words) runs longer than a marks-based
+// answer, and the same variety-friendly temperature.
+export const ESSAY_CONFIG = {
+  maxOutputTokens: 32768,
+  thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+  temperature: 1.15,
 } as const;
 
 // Attaches live Google Search grounding to a call's config when the user has
@@ -154,7 +168,18 @@ export const cleanHtmlOutput = (text: string): string => {
 
 export const buildContents = (prompt: string, images?: { base64: string; mimeType: string }[]) => {
   if (!images || images.length === 0) return prompt;
+  // MUST include an explicit role. The @google/genai SDK's tContent() only
+  // adds `role: 'user'` when the value it's given does NOT already look like
+  // a Content object; a plain `{ parts }` object (no role key) already
+  // satisfies that "looks like a Content" check, so it gets forwarded
+  // AS-IS with no role at all. Vertex AI's REST endpoint then defaults the
+  // missing field to an empty string and rejects it — "Please use a valid
+  // role: user, model" — which is why every image-attached AI edit (Magic
+  // AI Editor with an attached image) failed while plain text-only edits
+  // worked fine (a bare string prompt goes through the SDK's OTHER branch,
+  // which does add role: 'user').
   return {
+    role: 'user',
     parts: [
       ...images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } })),
       { text: prompt },

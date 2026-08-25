@@ -3,8 +3,10 @@ import {
   Trash2, Pencil, Check, X, Cloud, HardDrive,
   Loader2, RefreshCw, Search, Plus, CheckCircle2,
   History, Save, ChevronDown, ChevronUp, FileText,
+  Newspaper, CalendarRange,
 } from 'lucide-react';
 import type { ProjectMeta } from '../hooks/useProjects';
+import { CURRENT_AFFAIRS_TAG } from '../hooks/useProjects';
 
 interface ProjectsPanelProps {
   projects: ProjectMeta[];
@@ -21,6 +23,9 @@ interface ProjectsPanelProps {
   onDeleteProject: (id: string) => void;
   onRenameProject: (id: string, name: string) => void;
   hasContent: boolean;
+  // Special calendar date-range feature — combines every Current-Affairs-
+  // tagged note in [start, end] into one merged read on the canvas.
+  onReadDateRange: (start: string, end: string) => void;
 }
 
 // ── Lightweight relative-time formatter ──
@@ -46,10 +51,14 @@ function getGroup(updatedAt: string): string {
 const GROUP_ORDER = ['Today', 'Yesterday', 'This Week', 'Earlier', 'Older'];
 const SYNC_COOLDOWN_MS = 3000;
 
+function fmtEntryDate(d: string): string {
+  return new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
   projects, loading, error, activeProjectId, isSupabaseConfigured,
   lastSavedAt, onOpen, onSync, onSaveNow, onSelectProject, onCreateProject,
-  onDeleteProject, onRenameProject, hasContent,
+  onDeleteProject, onRenameProject, hasContent, onReadDateRange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,6 +67,13 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  // Tag filter — "All" or just the Current Affairs stream, so daily current-
+  // affairs notes can be picked out of the rest of the history at a glance.
+  const [tagFilter, setTagFilter] = useState<'all' | 'ca'>('all');
+  // Calendar date-range popover — the special "read several days together" feature.
+  const [showRangePicker, setShowRangePicker] = useState(false);
+  const [rangeStart, setRangeStart] = useState('');
+  const [rangeEnd, setRangeEnd] = useState('');
 
   const renameInputRef = useRef<HTMLInputElement>(null);
   const syncCooldownRef = useRef(0);
@@ -94,11 +110,20 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
     [...(projects ?? [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   , [projects]);
 
-  const filtered = useMemo(() =>
-    searchQuery.trim()
-      ? safeProjects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-      : safeProjects
-  , [safeProjects, searchQuery]);
+  const caCount = useMemo(() => safeProjects.filter(p => p.tags?.includes(CURRENT_AFFAIRS_TAG)).length, [safeProjects]);
+
+  const filtered = useMemo(() => {
+    let list = tagFilter === 'ca' ? safeProjects.filter(p => p.tags?.includes(CURRENT_AFFAIRS_TAG)) : safeProjects;
+    if (searchQuery.trim()) list = list.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    return list;
+  }, [safeProjects, searchQuery, tagFilter]);
+
+  const handleReadRange = useCallback(() => {
+    if (!rangeStart || !rangeEnd) return;
+    const [start, end] = rangeStart <= rangeEnd ? [rangeStart, rangeEnd] : [rangeEnd, rangeStart];
+    onReadDateRange(start, end);
+    setShowRangePicker(false);
+  }, [rangeStart, rangeEnd, onReadDateRange]);
 
   const grouped = useMemo(() => {
     const g: Record<string, ProjectMeta[]> = {};
@@ -161,6 +186,19 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
             }
           </button>
 
+          {/* Calendar date-range read — combines several days of Current
+              Affairs notes into one merged read. Shown once there's at
+              least one tagged note to combine. */}
+          {caCount > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsOpen(true); setShowRangePicker(s => !s); }}
+              title="Read current affairs by date range"
+              className={`p-1 rounded-md transition-colors ${showRangePicker ? 'bg-amber-500/20' : 'hover:bg-white/8'}`}
+            >
+              <CalendarRange className={`w-3.5 h-3.5 transition-colors ${showRangePicker ? 'text-amber-300' : 'text-amber-500/60 hover:text-amber-400'}`} />
+            </button>
+          )}
+
           {/* New project */}
           {hasContent && (
             <button
@@ -198,9 +236,70 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
         </div>
       )}
 
+      {/* ── DATE RANGE READ POPOVER ── the special calendar feature: pick a
+          start/end date and every Current Affairs note in between is
+          merged into one combined read on the canvas. */}
+      {showRangePicker && (
+        <div className="mx-1 mb-2 p-2.5 rounded-xl bg-amber-500/6 border border-amber-500/20 space-y-2">
+          <p className="text-[10px] font-bold text-amber-300 flex items-center gap-1.5">
+            <CalendarRange className="w-3 h-3" /> Read Current Affairs by date range
+          </p>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={rangeStart}
+              onChange={e => setRangeStart(e.target.value)}
+              className="flex-1 min-w-0 bg-white/6 border border-white/12 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-amber-500/50 [color-scheme:dark]"
+            />
+            <span className="text-[10px] text-slate-500">to</span>
+            <input
+              type="date"
+              value={rangeEnd}
+              onChange={e => setRangeEnd(e.target.value)}
+              className="flex-1 min-w-0 bg-white/6 border border-white/12 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-amber-500/50 [color-scheme:dark]"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleReadRange}
+              disabled={!rangeStart || !rangeEnd}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 transition-all text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Combine &amp; Read
+            </button>
+            <button
+              onClick={() => setShowRangePicker(false)}
+              className="px-2.5 py-1.5 rounded-lg bg-white/6 text-slate-400 hover:bg-white/12 hover:text-slate-200 transition-all text-[11px] font-semibold"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── EXPANDED LIST ── */}
       {isOpen && (
         <div className="space-y-2">
+          {/* Tag filter — All vs Current Affairs only */}
+          {caCount > 0 && (
+            <div className="flex items-center gap-1 px-1">
+              {(['all', 'ca'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setTagFilter(f)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+                    tagFilter === f
+                      ? f === 'ca' ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300'
+                      : 'bg-white/4 border border-white/8 text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {f === 'ca' && <Newspaper className="w-2.5 h-2.5" />}
+                  {f === 'all' ? 'All' : `Current Affairs (${caCount})`}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Search */}
           <div className="relative px-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600 pointer-events-none" />
@@ -332,11 +431,16 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
                                 onClick={() => onSelectProject(project.id)}
                                 className="flex-1 min-w-0 text-left"
                               >
-                                <p className={`text-[11px] font-semibold leading-tight truncate ${isActive ? 'text-indigo-200' : 'text-slate-300'}`}>
-                                  {project.name}
-                                </p>
+                                <div className="flex items-center gap-1">
+                                  {project.tags?.includes(CURRENT_AFFAIRS_TAG) && (
+                                    <Newspaper className="w-2.5 h-2.5 text-amber-400/90 flex-shrink-0" />
+                                  )}
+                                  <p className={`text-[11px] font-semibold leading-tight truncate ${isActive ? 'text-indigo-200' : 'text-slate-300'}`}>
+                                    {project.name}
+                                  </p>
+                                </div>
                                 <p className="text-[9px] text-slate-600 mt-0.5">
-                                  {timeAgo(project.updated_at)}
+                                  {project.entry_date ? fmtEntryDate(project.entry_date) : timeAgo(project.updated_at)}
                                 </p>
                               </button>
 

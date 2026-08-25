@@ -1,10 +1,12 @@
 export { SidebarHeader } from './SidebarHeader';
 export { SidebarModeTabs } from './SidebarModeTabs';
 export { SidebarInputSection } from './SidebarInputSection';
+export { SidebarCurrentAffairs } from './SidebarCurrentAffairs';
 export { SidebarOutputStyleSelector } from './SidebarOutputStyleSelector';
 export { SidebarUPSCSettings } from './SidebarUPSCSettings';
 export { SidebarLanguageModel } from './SidebarLanguageModel';
 export { SidebarDetailLevel } from './SidebarDetailLevel';
+export { SidebarGroundingToggle } from './SidebarGroundingToggle';
 export { SidebarPdfTools } from './SidebarPdfTools';
 export { SidebarOnePager } from './SidebarOnePager';
 export { SidebarFooter } from './SidebarFooter';

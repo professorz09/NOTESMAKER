@@ -32,6 +32,9 @@ import {
   generateFilesTitle,
   expandFilesSection,
   scanSectionsForGroundingAdditions,
+  generateCurrentAffairsQuick,
+  generateCurrentAffairsDeep,
+  generateEssay,
   type UPSCAnswerStyle,
   type UPSCSubject,
   type RefinementOptions,
@@ -46,6 +49,7 @@ import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../utils/concurrency';
 import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
 import { fetchVideoTranscript, looksLikeVideoUrl } from '../services/supadata';
+import { CURRENT_AFFAIRS_TAG } from './useProjects';
 import { toast } from '../components/Toast';
 import {
   type PipelineResumeSnapshot,
@@ -75,6 +79,20 @@ const DEEP_PRO_MODEL = 'gemini-3.1-pro-preview';
 // Pro for the outline/completeness passes and this Flash model for the bulk
 // per-section expand (faster, cheaper, still solid quality).
 const DETAILED_FLASH_MODEL = 'gemini-3.1-flash-lite';
+// Grounding-safe Flash: gemini-3.7-flash (launched Aug 2026) ships with
+// "Pro-level agentic capabilities" — unlike Flash Lite it can be trusted to
+// actually ACT on the googleSearch tool during a long section-writing call,
+// not just accept it. Whenever the user turns Grounding on, section-writing
+// calls that would otherwise run on Flash Lite are upgraded to this model
+// instead of jumping all the way to Pro — keeps the speed/cost the
+// Medium/Detailed levels promise while still making the search results real.
+const GROUNDING_FLASH_MODEL = 'gemini-3.7-flash';
+// Swaps Flash Lite for the grounding-safe Flash whenever grounding is on —
+// leaves Pro (or any other explicit model choice) untouched, so this only
+// ever affects the specific case that was actually broken (a Flash-Lite
+// section-write call that's supposed to be using live search).
+const groundingSafeModel = (model: string, grounded: boolean): string =>
+  (grounded && model === 'gemini-3.1-flash-lite') ? GROUNDING_FLASH_MODEL : model;
 
 type MindmapAction = 'retry' | 'skip' | 'finish';
 
@@ -256,8 +274,8 @@ export function useGeneration({
   setIsEditing,
   setSidebarOpen,
 }: UseGenerationProps) {
-  const [mode, setMode] = useState<'topic' | 'text' | 'file' | 'transcript'>('topic');
-  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
+  const [mode, setMode] = useState<'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs'>('topic');
+  const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'essay' | 'research' | 'table'>('notes');
   const [upscAnswerStyle, setUpscAnswerStyle] = useState<UPSCAnswerStyle>('topper');
   const [upscSubject, setUpscSubject] = useState<UPSCSubject>('gs');
   const [tableInstruction, setTableInstruction] = useState('');
@@ -277,6 +295,11 @@ export function useGeneration({
   // currently shows while the resumed run continues generating sections.
   const [uiGroundingEnabled, setGroundingEnabled] = useState(false);
   const groundingEnabled = uiGroundingEnabled;
+  // Separate grounding toggle for UPSC answers/Essay — defaults ON (real
+  // facts/quotes matter there more than almost anywhere else in the app),
+  // unlike the general pipeline toggle above which defaults off. Kept apart
+  // from `groundingEnabled` so switching one doesn't silently flip the other.
+  const [upscGroundingEnabled, setUpscGroundingEnabled] = useState(true);
   // Multi-step notes-pipeline progress (Medium/Detailed/Deep topic generation).
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
@@ -427,6 +450,22 @@ export function useGeneration({
   const [transcriptInput, setTranscriptInput] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [transcriptProgress, setTranscriptProgress] = useState<{ current: number; total: number; step: 'fetch' | 'restructure' | 'structure' | 'detail'; note?: string } | null>(null);
+
+  // Daily Current Affairs state — one or more video links (one per line),
+  // the date this batch is filed under (tag/filter/date-range read key), and
+  // the generation style: 'quick' (one Flash call, no search) or 'deep'
+  // (Perplexity-style: extract topics, then one grounded Flash call that
+  // verifies/expands each against live Google Search).
+  const [caUrls, setCaUrls] = useState('');
+  const [caDate, setCaDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [caStyle, setCaStyle] = useState<'quick' | 'deep'>('quick');
+  const [caProgress, setCaProgress] = useState<{ current: number; total: number; note: string } | null>(null);
+  // Set right before a Current Affairs run finishes so the generic
+  // "generation → new project" effect in App.tsx can tag the resulting
+  // project (Current Affairs tag + the chosen date) instead of saving it as
+  // a plain untagged note. Consumed (and cleared) the moment it's read, so
+  // any later, unrelated generation never inherits a stale tag.
+  const pendingProjectMetaRef = useRef<{ tags: string[]; entryDate: string } | null>(null);
   // True while the optional "Restructure Draft" pre-step is cleaning up the
   // pasted/fetched transcript before the user presses "Start Notes Making".
   const [isRestructuringDraft, setIsRestructuringDraft] = useState(false);
@@ -1052,6 +1091,122 @@ export function useGeneration({
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
+  // Daily Current Affairs pipeline — fetch the transcript for every pasted
+  // video link (one per line), then turn them into exam-focused notes in the
+  // chosen style ('quick' = one Flash call per chunk, no search; 'deep' =
+  // Perplexity-style: extract topics then one grounded Flash call that
+  // verifies/expands each against live Google Search). The result is tagged
+  // with the chosen date via pendingProjectMetaRef so the generic
+  // generation→project effect in App.tsx files it under the Current Affairs
+  // tag instead of as a plain note — that's what makes it filterable in
+  // history and pullable into the date-range combined read.
+  const handleGenerateCurrentAffairs = async () => {
+    const urls = caUrls.split('\n').map(u => u.trim()).filter(Boolean);
+    const myRun = runSeqRef.current;
+    if (!urls.length) {
+      toast.warning('Please paste at least one current affairs video link.');
+      return;
+    }
+    const invalid = urls.find(u => !looksLikeVideoUrl(u));
+    if (invalid) {
+      toast.warning(`This doesn't look like a valid video link: "${invalid.slice(0, 60)}"`);
+      return;
+    }
+    if (!caDate) {
+      toast.warning('Please pick a date for these current affairs.');
+      return;
+    }
+
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    setCaProgress({ current: 0, total: urls.length, note: 'Fetching transcripts…' });
+    const dateLabel = new Date(`${caDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    try {
+      const transcripts: string[] = [];
+      for (let i = 0; i < urls.length; i++) {
+        if (isStaleRun(myRun)) return;
+        setCaProgress({ current: i + 1, total: urls.length, note: `Fetching transcript ${i + 1}/${urls.length}…` });
+        try {
+          const t = await fetchVideoTranscript(urls[i], {
+            lang: language === 'Hindi' ? 'hi' : 'en',
+            onStatus: (s) => setCaProgress({ current: i + 1, total: urls.length, note: s }),
+            signal: { get aborted() { return isStaleRun(myRun); } },
+          });
+          if (t.trim()) transcripts.push(urls.length > 1 ? `[Video ${i + 1}]\n${t.trim()}` : t.trim());
+        } catch (err: any) {
+          console.error(`Transcript fetch failed for ${urls[i]}:`, err);
+          toast.warning(`Could not fetch transcript for video ${i + 1} — skipping it.`);
+        }
+      }
+      if (isStaleRun(myRun)) return;
+      if (!transcripts.length) throw new Error('No transcript could be fetched from the link(s) given.');
+
+      // A daily CA batch (especially several videos at once) can still be
+      // long enough to risk the output-token cap on a single call — chunk
+      // exactly like the class-transcript pipeline so nothing is silently
+      // truncated, and run the chosen style per chunk.
+      const chunks = chunkTranscript(transcripts.join('\n\n---\n\n'), 6000);
+      const generateFn = caStyle === 'deep' ? generateCurrentAffairsDeep : generateCurrentAffairsQuick;
+
+      const parts: string[] = [];
+      const pushLive = () => {
+        if (isStaleRun(myRun)) return;
+        const html = parts.join('\n');
+        setGeneratedHtml(html);
+        pushToHistory(html);
+        localStorage.setItem(STORAGE_KEY, html);
+      };
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (isStaleRun(myRun)) return;
+        setCaProgress({
+          current: i + 1,
+          total: chunks.length,
+          note: caStyle === 'deep'
+            ? `Deep research — Flash + Google grounding (part ${i + 1}/${chunks.length})…`
+            : `Extracting notes (part ${i + 1}/${chunks.length})…`,
+        });
+        let html = '';
+        let ok = false;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            html = sanitizeHtml(await generateFn(chunks[i], dateLabel, language));
+            ok = true;
+            break;
+          } catch (err) {
+            console.error(`Current affairs chunk ${i + 1} attempt ${attempt} failed:`, err);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
+          }
+        }
+        if (!ok || !html) {
+          parts.push(`<div class="note-box">⚠️ Part ${i + 1}/${chunks.length} could not be generated — please retry.</div>`);
+          pushLive();
+          continue;
+        }
+        // Only the first chunk's <h1> title survives — later chunks would
+        // otherwise repeat "Daily Current Affairs — <date>" mid-document.
+        if (i > 0) html = html.replace(/<h1[^>]*>[\s\S]*?<\/h1>/i, '');
+        parts.push(html);
+        pushLive();
+      }
+
+      if (isStaleRun(myRun)) return;
+      if (!parts.some(p => p.trim())) throw new Error('No notes could be generated from the transcript(s).');
+
+      pendingProjectMetaRef.current = { tags: [CURRENT_AFFAIRS_TAG], entryDate: caDate };
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+      toast.success('Current affairs notes ready!');
+    } catch (error: any) {
+      if (!isStaleRun(myRun)) {
+        console.error(error);
+        toast.error(`Current affairs generation failed: ${error.message || 'please try again.'}`);
+      }
+    } finally {
+      if (!isStaleRun(myRun)) setStatus(GenerationStatus.IDLE);
+      setCaProgress(null);
+    }
+  };
+
   // Phase 1 shared by the transcript & text leveled pipelines: outline every
   // chunk with bounded parallelism (PIPELINE_CONCURRENCY calls in flight)
   // instead of strictly
@@ -1168,9 +1323,18 @@ export function useGeneration({
     // (same prompts as Deep — see depthDirective — just written by Flash).
     const outlineModel = DEEP_PRO_MODEL;
     const expandLevel: 'medium' | 'detailed' | 'deep' = kind === 'transcript' ? 'deep' : level;
+    // Grounding needs a model that reliably ACTS on the googleSearch tool
+    // during a long section-writing call, not just a short outline call —
+    // Flash Lite accepts the tool but has been observed to rarely invoke it
+    // once it's also juggling a big structured-HTML generation, which is
+    // exactly why turning Grounding on used to visibly affect the outline
+    // step (always Pro) but not the actual notes content. groundingSafeModel
+    // swaps ONLY a Flash-Lite pick for the grounding-safe Flash — Deep/
+    // transcript still get Pro regardless (unrelated to grounding), and an
+    // explicit Pro choice is never touched.
     const expandModel = kind === 'transcript' || level === 'deep'
       ? DEEP_PRO_MODEL
-      : level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel;
+      : groundingSafeModel(level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel, groundingEnabled);
 
     // "This run was torn down" — starts as the bare reset flag, upgraded to
     // the controller's permanent `cancelled` signal once it exists below.
@@ -1599,8 +1763,12 @@ export function useGeneration({
     const outlineModel = DEEP_PRO_MODEL;
     // Same prompts/structure for Detailed and Deep (see expandFilesSection's
     // depth directive) — Deep is all-Pro, Detailed is Pro outline + Flash
-    // expand, Medium keeps the user's own Sidebar model choice.
-    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel;
+    // expand, Medium keeps the user's own Sidebar model choice. groundingSafeModel
+    // swaps a Flash-Lite pick for the grounding-safe Flash — see
+    // runLeveledChunkPipeline for why.
+    const expandModel = level === 'deep'
+      ? DEEP_PRO_MODEL
+      : groundingSafeModel(level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel, groundingEnabled);
 
     // See runLeveledChunkPipeline: `dead` outlives Clear Canvas's ~100ms
     // reset window, so a section call landing after Clear can't repopulate
@@ -1835,10 +2003,11 @@ export function useGeneration({
   const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  const wrapUPSCBlock = (question: string, answerHtml: string, subject: UPSCSubject, extraAttr = '') => {
-    const tagClass = subject === 'hindi_literature' ? 'upsc-subject-tag upsc-subject-hl' : 'upsc-subject-tag upsc-subject-gs';
-    const tagLabel = subject === 'hindi_literature' ? 'Hindi Literature' : 'General Studies';
-    return `<section class="upsc-qa-block"${extraAttr}><div class="upsc-question-header"><span class="${tagClass}">${tagLabel}</span><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
+  // Plain question — no subject-tag pill, no background box. Just a bold
+  // "Q. ..." line so the question reads like a normal exam-copy heading
+  // instead of a styled card (see .upsc-question in index.css).
+  const wrapUPSCBlock = (question: string, answerHtml: string, _subject: UPSCSubject, extraAttr = '') => {
+    return `<section class="upsc-qa-block"${extraAttr}><div class="upsc-question-header"><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
   };
 
   // Smoothly bring the most recently appended answer into view so a non-
@@ -2001,10 +2170,12 @@ export function useGeneration({
     // Deep writes every section with Pro; Detailed writes them with Flash —
     // same expandDeepSection prompt/structure either way, only the model
     // differs. Medium keeps the lighter expandTopicSection + user's model.
-    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : DETAILED_FLASH_MODEL;
+    // groundingSafeModel swaps a Flash-Lite pick for the grounding-safe
+    // Flash — see runLeveledChunkPipeline for why.
+    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : groundingSafeModel(DETAILED_FLASH_MODEL, groundingEnabled);
     const expandOne = (i: number) => (level === 'deep' || level === 'detailed')
       ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, expandModel, refineFor(i), groundingEnabled)
-      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, aiModel, level as 'medium', refineFor(i), groundingEnabled);
+      : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, groundingSafeModel(aiModel, groundingEnabled), level as 'medium', refineFor(i), groundingEnabled);
     // Clicking a node (done/error/never-attempted) always regenerates via Pro
     // at max depth, one strength level above whatever the automatic pass
     // used — carrying the existing draft + any typed instruction as a
@@ -2014,7 +2185,8 @@ export function useGeneration({
     // Completeness pass always runs on Pro for both Deep and Detailed — it's
     // the final accuracy check over the whole topic, same as the outline.
     const runCompleteness = (instruction?: string, existingHtml?: string) => generateAdditionalTopicAspects(
-      topic, allHeadings, sections.length + 1, language, (level === 'deep' || level === 'detailed') ? DEEP_PRO_MODEL : aiModel,
+      topic, allHeadings, sections.length + 1, language,
+      (level === 'deep' || level === 'detailed') ? DEEP_PRO_MODEL : groundingSafeModel(aiModel, groundingEnabled),
       { existingHtml, customInstruction: instruction }, groundingEnabled,
     );
 
@@ -2283,8 +2455,13 @@ export function useGeneration({
               }
             } catch { /* keep original if correction fails */ }
           }
-          const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject);
+          const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject, upscGroundingEnabled);
           result = wrapUPSCBlock(question, answer, upscSubject);
+        }
+        else if (outputStyle === 'essay') {
+          const essayTopic = topicInput.trim();
+          const body = await generateEssay(essayTopic, language, aiModel, upscGroundingEnabled);
+          result = `<section class="essay-block"><h1 class="essay-title">${escapeHtml(essayTopic)}</h1>${body}</section>`;
         }
         else if (outputStyle === 'research') result = await generateResearchPaper(topicInput, language, aiModel);
         else if (detailLevel !== 'normal') {
@@ -2467,6 +2644,8 @@ export function useGeneration({
     setTranslateProgress(null);
     setTranslateResumeState(null);
     setTranscriptProgress(null);
+    setCaProgress(null);
+    pendingProjectMetaRef.current = null;
     setIsRestructuringDraft(false);
     setDraftBackup(null);
     setNotesProgress(null);
@@ -2556,6 +2735,7 @@ export function useGeneration({
     upscMarks, setUpscMarks,
     detailLevel, setDetailLevel,
     groundingEnabled, setGroundingEnabled,
+    upscGroundingEnabled, setUpscGroundingEnabled,
     notesProgress,
     status,
     language, setLanguage,
@@ -2601,6 +2781,12 @@ export function useGeneration({
     setYoutubeUrl,
     transcriptProgress,
     handleTranscriptFileUpload,
+    caUrls, setCaUrls,
+    caDate, setCaDate,
+    caStyle, setCaStyle,
+    caProgress,
+    handleGenerateCurrentAffairs,
+    pendingProjectMetaRef,
     handleRestructureDraft,
     isRestructuringDraft,
     draftBackup,

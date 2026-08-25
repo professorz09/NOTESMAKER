@@ -1,11 +1,12 @@
 import React from 'react';
-import { Gauge, Globe2 } from 'lucide-react';
+import { Gauge } from 'lucide-react';
 import type { DetailLevel } from '../../services/ai/index';
+import { SidebarGroundingToggle } from './SidebarGroundingToggle';
 
 interface SidebarDetailLevelProps {
   detailLevel: DetailLevel;
   setDetailLevel: (level: DetailLevel) => void;
-  mode: 'topic' | 'text' | 'file' | 'transcript';
+  mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
   groundingEnabled: boolean;
   setGroundingEnabled: (v: boolean) => void;
 }
@@ -18,7 +19,7 @@ const LEVELS: { id: DetailLevel; label: string; desc: string }[] = [
 ];
 
 const HELP: Record<Exclude<DetailLevel, 'normal'>, string> = {
-  medium: 'AI first builds the structure, then expands each main heading in depth.',
+  medium: "AI first builds the structure, then expands each main heading — but not to a uniform depth: it judges how exam-relevant each part actually is and goes deeper on high-yield sections, lighter on minor ones, instead of treating every heading the same.",
   detailed: 'Same pipeline as Deep — Gemini 3 Pro analyses topic → subtopics → sub-subtopics and builds the structure, then Flash writes each part in depth, and Pro adds any remaining points. Faster than Deep, same structure.',
   deep: 'The biggest pipeline: Gemini 3 Pro analyses topic → subtopics → sub-subtopics and builds the structure, then expands every part in depth with Pro, and finally adds any remaining points. A live mind map is shown on screen during generation.',
 };
@@ -73,28 +74,7 @@ export const SidebarDetailLevel: React.FC<SidebarDetailLevelProps> = ({
         structure to scan. Off by default; behavior is 100% unchanged
         when off, in every mode including Normal. */}
     {detailLevel !== 'normal' && (
-      <button
-        type="button"
-        onClick={() => setGroundingEnabled(!groundingEnabled)}
-        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
-          groundingEnabled
-            ? 'bg-sky-500/10 border-sky-500/40'
-            : 'bg-white/3 border-white/8 hover:bg-white/6'
-        }`}
-      >
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${groundingEnabled ? 'bg-sky-500/20' : 'bg-white/6'}`}>
-          <Globe2 className={`w-4 h-4 ${groundingEnabled ? 'text-sky-400' : 'text-slate-500'}`} />
-        </div>
-        <div className="flex-1 min-w-0 text-left">
-          <p className={`text-[11.5px] font-bold leading-tight ${groundingEnabled ? 'text-sky-300' : 'text-slate-300'}`}>Google Grounding</p>
-          <p className="text-[9.5px] text-slate-500 leading-tight mt-0.5">
-            After generation, scans every heading and adds live-search info only where latest/current data is needed — everything else is left untouched
-          </p>
-        </div>
-        <div className={`w-9 h-5 rounded-full flex-shrink-0 relative transition-colors ${groundingEnabled ? 'bg-sky-500' : 'bg-white/15'}`}>
-          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${groundingEnabled ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
-        </div>
-      </button>
+      <SidebarGroundingToggle groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled} />
     )}
   </div>
 );
