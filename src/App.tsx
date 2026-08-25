@@ -18,6 +18,7 @@ import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
 import { sanitizeHtml } from './utils/sanitize';
 import { toast } from './components/Toast';
 import { getCachedSession, signInWithCredentials, isSupabaseConfigured } from './services/supabase';
+import { CURRENT_AFFAIRS_TAG } from './hooks/useProjects';
 
 function extractProjectName(html: string): string {
   const div = document.createElement('div');
@@ -140,6 +141,8 @@ const App: React.FC = () => {
     handleTranscriptFileUpload, handleGenerateTranscript,
     handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
     youtubeUrl, setYoutubeUrl,
+    caUrls, setCaUrls, caDate, setCaDate, caStyle, setCaStyle, caProgress,
+    handleGenerateCurrentAffairs, pendingProjectMetaRef,
     mindmap, resolveMindmapAction, handleMindmapAddMore, handleMindmapNodeClick, handleMindmapDone,
     handleMindmapApprove, handleMindmapRestructure, handleMindmapCompareApply, handleMindmapCompareDiscard,
     handleMindmapSetNodeInstruction,
@@ -177,6 +180,7 @@ const App: React.FC = () => {
     saveProject,
     renameProject,
     deleteProject,
+    fetchProjectsByDateRange,
   } = useProjects();
 
   const handleSelectProject = async (id: string) => {
@@ -201,6 +205,39 @@ const App: React.FC = () => {
     }
     setActiveProjectId(id);
   };
+
+  // "Read by date range" — the special calendar feature: pulls every
+  // Current-Affairs-tagged note whose entry_date falls in [start, end] and
+  // merges them into one combined read on the canvas. Not saved as a
+  // project of its own (activeProjectId stays null) — the user can hit
+  // "New" afterwards if they want to keep the merged read.
+  const handleReadDateRange = useCallback(async (start: string, end: string) => {
+    if (!start || !end) return;
+    if (status !== GenerationStatus.IDLE) {
+      toast.warning('Notes are still being generated — let it finish or press Clear before reading a date range.');
+      return;
+    }
+    try {
+      const items = await fetchProjectsByDateRange(CURRENT_AFFAIRS_TAG, start, end);
+      if (!items.length) {
+        toast.info('No current affairs notes found in that date range.');
+        return;
+      }
+      const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const header = `<h1>Current Affairs — ${fmt(start)} to ${fmt(end)}</h1><p class="ca-range-meta">${items.length} day(s) combined, oldest first</p>`;
+      const combined = header + '\n' + items.map(it => sanitizeHtml(it.content)).join('\n<hr class="upsc-qa-divider" />\n');
+      isResettingRef.current = true;
+      setGeneratedHtml(combined);
+      pushToHistory(combined);
+      localStorage.setItem(STORAGE_KEY, combined);
+      setActiveProjectId(null);
+      setTimeout(() => { isResettingRef.current = false; }, 100);
+      toast.success(`Combined ${items.length} day(s) of current affairs notes.`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Could not load that date range: ${err?.message || 'please try again.'}`);
+    }
+  }, [status, fetchProjectsByDateRange, isResettingRef, setGeneratedHtml, pushToHistory, setActiveProjectId]);
 
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
@@ -302,7 +339,12 @@ const App: React.FC = () => {
     const html = generatedHtmlRef.current;
     if (!html) return;
     const name = extractProjectName(html);
-    createProject(name, html).then(proj => {
+    // A just-finished Current Affairs run leaves its tag/date here — consume
+    // it now (and clear it) so the tag can never leak onto some later,
+    // unrelated generation's project.
+    const meta = pendingProjectMetaRef.current;
+    pendingProjectMetaRef.current = null;
+    createProject(name, html, meta ? { tags: meta.tags, entryDate: meta.entryDate } : undefined).then(proj => {
       if (proj) { setActiveProjectId(proj.id); setLastSavedAt(new Date()); }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -682,6 +724,15 @@ const App: React.FC = () => {
         transcriptProgress={transcriptProgress}
         youtubeUrl={youtubeUrl}
         setYoutubeUrl={setYoutubeUrl}
+        caUrls={caUrls}
+        setCaUrls={setCaUrls}
+        caDate={caDate}
+        setCaDate={setCaDate}
+        caStyle={caStyle}
+        setCaStyle={setCaStyle}
+        caProgress={caProgress}
+        handleGenerateCurrentAffairs={handleGenerateCurrentAffairs}
+        onReadDateRange={handleReadDateRange}
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">

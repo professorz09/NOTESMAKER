@@ -7,6 +7,7 @@ import {
   SidebarHeader,
   SidebarModeTabs,
   SidebarInputSection,
+  SidebarCurrentAffairs,
   SidebarOutputStyleSelector,
   SidebarUPSCSettings,
   SidebarLanguageModel,
@@ -19,8 +20,8 @@ import {
 interface SidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
-  mode: 'topic' | 'text' | 'file' | 'transcript';
-  setMode: (mode: 'topic' | 'text' | 'file' | 'transcript') => void;
+  mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
+  setMode: (mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs') => void;
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';
   setOutputStyle: (style: 'notes' | 'upsc' | 'research' | 'table') => void;
   upscAnswerStyle: UPSCAnswerStyle;
@@ -101,6 +102,15 @@ interface SidebarProps {
   transcriptProgress: { current: number; total: number; step: 'fetch' | 'restructure' | 'structure' | 'detail'; note?: string } | null;
   youtubeUrl: string;
   setYoutubeUrl: (v: string) => void;
+  caUrls: string;
+  setCaUrls: (v: string) => void;
+  caDate: string;
+  setCaDate: (v: string) => void;
+  caStyle: 'quick' | 'deep';
+  setCaStyle: (v: 'quick' | 'deep') => void;
+  caProgress: { current: number; total: number; note: string } | null;
+  handleGenerateCurrentAffairs: () => void;
+  onReadDateRange: (start: string, end: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -132,10 +142,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   transcriptInput, setTranscriptInput, handleTranscriptFileUpload, handleGenerateTranscript, transcriptProgress,
   handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
   youtubeUrl, setYoutubeUrl,
+  caUrls, setCaUrls, caDate, setCaDate, caStyle, setCaStyle, caProgress, handleGenerateCurrentAffairs,
+  onReadDateRange,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
 
   const handleMainClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (mode === 'currentAffairs') { e.preventDefault(); handleGenerateCurrentAffairs(); return; }
     if (mode === 'transcript') { e.preventDefault(); handleGenerateTranscript(); return; }
     if (outputStyle === 'table') { handleGenerateTable(e); return; }
     e.preventDefault();
@@ -185,31 +198,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           <SidebarModeTabs mode={mode} setMode={setMode} />
 
-          <SidebarInputSection
-            mode={mode}
-            outputStyle={outputStyle}
-            topicInput={topicInput}
-            setTopicInput={setTopicInput}
-            textInput={textInput}
-            setTextInput={setTextInput}
-            tableInstruction={tableInstruction}
-            setTableInstruction={setTableInstruction}
-            files={files}
-            handleFileUpload={handleFileUpload}
-            removeFile={removeFile}
-            handleGenerate={handleGenerate}
-            transcriptInput={transcriptInput}
-            setTranscriptInput={setTranscriptInput}
-            handleTranscriptFileUpload={handleTranscriptFileUpload}
-            transcriptProgress={transcriptProgress}
-            handleRestructureDraft={handleRestructureDraft}
-            isRestructuringDraft={isRestructuringDraft}
-            draftBackup={draftBackup}
-            handleUndoRestructureDraft={handleUndoRestructureDraft}
-            isGenerating={isGenerating}
-            youtubeUrl={youtubeUrl}
-            setYoutubeUrl={setYoutubeUrl}
-          />
+          {mode === 'currentAffairs' ? (
+            <SidebarCurrentAffairs
+              caUrls={caUrls}
+              setCaUrls={setCaUrls}
+              caDate={caDate}
+              setCaDate={setCaDate}
+              caStyle={caStyle}
+              setCaStyle={setCaStyle}
+              caProgress={caProgress}
+            />
+          ) : (
+            <SidebarInputSection
+              mode={mode}
+              outputStyle={outputStyle}
+              topicInput={topicInput}
+              setTopicInput={setTopicInput}
+              textInput={textInput}
+              setTextInput={setTextInput}
+              tableInstruction={tableInstruction}
+              setTableInstruction={setTableInstruction}
+              files={files}
+              handleFileUpload={handleFileUpload}
+              removeFile={removeFile}
+              handleGenerate={handleGenerate}
+              transcriptInput={transcriptInput}
+              setTranscriptInput={setTranscriptInput}
+              handleTranscriptFileUpload={handleTranscriptFileUpload}
+              transcriptProgress={transcriptProgress}
+              handleRestructureDraft={handleRestructureDraft}
+              isRestructuringDraft={isRestructuringDraft}
+              draftBackup={draftBackup}
+              handleUndoRestructureDraft={handleUndoRestructureDraft}
+              isGenerating={isGenerating}
+              youtubeUrl={youtubeUrl}
+              setYoutubeUrl={setYoutubeUrl}
+            />
+          )}
 
           {notesProgress && (
             <div className="space-y-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/6 px-3 py-2.5">
@@ -226,11 +251,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {mode !== 'transcript' && (
+          {mode !== 'transcript' && mode !== 'currentAffairs' && (
             <SidebarOutputStyleSelector outputStyle={outputStyle} setOutputStyle={setOutputStyle} />
           )}
 
-          {mode !== 'transcript' && outputStyle === 'upsc' && (
+          {mode !== 'transcript' && mode !== 'currentAffairs' && outputStyle === 'upsc' && (
             <SidebarUPSCSettings
               upscMarks={upscMarks}
               setUpscMarks={setUpscMarks}
@@ -241,7 +266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           )}
 
-          {(mode === 'transcript' || outputStyle === 'notes') && (
+          {mode !== 'currentAffairs' && (mode === 'transcript' || outputStyle === 'notes') && (
             <SidebarDetailLevel
               detailLevel={detailLevel} setDetailLevel={setDetailLevel} mode={mode}
               groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled}
@@ -300,6 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onDeleteProject={onDeleteProject}
             onRenameProject={onRenameProject}
             hasContent={hasContent}
+            onReadDateRange={onReadDateRange}
           />
         </div>
 

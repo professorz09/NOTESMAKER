@@ -15,7 +15,7 @@ interface EditorCanvasProps {
   handleEditorBlur: () => void;
   handleEditorKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   handleEditorPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
-  mode: 'topic' | 'text' | 'file' | 'transcript';
+  mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
   onGetStarted?: () => void;
   // UPSC next question flow
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';

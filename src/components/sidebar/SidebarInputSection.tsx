@@ -2,7 +2,7 @@ import React from 'react';
 import { FileText, Upload, X, Youtube, Wand2 } from 'lucide-react';
 
 interface SidebarInputSectionProps {
-  mode: 'topic' | 'text' | 'file' | 'transcript';
+  mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
   outputStyle: 'notes' | 'upsc' | 'research' | 'table';
   topicInput: string;
   setTopicInput: (v: string) => void;

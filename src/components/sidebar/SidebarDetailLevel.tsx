@@ -5,7 +5,7 @@ import type { DetailLevel } from '../../services/ai/index';
 interface SidebarDetailLevelProps {
   detailLevel: DetailLevel;
   setDetailLevel: (level: DetailLevel) => void;
-  mode: 'topic' | 'text' | 'file' | 'transcript';
+  mode: 'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs';
   groundingEnabled: boolean;
   setGroundingEnabled: (v: boolean) => void;
 }

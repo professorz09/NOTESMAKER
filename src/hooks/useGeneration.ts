@@ -32,6 +32,8 @@ import {
   generateFilesTitle,
   expandFilesSection,
   scanSectionsForGroundingAdditions,
+  generateCurrentAffairsQuick,
+  generateCurrentAffairsDeep,
   type UPSCAnswerStyle,
   type UPSCSubject,
   type RefinementOptions,
@@ -46,6 +48,7 @@ import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../utils/concurrency';
 import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
 import { fetchVideoTranscript, looksLikeVideoUrl } from '../services/supadata';
+import { CURRENT_AFFAIRS_TAG } from './useProjects';
 import { toast } from '../components/Toast';
 import {
   type PipelineResumeSnapshot,
@@ -256,7 +259,7 @@ export function useGeneration({
   setIsEditing,
   setSidebarOpen,
 }: UseGenerationProps) {
-  const [mode, setMode] = useState<'topic' | 'text' | 'file' | 'transcript'>('topic');
+  const [mode, setMode] = useState<'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs'>('topic');
   const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'research' | 'table'>('notes');
   const [upscAnswerStyle, setUpscAnswerStyle] = useState<UPSCAnswerStyle>('topper');
   const [upscSubject, setUpscSubject] = useState<UPSCSubject>('gs');
@@ -427,6 +430,22 @@ export function useGeneration({
   const [transcriptInput, setTranscriptInput] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [transcriptProgress, setTranscriptProgress] = useState<{ current: number; total: number; step: 'fetch' | 'restructure' | 'structure' | 'detail'; note?: string } | null>(null);
+
+  // Daily Current Affairs state — one or more video links (one per line),
+  // the date this batch is filed under (tag/filter/date-range read key), and
+  // the generation style: 'quick' (one Flash call, no search) or 'deep'
+  // (Perplexity-style: extract topics, then one grounded Flash call that
+  // verifies/expands each against live Google Search).
+  const [caUrls, setCaUrls] = useState('');
+  const [caDate, setCaDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [caStyle, setCaStyle] = useState<'quick' | 'deep'>('quick');
+  const [caProgress, setCaProgress] = useState<{ current: number; total: number; note: string } | null>(null);
+  // Set right before a Current Affairs run finishes so the generic
+  // "generation → new project" effect in App.tsx can tag the resulting
+  // project (Current Affairs tag + the chosen date) instead of saving it as
+  // a plain untagged note. Consumed (and cleared) the moment it's read, so
+  // any later, unrelated generation never inherits a stale tag.
+  const pendingProjectMetaRef = useRef<{ tags: string[]; entryDate: string } | null>(null);
   // True while the optional "Restructure Draft" pre-step is cleaning up the
   // pasted/fetched transcript before the user presses "Start Notes Making".
   const [isRestructuringDraft, setIsRestructuringDraft] = useState(false);
@@ -1050,6 +1069,122 @@ export function useGeneration({
     }
 
     if (window.innerWidth < 1024) setSidebarOpen(false);
+  };
+
+  // Daily Current Affairs pipeline — fetch the transcript for every pasted
+  // video link (one per line), then turn them into exam-focused notes in the
+  // chosen style ('quick' = one Flash call per chunk, no search; 'deep' =
+  // Perplexity-style: extract topics then one grounded Flash call that
+  // verifies/expands each against live Google Search). The result is tagged
+  // with the chosen date via pendingProjectMetaRef so the generic
+  // generation→project effect in App.tsx files it under the Current Affairs
+  // tag instead of as a plain note — that's what makes it filterable in
+  // history and pullable into the date-range combined read.
+  const handleGenerateCurrentAffairs = async () => {
+    const urls = caUrls.split('\n').map(u => u.trim()).filter(Boolean);
+    const myRun = runSeqRef.current;
+    if (!urls.length) {
+      toast.warning('Please paste at least one current affairs video link.');
+      return;
+    }
+    const invalid = urls.find(u => !looksLikeVideoUrl(u));
+    if (invalid) {
+      toast.warning(`This doesn't look like a valid video link: "${invalid.slice(0, 60)}"`);
+      return;
+    }
+    if (!caDate) {
+      toast.warning('Please pick a date for these current affairs.');
+      return;
+    }
+
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    setCaProgress({ current: 0, total: urls.length, note: 'Fetching transcripts…' });
+    const dateLabel = new Date(`${caDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    try {
+      const transcripts: string[] = [];
+      for (let i = 0; i < urls.length; i++) {
+        if (isStaleRun(myRun)) return;
+        setCaProgress({ current: i + 1, total: urls.length, note: `Fetching transcript ${i + 1}/${urls.length}…` });
+        try {
+          const t = await fetchVideoTranscript(urls[i], {
+            lang: language === 'Hindi' ? 'hi' : 'en',
+            onStatus: (s) => setCaProgress({ current: i + 1, total: urls.length, note: s }),
+            signal: { get aborted() { return isStaleRun(myRun); } },
+          });
+          if (t.trim()) transcripts.push(urls.length > 1 ? `[Video ${i + 1}]\n${t.trim()}` : t.trim());
+        } catch (err: any) {
+          console.error(`Transcript fetch failed for ${urls[i]}:`, err);
+          toast.warning(`Could not fetch transcript for video ${i + 1} — skipping it.`);
+        }
+      }
+      if (isStaleRun(myRun)) return;
+      if (!transcripts.length) throw new Error('No transcript could be fetched from the link(s) given.');
+
+      // A daily CA batch (especially several videos at once) can still be
+      // long enough to risk the output-token cap on a single call — chunk
+      // exactly like the class-transcript pipeline so nothing is silently
+      // truncated, and run the chosen style per chunk.
+      const chunks = chunkTranscript(transcripts.join('\n\n---\n\n'), 6000);
+      const generateFn = caStyle === 'deep' ? generateCurrentAffairsDeep : generateCurrentAffairsQuick;
+
+      const parts: string[] = [];
+      const pushLive = () => {
+        if (isStaleRun(myRun)) return;
+        const html = parts.join('\n');
+        setGeneratedHtml(html);
+        pushToHistory(html);
+        localStorage.setItem(STORAGE_KEY, html);
+      };
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (isStaleRun(myRun)) return;
+        setCaProgress({
+          current: i + 1,
+          total: chunks.length,
+          note: caStyle === 'deep'
+            ? `Deep research — Flash + Google grounding (part ${i + 1}/${chunks.length})…`
+            : `Extracting notes (part ${i + 1}/${chunks.length})…`,
+        });
+        let html = '';
+        let ok = false;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            html = sanitizeHtml(await generateFn(chunks[i], dateLabel, language));
+            ok = true;
+            break;
+          } catch (err) {
+            console.error(`Current affairs chunk ${i + 1} attempt ${attempt} failed:`, err);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * attempt));
+          }
+        }
+        if (!ok || !html) {
+          parts.push(`<div class="note-box">⚠️ Part ${i + 1}/${chunks.length} could not be generated — please retry.</div>`);
+          pushLive();
+          continue;
+        }
+        // Only the first chunk's <h1> title survives — later chunks would
+        // otherwise repeat "Daily Current Affairs — <date>" mid-document.
+        if (i > 0) html = html.replace(/<h1[^>]*>[\s\S]*?<\/h1>/i, '');
+        parts.push(html);
+        pushLive();
+      }
+
+      if (isStaleRun(myRun)) return;
+      if (!parts.some(p => p.trim())) throw new Error('No notes could be generated from the transcript(s).');
+
+      pendingProjectMetaRef.current = { tags: [CURRENT_AFFAIRS_TAG], entryDate: caDate };
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+      toast.success('Current affairs notes ready!');
+    } catch (error: any) {
+      if (!isStaleRun(myRun)) {
+        console.error(error);
+        toast.error(`Current affairs generation failed: ${error.message || 'please try again.'}`);
+      }
+    } finally {
+      if (!isStaleRun(myRun)) setStatus(GenerationStatus.IDLE);
+      setCaProgress(null);
+    }
   };
 
   // Phase 1 shared by the transcript & text leveled pipelines: outline every
@@ -2467,6 +2602,8 @@ export function useGeneration({
     setTranslateProgress(null);
     setTranslateResumeState(null);
     setTranscriptProgress(null);
+    setCaProgress(null);
+    pendingProjectMetaRef.current = null;
     setIsRestructuringDraft(false);
     setDraftBackup(null);
     setNotesProgress(null);
@@ -2601,6 +2738,12 @@ export function useGeneration({
     setYoutubeUrl,
     transcriptProgress,
     handleTranscriptFileUpload,
+    caUrls, setCaUrls,
+    caDate, setCaDate,
+    caStyle, setCaStyle,
+    caProgress,
+    handleGenerateCurrentAffairs,
+    pendingProjectMetaRef,
     handleRestructureDraft,
     isRestructuringDraft,
     draftBackup,

@@ -55,6 +55,16 @@ postcss.config.js           - PostCSS config for Tailwind v4
 - **`useAIEdit`**: Accepts the editor's shared refs and helpers as params. Manages the full AI edit trigger + rewrite modal lifecycle.
 - **Undo/Redo** are tiny (3 lines each) and kept in `App.tsx` because they need both `history`/`historyIndex` (from `useHistory`) and `setGeneratedHtml` (from `useEditorContent`).
 
+## Daily Current Affairs
+
+A dedicated sidebar mode (`mode === 'currentAffairs'`) where the user pastes one or more daily CA video links plus a date. `src/services/ai/currentAffairsGeneration.ts` fetches each transcript (via the existing supadata pipeline) and turns it into notes in one of two styles, both on the Flash model:
+- **Quick** — one call, no search, straight extraction of exam-relevant points.
+- **Deep Research** — Perplexity-style: a cheap call lists every news item, then ONE grounded call (Google Search tool) verifies/expands each against the live web.
+
+The resulting project is tagged (`tags: ['current-affairs']`) and dated (`entry_date`) via `useGeneration`'s `pendingProjectMetaRef`, consumed by the generic generation→project effect in `App.tsx`. `ProjectsPanel` filters history by this tag and offers a calendar date-range picker that merges every tagged note in range into one combined read (`useProjects.fetchProjectsByDateRange`).
+
+**Requires a one-time DB migration** — `supabase/migrations/20260825090716_current_affairs_tags.sql` adds the `tags`/`entry_date` columns the feature depends on. Apply it to each deployment's Supabase project (SQL editor or `supabase db push`) before using this section; the app degrades gracefully (saves/loads without tags) if it hasn't been applied yet, but tagging/date-range won't work until it has.
+
 ## Environment Variables
 
 - `GEMINI_API_KEY` — Required. Your Google Gemini API key (set in Secrets panel).
