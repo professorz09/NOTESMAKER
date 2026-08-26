@@ -14,20 +14,24 @@ const MODELS = [
   { id: 'gemini-3.1-flash-lite',  label: 'Flash Lite', isFlash: true  },
 ];
 
-// The "Hinglish" option's stored value is the actual instruction sent to
-// every generation prompt (all of them just interpolate `Language: ${language}`
-// as free text) — English by default, with Hindi added in only where it
+// The "Mix" option's stored value is the actual instruction sent to every
+// generation prompt (all of them just interpolate `Language: ${language}` as
+// free text) — English by default, with Hindi added in only where it
 // genuinely helps understanding, e.g. explaining a grammar rule while writing
-// English-grammar notes. Kept as one exported constant so the exact-match
-// comparisons elsewhere in the app (language === 'Hindi') can deliberately
-// treat this as "not Hindi" and fall back to their English-oriented branch,
-// which is the right behaviour for UI copy and transcript-fetch language.
-export const HINGLISH_LANGUAGE = 'English by default — but wherever a grammar rule, tricky word, or concept is genuinely easier to understand in Hindi, add a short Hindi (Devanagari) explanation alongside it. Keep everything else in English; do not translate content that does not need it.';
+// English-grammar notes. Deliberately NOT called "Hinglish" and explicitly
+// rules out romanised Hindi, since that word means Hindi spelled out in
+// English letters (texting-style) to most users — this is real Hindi in
+// Devanagari script mixed in alongside English, not a transliteration.
+// Kept as one exported constant so the exact-match comparisons elsewhere in
+// the app (language === 'Hindi') can deliberately treat this as "not Hindi"
+// and fall back to their English-oriented branch, which is the right
+// behaviour for UI copy and transcript-fetch language.
+export const MIX_LANGUAGE = 'English by default — but wherever a grammar rule, tricky word, or concept is genuinely easier to understand in Hindi, add a short Hindi explanation alongside it, written in proper Devanagari script (हिंदी) — never Hindi spelled out in English/Roman letters. Keep everything else in English; do not translate content that does not need it.';
 
 const LANGUAGES = [
   { label: 'Hindi', value: 'Hindi' },
   { label: 'English', value: 'English' },
-  { label: 'Hinglish', value: HINGLISH_LANGUAGE },
+  { label: 'Mix', value: MIX_LANGUAGE },
 ];
 
 export const SidebarLanguageModel: React.FC<SidebarLanguageModelProps> = ({
@@ -46,7 +50,7 @@ export const SidebarLanguageModel: React.FC<SidebarLanguageModelProps> = ({
             key={label}
             type="button"
             onClick={() => setLanguage(value)}
-            title={label === 'Hinglish' ? 'English notes, with Hindi explanations added only where they genuinely help (e.g. grammar rules)' : undefined}
+            title={label === 'Mix' ? 'English notes, with Hindi (Devanagari script) explanations added only where they genuinely help — e.g. grammar rules' : undefined}
             className={`py-2 rounded-lg text-xs font-semibold transition-all ${
               language === value
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30'
