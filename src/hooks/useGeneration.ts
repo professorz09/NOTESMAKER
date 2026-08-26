@@ -34,6 +34,8 @@ import {
   scanSectionsForGroundingAdditions,
   generateCurrentAffairsQuick,
   generateCurrentAffairsDeep,
+  generateCurrentAffairsScan,
+  generateCurrentAffairsAgentic,
   type CASource,
   generateEssay,
   type UPSCAnswerStyle,
@@ -459,7 +461,7 @@ export function useGeneration({
   // verifies/expands each against live Google Search).
   const [caUrls, setCaUrls] = useState('');
   const [caDate, setCaDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [caStyle, setCaStyle] = useState<'quick' | 'deep'>('quick');
+  const [caStyle, setCaStyle] = useState<'quick' | 'deep' | 'scan' | 'agentic'>('quick');
   const [caProgress, setCaProgress] = useState<{ current: number; total: number; note: string } | null>(null);
   // Set right before a Current Affairs run finishes so the generic
   // "generation → new project" effect in App.tsx can tag the resulting
@@ -1154,7 +1156,10 @@ export function useGeneration({
         source = { kind: 'general' };
       }
 
-      const generateFn = caStyle === 'deep' ? generateCurrentAffairsDeep : generateCurrentAffairsQuick;
+      const generateFn = caStyle === 'deep' ? generateCurrentAffairsDeep
+        : caStyle === 'scan' ? generateCurrentAffairsScan
+        : caStyle === 'agentic' ? generateCurrentAffairsAgentic
+        : generateCurrentAffairsQuick;
 
       const parts: string[] = [];
       const pushLive = () => {
@@ -1177,6 +1182,10 @@ export function useGeneration({
             total: chunks.length,
             note: caStyle === 'deep'
               ? `Deep research — Flash + Google grounding (part ${i + 1}/${chunks.length})…`
+              : caStyle === 'scan'
+              ? `Scanning headlines (part ${i + 1}/${chunks.length})…`
+              : caStyle === 'agentic'
+              ? `Agentic research — dual grounding (part ${i + 1}/${chunks.length})…`
               : `Extracting notes (part ${i + 1}/${chunks.length})…`,
           });
           let html = '';
@@ -1208,6 +1217,10 @@ export function useGeneration({
           total: 1,
           note: caStyle === 'deep'
             ? '🌐 Researching — PIB + trusted sources…'
+            : caStyle === 'scan'
+            ? '🌐 Scanning PIB + trusted sources in parallel…'
+            : caStyle === 'agentic'
+            ? '🌐 Agentic research — dual grounding + static facts…'
             : '🌐 Searching live for today\'s current affairs…',
         });
         let html = '';

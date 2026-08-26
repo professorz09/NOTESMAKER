@@ -109,8 +109,8 @@ interface SidebarProps {
   setCaUrls: (v: string) => void;
   caDate: string;
   setCaDate: (v: string) => void;
-  caStyle: 'quick' | 'deep';
-  setCaStyle: (v: 'quick' | 'deep') => void;
+  caStyle: 'quick' | 'deep' | 'scan' | 'agentic';
+  setCaStyle: (v: 'quick' | 'deep' | 'scan' | 'agentic') => void;
   caProgress: { current: number; total: number; note: string } | null;
   handleGenerateCurrentAffairs: () => void;
   onReadDateRange: (start: string, end: string) => void;
