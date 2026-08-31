@@ -1,5 +1,6 @@
 import type React from 'react';
-import { useState, useRef, type MutableRefObject } from 'react';
+import { useState, useRef, useEffect, type MutableRefObject } from 'react';
+import { useBatchQueue, type BatchQueueDraft, type BatchQueueItem, type BatchOutputStyle } from './useBatchQueue';
 import {
   generateTopicContent,
   generateSmartTable,
@@ -49,7 +50,7 @@ import {
   type TopicOutlineSection,
 } from '../services/ai/index';
 import { GenerationStatus, type MindmapState } from '../types';
-import { STORAGE_KEY } from '../utils/editorUtils';
+import { STORAGE_KEY, safeSaveDraft } from '../utils/editorUtils';
 import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../utils/concurrency';
 import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
@@ -316,6 +317,13 @@ export function useGeneration({
   const [pyqQuestions, setPyqQuestions] = useState<PYQQuestionItem[] | null>(null);
   const [pyqSelectedIds, setPyqSelectedIds] = useState<Set<string>>(new Set());
   const [isFindingPyq, setIsFindingPyq] = useState(false);
+  // Batch Question Queue: add any number of topics/questions (across UPSC,
+  // Essay, Research or Notes) at once; they're generated one at a time in
+  // the background — paced and retried — and each appends onto the same
+  // document as it finishes. Backed by Supabase (see useBatchQueue) so the
+  // queue survives a reload instead of living only in this tab.
+  const batchQueue = useBatchQueue();
+  const batchRunningRef = useRef(false);
   // Multi-step notes-pipeline progress (Medium/Detailed/Deep topic generation).
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
@@ -561,7 +569,7 @@ export function useGeneration({
       if (isStaleRun(myRun)) return;
       setGeneratedHtml(html);
       pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
+      safeSaveDraft(html);
       if (window.innerWidth < 1024) setSidebarOpen(false);
       toast.success('Answer analysis complete!');
     } catch (error: any) {
@@ -675,7 +683,7 @@ export function useGeneration({
       const html = parts.join('\n');
       setGeneratedHtml(html);
       pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
+      safeSaveDraft(html);
     };
 
     const pageTimes: number[] = [];
@@ -1063,7 +1071,7 @@ export function useGeneration({
       const html = parts.join('\n');
       setGeneratedHtml(html);
       pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
+      safeSaveDraft(html);
     };
 
     try {
@@ -1180,7 +1188,7 @@ export function useGeneration({
         const html = parts.join('\n');
         setGeneratedHtml(html);
         pushToHistory(html);
-        localStorage.setItem(STORAGE_KEY, html);
+        safeSaveDraft(html);
       };
 
       // Only "video" needs chunking — a daily CA batch (especially several
@@ -1414,7 +1422,7 @@ export function useGeneration({
       const html = sanitizeHtml(parts.join('\n'));
       setGeneratedHtml(html);
       if (recordHistory) pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
+      safeSaveDraft(html);
     };
 
     const mm: MindmapState = {
@@ -1845,7 +1853,7 @@ export function useGeneration({
       const html = sanitizeHtml(parts.join('\n'));
       setGeneratedHtml(html);
       if (recordHistory) pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
+      safeSaveDraft(html);
     };
 
     const mm: MindmapState = {
@@ -2036,7 +2044,7 @@ export function useGeneration({
         : newHtml;
       setGeneratedHtml(combined);
       pushToHistory(combined);
-      localStorage.setItem(STORAGE_KEY, combined);
+      safeSaveDraft(combined);
       setOnePagerTopics(prev => [...prev, topic]);
       setOnePagerTopicInput('');
       if (window.innerWidth < 1024) setSidebarOpen(false);
@@ -2060,7 +2068,7 @@ export function useGeneration({
     if (!safe) { toast.error('Generated content was empty. Please try again.'); return; }
     setGeneratedHtml(safe);
     pushToHistory(safe);
-    localStorage.setItem(STORAGE_KEY, safe);
+    safeSaveDraft(safe);
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
@@ -2133,7 +2141,7 @@ export function useGeneration({
       const html = sanitizeHtml(parts.join('\n'));
       setGeneratedHtml(html);
       if (recordHistory) pushToHistory(html);
-      localStorage.setItem(STORAGE_KEY, html);
+      safeSaveDraft(html);
     };
 
     const subtitle = level === 'deep'
@@ -2750,6 +2758,158 @@ export function useGeneration({
     }
   };
 
+  // --- Batch Question Queue -----------------------------------------------
+  // Runs entirely independently of the single-shot handlers above: items can
+  // be added while the worker is mid-run, a pending item can be removed
+  // without disturbing whatever's currently generating, and a failed item
+  // gets retried a few times (with a real gap, not a hammering loop) before
+  // being left as "failed" for the student to deal with by hand.
+  const BATCH_ITEM_GAP_MS = 60_000;   // pace between queued items
+  const BATCH_RETRY_DELAY_MS = 90_000; // gap between retries of one item
+  const BATCH_MAX_ATTEMPTS = 3;
+  const batchDelay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+  // Dispatches one queue item to the generator its output_style needs and
+  // returns the finished HTML block ready to append to the document.
+  const generateForBatchItem = async (item: BatchQueueItem): Promise<string> => {
+    if (item.outputStyle === 'upsc') {
+      let question = item.question;
+      if (item.language === 'Hindi' || item.subject === 'hindi_literature') {
+        try {
+          const corrected = await correctQuestionHindi(question);
+          if (corrected) question = corrected;
+        } catch { /* keep original if correction fails */ }
+      }
+      const answer = await generateUPSCAnswer(
+        question, item.language, item.aiModel,
+        item.marks || 15, (item.answerStyle as UPSCAnswerStyle) || 'topper',
+        (item.subject as UPSCSubject) || 'gs', item.grounded, item.multiVariant,
+      );
+      return wrapUPSCBlock(question, answer, (item.subject as UPSCSubject) || 'gs');
+    }
+    if (item.outputStyle === 'essay') {
+      const body = await generateEssay(item.question, item.language, item.aiModel, item.grounded);
+      return `<section class="essay-block"><h1 class="essay-title">${escapeHtml(item.question)}</h1>${body}</section>`;
+    }
+    if (item.outputStyle === 'research') {
+      return await generateResearchPaper(item.question, item.language, item.aiModel);
+    }
+    // 'notes' — single-shot topic notes (the batch queue always uses the
+    // single-call generator, regardless of the sidebar's Medium/Detailed/
+    // Deep setting — those are multi-step pipelines of their own and don't
+    // fit a "many topics unattended in the background" queue item).
+    return await generateTopicContent(item.question, item.language, item.aiModel);
+  };
+
+  const runBatchQueue = async () => {
+    if (batchRunningRef.current) return;
+    batchRunningRef.current = true;
+    const myRun = runSeqRef.current;
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    try {
+      while (true) {
+        if (isStaleRun(myRun)) return;
+        const next = batchQueue.itemsRef.current.find(it => it.status === 'pending');
+        if (!next) break;
+        await batchQueue.updateItem(next.id, { status: 'active' });
+
+        let html: string | null = null;
+        let lastErr: any = null;
+        for (let attempt = 1; attempt <= BATCH_MAX_ATTEMPTS; attempt++) {
+          if (isStaleRun(myRun)) return;
+          await batchQueue.updateItem(next.id, { attempt });
+          try {
+            html = await generateForBatchItem(next);
+            lastErr = null;
+            break;
+          } catch (err) {
+            lastErr = err;
+            if (attempt < BATCH_MAX_ATTEMPTS) await batchDelay(BATCH_RETRY_DELAY_MS);
+          }
+        }
+        if (isStaleRun(myRun)) return;
+
+        if (html) {
+          const existing = getCurrentHtml();
+          const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
+          finishGeneration(existing + divider + html, myRun);
+          scrollToLatestAnswer();
+          await batchQueue.removeItem(next.id);
+        } else {
+          await batchQueue.updateItem(next.id, { status: 'failed', error: lastErr?.message || 'Failed after retries' });
+          toast.error(`Could not generate "${next.question.slice(0, 50)}…" after ${BATCH_MAX_ATTEMPTS} attempts.`);
+        }
+
+        // Removing a still-pending item mid-run (or the queue simply
+        // running dry) is checked live off the ref — no need to pace a gap
+        // before a loop iteration that's about to find nothing anyway.
+        if (batchQueue.itemsRef.current.some(it => it.status === 'pending')) {
+          await batchDelay(BATCH_ITEM_GAP_MS);
+        }
+      }
+    } finally {
+      batchRunningRef.current = false;
+      if (!isStaleRun(myRun)) {
+        setStatus(GenerationStatus.IDLE);
+        toast.success('Batch queue finished.');
+      }
+    }
+  };
+
+  // Loads whatever's already queued (e.g. from before a reload) once on
+  // mount, resumes anything that was left 'active' from an interrupted
+  // session, and kicks the worker if there's work waiting.
+  useEffect(() => {
+    (async () => {
+      await batchQueue.loadQueue();
+      const stuck = batchQueue.itemsRef.current.filter(it => it.status === 'active');
+      for (const it of stuck) await batchQueue.updateItem(it.id, { status: 'pending' });
+      if (batchQueue.itemsRef.current.some(it => it.status === 'pending') && !batchRunningRef.current) {
+        runBatchQueue();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // One line per question — lets the student paste/type as many as they
+  // want and add them all in one go; more can be added later the same way
+  // while the worker is already running.
+  const addToBatchQueue = async (rawText: string, styleOverride?: BatchOutputStyle) => {
+    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    const targetStyle: BatchOutputStyle = styleOverride
+      ?? (outputStyle === 'table' ? 'notes' : outputStyle);
+    const isUpsc = targetStyle === 'upsc';
+    const drafts: BatchQueueDraft[] = lines.map(q => ({
+      question: q,
+      outputStyle: targetStyle,
+      answerStyle: isUpsc ? upscAnswerStyle : null,
+      marks: isUpsc ? upscMarks : null,
+      subject: isUpsc ? upscSubject : null,
+      language,
+      aiModel,
+      grounded: isUpsc || targetStyle === 'essay' ? upscGroundingEnabled : true,
+      multiVariant: isUpsc ? upscMultiVariant : false,
+    }));
+    try {
+      await batchQueue.addItems(drafts);
+      toast.success(`${lines.length} item${lines.length > 1 ? 's' : ''} added to the queue.`);
+      if (!batchRunningRef.current) runBatchQueue();
+    } catch (error: any) {
+      console.error(error);
+      toast.error(`Could not queue: ${error.message || 'please try again.'}`);
+    }
+  };
+
+  // Only pending items can be pulled out — one already generating is left to
+  // finish (its slot in the document is already committed to), but removing
+  // it from the list here still stops it from being retried again later.
+  const removeFromBatchQueue = (id: string) => {
+    const item = batchQueue.itemsRef.current.find(it => it.id === id);
+    if (item && item.status === 'active') return;
+    batchQueue.removeItem(id);
+  };
+
   const handleGenerateTable = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!topicInput.trim()) {
@@ -2897,6 +3057,8 @@ export function useGeneration({
     pyqQuestions, pyqSelectedIds, isFindingPyq,
     handleFindPYQQuestions, togglePyqQuestion, setAllPyqSelected,
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
+    batchQueueItems: batchQueue.items,
+    addToBatchQueue, removeFromBatchQueue,
     notesProgress,
     status,
     language, setLanguage,

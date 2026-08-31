@@ -14,7 +14,7 @@ import { useEditorContent } from './hooks/useEditorContent';
 import { useGeneration } from './hooks/useGeneration';
 import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
-import { STORAGE_KEY, buildPrintHtml } from './utils/editorUtils';
+import { buildPrintHtml, safeSaveDraft } from './utils/editorUtils';
 import { sanitizeHtml } from './utils/sanitize';
 import { toast } from './components/Toast';
 import { getCachedSession, signInWithCredentials, isSupabaseConfigured } from './services/supabase';
@@ -124,6 +124,7 @@ const App: React.FC = () => {
     pyqQuestions, pyqSelectedIds, isFindingPyq,
     handleFindPYQQuestions, togglePyqQuestion, setAllPyqSelected,
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
+    batchQueueItems, addToBatchQueue, removeFromBatchQueue,
     notesProgress,
     status,
     language, setLanguage,
@@ -205,7 +206,7 @@ const App: React.FC = () => {
       isResettingRef.current = true;
       setGeneratedHtml(content);
       pushToHistory(content);
-      localStorage.setItem(STORAGE_KEY, content);
+      safeSaveDraft(content);
       setTimeout(() => { isResettingRef.current = false; }, 100);
     }
     setActiveProjectId(id);
@@ -234,7 +235,7 @@ const App: React.FC = () => {
       isResettingRef.current = true;
       setGeneratedHtml(combined);
       pushToHistory(combined);
-      localStorage.setItem(STORAGE_KEY, combined);
+      safeSaveDraft(combined);
       setActiveProjectId(null);
       setTimeout(() => { isResettingRef.current = false; }, 100);
       toast.success(`Combined ${items.length} day(s) of current affairs notes.`);
@@ -301,7 +302,7 @@ const App: React.FC = () => {
     isResettingRef.current = true;
     setGeneratedHtml(content);
     setHistoryIndex(newIndex);
-    localStorage.setItem(STORAGE_KEY, content);
+    safeSaveDraft(content);
     if (editorRef.current) editorRef.current.innerHTML = content;
     setTimeout(() => { isResettingRef.current = false; }, 150);
   }, [cancelPendingHistoryPush, setGeneratedHtml, setHistoryIndex, editorRef, isResettingRef]);
@@ -334,7 +335,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [handleUndo, handleRedo, isEditing, generatedHtml, setIsEditing, saveToStorage]);
 
-  // Every generation → create new project entry
+  // First generation of a fresh document → create its project entry.
   const prevStatusRef = React.useRef(status);
   useEffect(() => {
     const wasGenerating = prevStatusRef.current !== GenerationStatus.IDLE;
@@ -343,6 +344,13 @@ const App: React.FC = () => {
     if (!wasGenerating || !isNowIdle) return;
     const html = generatedHtmlRef.current;
     if (!html) return;
+    // A project is already open — this generation cycle APPENDED to it
+    // (e.g. "Next Question" / a batch-question queue writing one more
+    // Q&A block onto the same document) rather than starting a new one.
+    // The debounced auto-save effect below already keeps that project's
+    // content current; creating another project here would just leave a
+    // duplicate full-content copy behind on every single cycle.
+    if (activeProjectId) return;
     const name = extractProjectName(html);
     // A just-finished Current Affairs run leaves its tag/date here — consume
     // it now (and clear it) so the tag can never leak onto some later,
@@ -813,6 +821,9 @@ const App: React.FC = () => {
             setAllPyqSelected={setAllPyqSelected}
             onDismissPyqQuestions={handleDismissPyqQuestions}
             onGeneratePyqAnswers={handleGeneratePYQAnswers}
+            batchQueueItems={batchQueueItems}
+            onAddToBatchQueue={addToBatchQueue}
+            onRemoveFromBatchQueue={removeFromBatchQueue}
           />
         </div>
       </main>
