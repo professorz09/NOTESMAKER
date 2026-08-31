@@ -1,4 +1,5 @@
 import { createAIClient, cleanHtmlOutput, UPSC_ANSWER_CONFIG, withGoogleSearch } from './client';
+import { parseOutlineJsonObject } from './outlineParsing';
 
 // Shared instruction injected into every answer style: use live Google
 // Search grounding to pull real, current, and verifiable facts rather than
@@ -45,34 +46,62 @@ Do not force this answer into the same skeleton you'd use for every other questi
 • Vary the opening device (a quote, a real incident, a statistic, a sharp definition, a real contrast) rather than reaching for the same type of hook every time.
 `;
 
+// Optional add-on: instead of one fixed intro and one fixed conclusion, give
+// the student a CHOICE — two different opening hooks and two different
+// closing lines to pick from at revision time. The rest of the answer (the
+// body) stays singular; only the two ends get options, since that's where a
+// student's personal exam-writing style differs most.
+const MULTI_VARIANT_RULE = (lang: string): string => `
+━━━ GIVE INTRO & OUTRO OPTIONS (student picks one of each later) ━━━
+Instead of a single fixed introduction and single fixed conclusion, write TWO alternative openings and TWO alternative closings for this SAME body — each option genuinely different in device (don't just reword the same hook):
+• Present them as <div class="answer-variant"><h4>Intro — Option 1</h4>...</div> and <div class="answer-variant"><h4>Intro — Option 2</h4>...</div> BEFORE the body, then the body itself, then <div class="answer-variant"><h4>${lang === 'Hindi' ? 'निष्कर्ष' : 'Outro'} — Option 1</h4>...</div> and <div class="answer-variant"><h4>${lang === 'Hindi' ? 'निष्कर्ष' : 'Outro'} — Option 2</h4>...</div> after it.
+• Each intro/outro option follows all the same word-count and quality rules given above for that part — real hooks, real verdicts, no filler.
+• The body is written once, is NOT duplicated per option, and stays exactly as specified above.
+`;
+
 export type UPSCAnswerStyle = 'auto' | 'topper' | 'bullets' | 'analytical' | 'classic';
 export type UPSCSubject = 'gs' | 'hindi_literature';
 
-// UPSC answers are sized by MARKS, not raw word counts — that's how the exam
-// actually works. Each marks value targets a page-fill on the answer copy and
-// a word budget calibrated to roughly reach it in the rendered PDF.
+// UPSC answers are sized by MARKS, and shown to the user as a WORD COUNT
+// (not a page estimate — an editable digital canvas doesn't paginate like a
+// physical answer sheet, so "pages" was a confusing, inaccurate proxy).
+// Each marks value maps to a word RANGE — a floor and a ceiling — because a
+// single soft target ("~550 words") let the model undershoot badly once
+// style-specific formatting rules (bullet caps, short sections) also ate
+// into the length; the floor is what callers should actually enforce.
 export const UPSC_MARKS_OPTIONS = [10, 15, 20, 50] as const;
 export type UPSCMarks = (typeof UPSC_MARKS_OPTIONS)[number];
 
-const MARKS_SPEC: Record<number, { words: number; pagesEn: string; pagesHi: string }> = {
-  10: { words: 400,  pagesEn: 'about 1½ pages', pagesHi: 'लगभग डेढ़ (1½) पृष्ठ' },
-  15: { words: 550,  pagesEn: 'about 2 pages',  pagesHi: 'लगभग 2 पृष्ठ' },
-  20: { words: 800,  pagesEn: 'about 3 pages',  pagesHi: 'लगभग 3 पृष्ठ' },
-  50: { words: 1300, pagesEn: 'about 5 pages',  pagesHi: 'लगभग 5 पृष्ठ' },
+const MARKS_SPEC: Record<number, { minWords: number; maxWords: number }> = {
+  10: { minWords: 350,  maxWords: 450  },
+  15: { minWords: 500,  maxWords: 620  },
+  20: { minWords: 750,  maxWords: 900  },
+  50: { minWords: 1250, maxWords: 1450 },
 };
 
-export const marksToWordLimit = (marks: number): number => (MARKS_SPEC[marks]?.words ?? 400);
+// The single number surfaced in the UI (marks selector, etc.) — the middle
+// of the range, so "words" reads as a realistic target rather than a bare
+// minimum or an unreachable ceiling.
+export const marksToWordLimit = (marks: number): number => {
+  const s = MARKS_SPEC[marks];
+  return s ? Math.round((s.minWords + s.maxWords) / 2) : 400;
+};
+
+export const marksToWordRange = (marks: number): { min: number; max: number } => {
+  const s = MARKS_SPEC[marks];
+  return s ? { min: s.minWords, max: s.maxWords } : { min: marks, max: marks };
+};
 
 const lengthLineEn = (marks: number): string => {
   const s = MARKS_SPEC[marks];
   if (!s) return `Word Limit: ~${marks} words`;
-  return `Length: This is a ${marks}-marks question — write a COMPLETE answer of about ${s.words} words that fills ${s.pagesEn} of the answer copy. Scale DEPTH to the marks (more marks → more sub-dimensions, examples and analysis) — never pad with filler to reach the length.`;
+  return `Length: This is a ${marks}-marks question — write a COMPLETE answer of ${s.minWords}-${s.maxWords} words. This is a STRICT MINIMUM, not a rough guide: ${s.minWords} words is the floor, never stop short of it. If the answer feels finished before reaching ${s.minWords} words, that means it's underdeveloped — go back and add another sub-dimension, verified example, or layer of analysis rather than concluding early. Scale DEPTH to the marks (more marks → more sub-dimensions, examples and analysis) — but never pad with filler or repetition just to hit the count.`;
 };
 
 const lengthLineHi = (marks: number): string => {
   const s = MARKS_SPEC[marks];
   if (!s) return `शब्द सीमा: लगभग ${marks} शब्द`;
-  return `लंबाई: यह ${marks} अंकों का प्रश्न है — लगभग ${s.words} शब्दों का पूर्ण उत्तर लिखें जो उत्तर-पुस्तिका के ${s.pagesHi} भर दे। गहराई अंकों के अनुसार रखें (अधिक अंक → अधिक आयाम, उदाहरण व विश्लेषण) — लंबाई पूरी करने हेतु व्यर्थ भराव न करें।`;
+  return `लंबाई: यह ${marks} अंकों का प्रश्न है — ${s.minWords}-${s.maxWords} शब्दों का पूर्ण उत्तर लिखें। यह एक सख्त न्यूनतम सीमा है, अनुमान नहीं: ${s.minWords} शब्दों से कम कभी न रुकें। यदि उत्तर ${s.minWords} शब्दों से पहले पूरा-सा लगे, तो समझें कि वह अधूरा है — रुकने की बजाय कोई और आयाम, सत्यापित उदाहरण या गहराई जोड़ें। गहराई अंकों के अनुसार रखें (अधिक अंक → अधिक आयाम, उदाहरण व विश्लेषण) — पर शब्द संख्या पूरी करने हेतु व्यर्थ भराव या दोहराव न करें।`;
 };
 
 // Correct user's question to proper formal Hindi
@@ -99,7 +128,8 @@ const buildHindiLiteraturePrompt = (
   question: string,
   marks: number,
   style: UPSCAnswerStyle,
-  grounded: boolean
+  grounded: boolean,
+  multiVariant: boolean = false
 ): string => `
 आप UPSC हिंदी साहित्य (वैकल्पिक विषय) के विशेषज्ञ परीक्षक और टॉपर मेंटर हैं।
 
@@ -142,9 +172,8 @@ ${grounded ? `━━━ ग्राउंडिंग — सही तथ्�
    - रस, अलंकार, छंद, काव्य-गुण का उल्लेख करें जहाँ प्रासंगिक हो, ठोस उदाहरण सहित
    - साहित्यिक आंदोलन/युग से जोड़ें — सटीक तिथियों और संदर्भों के साथ
    - आलोचकों के मत: रामचंद्र शुक्ल, हजारीप्रसाद द्विवेदी, नामवर सिंह, रामविलास शर्मा — सही ढंग से उद्धृत
-3. **साक्ष्य बॉक्स**: <div class="note-box"> में प्रमुख काव्य-पंक्तियाँ या आलोचनात्मक उद्धरण
-4. **निष्कर्ष (Conclusion)**: "अतः"/"इस प्रकार" से शुरू न करें। समकालीन प्रासंगिकता या रचना के स्थायी महत्व से जोड़ते हुए 40 शब्दों में एक यादगार समापन दें।
-
+3. **निष्कर्ष (Conclusion)**: "अतः"/"इस प्रकार" से शुरू न करें। समकालीन प्रासंगिकता या रचना के स्थायी महत्व से जोड़ते हुए 40 शब्दों में एक यादगार समापन दें।
+${multiVariant ? MULTI_VARIANT_RULE('Hindi') : ''}
 HTML में लिखें: <h3> उपशीर्षक के लिए, <ul><li> बिंदुओं के लिए, <strong> मुख्य शब्दों के लिए।
 केवल HTML लौटाएं। कोई markdown नहीं।
 `;
@@ -155,17 +184,18 @@ const buildUPSCPrompt = (
   marks: number,
   style: UPSCAnswerStyle,
   subject: UPSCSubject = 'gs',
-  grounded: boolean = true
+  grounded: boolean = true,
+  multiVariant: boolean = false
 ): string => {
   if (subject === 'hindi_literature') {
-    return buildHindiLiteraturePrompt(question, marks, style, grounded);
+    return buildHindiLiteraturePrompt(question, marks, style, grounded, multiVariant);
   }
 
   const lang = language === 'Hindi'
     ? 'Hindi (Devanagari script). Write everything — headings, body, conclusion — in Hindi.'
     : 'English';
   const lengthLine = lengthLineEn(marks);
-  const words = marksToWordLimit(marks);
+  const wordRange = marksToWordRange(marks);
 
   if (style === 'auto') return `
 Write a high-scoring UPSC Mains answer. YOU decide the best shape for this specific question — do not default to the same template every time.
@@ -186,8 +216,8 @@ Whatever shape you pick, every claim needs a REAL, verified example — never a 
 
 Use proper HTML: <h2>/<h3> for whatever structure the chosen shape needs,
 <ul><li> for points, <strong> for key terms/data/names.
-Use <div class="note-box"> for important facts/data if relevant.
-
+Use <div class="key-point"> for the one core definition/claim anchoring the answer, if relevant.
+${multiVariant ? MULTI_VARIANT_RULE(lang) : ''}
 Return ONLY raw HTML. No markdown.
 `;
 
@@ -238,7 +268,6 @@ Use <strong> for every key term, name, data point, article number.
 Use <h3> sub-headings only where they genuinely help, not to look structured.
 
 ━━━ STEP 4 — SUPPORTING ELEMENTS (only if they add value)
-• <div class="note-box"> for a tight set of key facts/quotes that support but don't repeat the body
 • <div class="key-point"> for the ONE core definition that anchors the answer (no label, or name the actual term — never "Key Concept")
 • <table> only if comparative/timeline data is genuinely clearer than prose
 
@@ -250,8 +279,8 @@ A genuine verdict, not a template:
 • Ethics → personal, reasoned stand — take a side and defend it in one line
 • DO NOT start with "Thus", "Hence", "In conclusion", "To conclude"
 Under 50 words. Make the last line memorable — an examiner should remember your answer after reading dozens of others.
-
-RULES: ~${words} words total. No "It is well known that…", no hollow filler, no invented facts.
+${multiVariant ? MULTI_VARIANT_RULE(lang) : ''}
+RULES: ${wordRange.min}-${wordRange.max} words — never under ${wordRange.min}. No "It is well known that…", no hollow filler, no invented facts.
 Return ONLY raw HTML. No markdown fences.
 `;
 
@@ -275,14 +304,24 @@ ${grounded ? GROUNDING_RULE : ''}${CLEAN_FORMAT_RULE}
 
 3. CONCLUSION (<h2>) — A genuine निष्कर्ष: synthesize the answer's actual argument (don't just restate the question), then close with one forward-looking, balanced, or resolving line that would stay with an examiner reading dozens of copies. Do NOT open with "Thus" / "Hence" / "In conclusion" / "अतः" / "इस प्रकार". Under 50 words.
 
-Use <div class="note-box"> for a tight set of supporting facts/quotes that don't repeat the body, and <div class="key-point"> for the one core definition/claim anchoring the whole answer (name the actual term — never "Key Concept"). Use <table> only if comparative/timeline data is genuinely clearer than prose.
+Use <div class="key-point"> for the one core definition/claim anchoring the whole answer (name the actual term — never "Key Concept"). Use <table> only if comparative/timeline data is genuinely clearer than prose.
 Use <strong> for every key term, name, data point, article number.
-
-RULES: ~${words} words total. No filler, no invented facts — every example must be real and verified via search.
+${multiVariant ? MULTI_VARIANT_RULE(lang) : ''}
+RULES: ${wordRange.min}-${wordRange.max} words — never under ${wordRange.min}. No filler, no invented facts — every example must be real and verified via search.
 Return ONLY raw HTML. No markdown fences.
 `;
 
-  if (style === 'bullets') return `
+  if (style === 'bullets') {
+    // The bullet/section counts SCALE with marks — a fixed "3-4 sections
+    // max" cap regardless of marks is what made a 50-marks bullet answer
+    // undershoot its word target: the structure itself had no room to
+    // reach the length. These floors grow with marks so the shape can
+    // actually carry the required word count.
+    const shape = marks >= 50 ? '6-8 sections, 6-8 bullets per section'
+      : marks >= 20 ? '4-5 sections, 6-7 bullets per section'
+      : marks >= 15 ? '3-4 sections, 5-6 bullets per section'
+      : '3 sections, 4-5 bullets per section';
+    return `
 Write a UPSC Mains answer in a clean, scannable bullet-point format — the kind toppers write when they want maximum information density and readability in minimum time.
 
 Question: "${question}"
@@ -295,15 +334,16 @@ FORMAT RULES:
   - Each bullet = 1 clear point + 1 supporting REAL fact/example (same line, comma separated) — the example must be correct, not a plausible guess
   - Bullet length: 10-20 words max. No long sentences.
   - <strong> on every key term, number, name, article, scheme
-  - 4-6 bullets per section, 3-4 sections max
-• Use <div class="note-box"> for a "Quick Facts" box with 3-5 verified data points (years, stats, names)
+  - ${shape} — this is a FLOOR to fill the word count, not a ceiling to stop at
 • Conclusion (outro): 2 lines — one core message that directly answers the question's ask + one forward-looking or evaluative line. No heading. Do not restate the question.
 
 STYLE: Think newspaper column meets textbook summary. Dense. No fluff. Every bullet earns its place.
 Vary evidence by topic — literature gets exact quotes and authors, polity gets real articles and judgments, economy gets real data, not court cases everywhere.
-
+${multiVariant ? MULTI_VARIANT_RULE(lang) : ''}
+RULES: ${wordRange.min}-${wordRange.max} words — never under ${wordRange.min}. Add more sections/bullets rather than stopping short.
 Return ONLY raw HTML. No markdown.
 `;
+  }
 
   return `
 Write a deeply analytical UPSC Mains answer that examines the question from multiple angles — the way a thoughtful civil servant would approach a complex policy or philosophical problem.
@@ -334,7 +374,8 @@ EVIDENCE: Match to subject — every example must be real and correct, verified 
 Use <strong> for key terms, names, data. Use <div class="key-point"> for the central analytical claim (no label, or name the actual term — never "Key Concept").
 
 TONE: Precise. Confident. Intellectual. Avoid both blind support and blind criticism.
-
+${multiVariant ? MULTI_VARIANT_RULE(lang) : ''}
+RULES: ${wordRange.min}-${wordRange.max} words — never under ${wordRange.min}. If a section feels thin, deepen it rather than moving on early.
 Return ONLY raw HTML. No markdown.
 `;
 };
@@ -351,9 +392,13 @@ export const generateUPSCAnswer = async (
   // stays the default. The Sidebar exposes this as an optional toggle so a
   // user who wants faster/cheaper answers without live search can turn it off.
   grounded: boolean = true,
+  // Off by default — when on, the answer carries TWO intro options and TWO
+  // outro options instead of one fixed pair, so the student can pick
+  // whichever opening/closing fits their own exam-writing style.
+  multiVariant: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
-  const prompt = buildUPSCPrompt(question, language, marks, answerStyle, subject, grounded);
+  const prompt = buildUPSCPrompt(question, language, marks, answerStyle, subject, grounded, multiVariant);
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
@@ -400,4 +445,62 @@ Return ONLY the question text — no numbering, no quotes, no explanation.
 
   const response = await ai.models.generateContent({ model: modelName, contents: prompt });
   return (response.text || "").trim().replace(/^["']|["']$/g, '');
+};
+
+// --- PYQ question-bank pipeline -------------------------------------------
+// Given just a topic, find the distinct TYPES of questions UPSC actually
+// asks on it (different directive words, different angles/dimensions,
+// following real PYQ patterns) so the student can tick the ones they want
+// answered instead of writing one question at a time. This is stage 1 of a
+// two-stage pipeline: generate the question bank → let the user select →
+// batch-generate model answers for the selected ones (the caller loops
+// generateUPSCAnswer per selected question).
+
+export interface PYQQuestionItem {
+  id: string;
+  question: string;
+  angle: string;
+}
+
+const buildPYQQuestionsPrompt = (
+  topic: string,
+  language: string,
+  subject: UPSCSubject,
+  count: number,
+): string => {
+  const isHindiLit = subject === 'hindi_literature';
+  const lang = (language === 'Hindi' || isHindiLit) ? 'Hindi (Devanagari script)' : 'English';
+  return `You are a UPSC Mains question-bank curator with deep knowledge of actual Previous Year Questions (PYQs) asked across UPSC Mains${isHindiLit ? ' Hindi Literature optional paper' : ' GS papers'}.
+
+Topic: "${topic}"
+
+Think about how many DISTINCT TYPES of questions UPSC has actually asked (or would realistically ask, following the same real patterns) on this topic — different directive words (Discuss / Analyze / Critically evaluate / Examine / Compare / Comment on / Elaborate), and different angles or sub-dimensions of the topic (historical, constitutional/legal, economic, ethical, comparative, current-affairs-linked, as relevant to this specific topic).
+
+Generate exactly ${count} distinct, exam-worthy UPSC Mains-style questions on this topic. Every question must test a GENUINELY different angle — never near-duplicates or trivial rewordings of each other. Base the phrasing and difficulty on how real UPSC PYQs actually read.
+
+Write every question in ${lang}.
+
+Return ONLY a JSON object, no markdown fences, no commentary, in exactly this shape:
+{"questions": [{"question": "the full exam-style question text", "angle": "a 2-4 word label for the dimension this question tests, e.g. Constitutional angle, Critical evaluation, Comparative, Current affairs link"}]}`;
+};
+
+export const generatePYQQuestionSet = async (
+  topic: string,
+  language: string,
+  subject: UPSCSubject = 'gs',
+  modelName: string = 'gemini-3.1-flash-lite',
+  count: number = 6,
+): Promise<PYQQuestionItem[]> => {
+  const ai = createAIClient();
+  const prompt = buildPYQQuestionsPrompt(topic, language, subject, count);
+  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  const obj = parseOutlineJsonObject(response.text || '');
+  const list = Array.isArray(obj?.questions) ? obj.questions : [];
+  return list
+    .map((q: any, i: number): PYQQuestionItem => ({
+      id: `pyq-${Date.now()}-${i}`,
+      question: String(q?.question || '').trim(),
+      angle: String(q?.angle || '').trim(),
+    }))
+    .filter((q: PYQQuestionItem) => q.question);
 };

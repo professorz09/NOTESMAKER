@@ -39,6 +39,10 @@ interface SidebarProps {
   setGroundingEnabled: (v: boolean) => void;
   upscGroundingEnabled: boolean;
   setUpscGroundingEnabled: (v: boolean) => void;
+  upscMultiVariant: boolean;
+  setUpscMultiVariant: (v: boolean) => void;
+  onFindPYQQuestions: () => void;
+  isFindingPyq: boolean;
   notesProgress: { current: number; total: number; label: string } | null;
   topicInput: string;
   setTopicInput: (input: string) => void;
@@ -127,6 +131,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   detailLevel, setDetailLevel,
   groundingEnabled, setGroundingEnabled,
   upscGroundingEnabled, setUpscGroundingEnabled,
+  upscMultiVariant, setUpscMultiVariant,
+  onFindPYQQuestions, isFindingPyq,
   notesProgress,
   topicInput, setTopicInput,
   textInput, setTextInput,
@@ -267,6 +273,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               setUpscAnswerStyle={setUpscAnswerStyle}
               upscSubject={upscSubject}
               setUpscSubject={setUpscSubject}
+              onFindPYQQuestions={onFindPYQQuestions}
+              isFindingPyq={isFindingPyq}
             />
           )}
 
@@ -283,6 +291,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               setGroundingEnabled={setUpscGroundingEnabled}
               label="Google Grounding"
               description="Verifies quotes, dates, article numbers and figures via live search before writing — real facts instead of plausible-sounding guesses. On by default; turn off for a faster answer without live search."
+            />
+          )}
+
+          {mode === 'topic' && outputStyle === 'upsc' && (
+            <SidebarGroundingToggle
+              groundingEnabled={upscMultiVariant}
+              setGroundingEnabled={setUpscMultiVariant}
+              label="Multiple Intro/Outro Options"
+              description="Writes 2 alternate openings and 2 alternate closings for the same body, so you can pick whichever fits your own exam-writing style. Off by default — one fixed intro/outro."
             />
           )}
 

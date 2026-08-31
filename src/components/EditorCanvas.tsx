@@ -2,7 +2,8 @@ import React from 'react';
 import { GenerationStatus } from '../types';
 import { EmptyState } from './EmptyState';
 import { NextQuestionPanel } from './NextQuestionPanel';
-import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
+import { PYQQuestionPicker } from './PYQQuestionPicker';
+import type { UPSCAnswerStyle, UPSCSubject, PYQQuestionItem } from '../services/ai/index';
 
 interface EditorCanvasProps {
   generatedHtml: string | null;
@@ -23,6 +24,13 @@ interface EditorCanvasProps {
   upscSubject: UPSCSubject;
   marks: number;
   handleNextUPSCQuestion: (style?: UPSCAnswerStyle, marks?: number, customQuestion?: string, subject?: UPSCSubject) => void;
+  // PYQ question-bank pipeline
+  pyqQuestions: PYQQuestionItem[] | null;
+  pyqSelectedIds: Set<string>;
+  togglePyqQuestion: (id: string) => void;
+  setAllPyqSelected: (selected: boolean) => void;
+  onDismissPyqQuestions: () => void;
+  onGeneratePyqAnswers: () => void;
 }
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
@@ -43,8 +51,15 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   upscSubject,
   marks,
   handleNextUPSCQuestion,
+  pyqQuestions,
+  pyqSelectedIds,
+  togglePyqQuestion,
+  setAllPyqSelected,
+  onDismissPyqQuestions,
+  onGeneratePyqAnswers,
 }) => {
   const showContent = !!generatedHtml;
+  const isBusy = status !== GenerationStatus.IDLE;
 
   return (
     <div className="w-full max-w-[900px] mx-auto">
@@ -68,15 +83,31 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         )}
       </div>
 
+      {/* PYQ question-bank picker — shown once "Find PYQ Question Set" (in
+          the sidebar) has returned candidates. Stays mounted through
+          generation so ticked questions' answers visibly append below one
+          by one instead of the panel disappearing mid-run. */}
+      {mode !== 'transcript' && outputStyle === 'upsc' && pyqQuestions && pyqQuestions.length > 0 && (
+        <PYQQuestionPicker
+          questions={pyqQuestions}
+          selectedIds={pyqSelectedIds}
+          onToggle={togglePyqQuestion}
+          onSetAllSelected={setAllPyqSelected}
+          onDismiss={onDismissPyqQuestions}
+          onGenerate={onGeneratePyqAnswers}
+          isGenerating={isBusy}
+        />
+      )}
+
       {/* Create Next UPSC Question panel — stays mounted during generation so
           the answer appends below without the panel vanishing / the screen
           blocking; it just shows a clean "generating" state on its button. */}
-      {mode !== 'transcript' && outputStyle === 'upsc' && generatedHtml && (
+      {mode !== 'transcript' && outputStyle === 'upsc' && generatedHtml && !pyqQuestions && (
         <NextQuestionPanel
           defaultStyle={upscAnswerStyle}
           defaultMarks={marks}
           defaultSubject={upscSubject}
-          isGenerating={status !== GenerationStatus.IDLE}
+          isGenerating={isBusy}
           onGenerate={(style, wl, q, subj) => handleNextUPSCQuestion(style, wl, q, subj)}
         />
       )}

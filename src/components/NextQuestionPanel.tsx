@@ -18,11 +18,11 @@ const STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: str
   { id: 'analytical', icon: Brain,    label: 'Analytical' },
 ];
 
-const MARKS_OPTIONS: { marks: number; pages: string }[] = [
-  { marks: 10, pages: '~1½ pg' },
-  { marks: 15, pages: '~2 pg' },
-  { marks: 20, pages: '~3 pg' },
-  { marks: 50, pages: '~5 pg' },
+const MARKS_OPTIONS: { marks: number; words: string }[] = [
+  { marks: 10, words: '~400w' },
+  { marks: 15, words: '~560w' },
+  { marks: 20, words: '~825w' },
+  { marks: 50, words: '~1350w' },
 ];
 
 export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
@@ -122,7 +122,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
             <Type className="w-3 h-3" /> Marks
           </label>
           <div className="grid grid-cols-4 gap-2">
-            {MARKS_OPTIONS.map(({ marks: m, pages }) => {
+            {MARKS_OPTIONS.map(({ marks: m, words }) => {
               const active = marks === m;
               return (
                 <button
@@ -136,7 +136,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
                   }`}
                 >
                   <span className="text-xs font-bold leading-none">{m}</span>
-                  <span className={`text-[8px] leading-none ${active ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>{pages}</span>
+                  <span className={`text-[8px] leading-none ${active ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>{words}</span>
                 </button>
               );
             })}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { GraduationCap, Bot, Trophy, List, Brain, Type, BookOpen, BookText, Sparkles } from 'lucide-react';
+import { GraduationCap, Bot, Trophy, List, Brain, Type, BookOpen, BookText, Sparkles, ListChecks, Loader2 } from 'lucide-react';
 import type { UPSCAnswerStyle, UPSCSubject } from '../../services/ai/index';
 
 interface SidebarUPSCSettingsProps {
@@ -9,14 +9,18 @@ interface SidebarUPSCSettingsProps {
   setUpscAnswerStyle: (s: UPSCAnswerStyle) => void;
   upscSubject: UPSCSubject;
   setUpscSubject: (s: UPSCSubject) => void;
+  onFindPYQQuestions: () => void;
+  isFindingPyq: boolean;
 }
 
-// UPSC answers are sized by MARKS — each fills a set portion of the answer copy.
-const MARKS_OPTIONS: { marks: number; pages: string }[] = [
-  { marks: 10, pages: '~1½ pages' },
-  { marks: 15, pages: '~2 pages' },
-  { marks: 20, pages: '~3 pages' },
-  { marks: 50, pages: '~5 pages' },
+// UPSC answers are sized by MARKS — each targets a word count, not a page
+// estimate (an editable canvas doesn't paginate like a physical answer
+// sheet, so "pages" was a confusing, inaccurate proxy for length).
+const MARKS_OPTIONS: { marks: number; words: string }[] = [
+  { marks: 10, words: '~400 words' },
+  { marks: 15, words: '~560 words' },
+  { marks: 20, words: '~825 words' },
+  { marks: 50, words: '~1350 words' },
 ];
 
 const ANSWER_STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: string }>; label: string; desc: string }[] = [
@@ -39,6 +43,7 @@ export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
   upscMarks, setUpscMarks,
   upscAnswerStyle, setUpscAnswerStyle,
   upscSubject, setUpscSubject,
+  onFindPYQQuestions, isFindingPyq,
 }) => (
   <>
     {/* Subject Type */}
@@ -95,7 +100,7 @@ export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
         <Type className="w-3 h-3" /> Marks
       </label>
       <div className="grid grid-cols-4 gap-1.5">
-        {MARKS_OPTIONS.map(({ marks, pages }) => {
+        {MARKS_OPTIONS.map(({ marks, words }) => {
           const active = upscMarks === marks;
           return (
             <button
@@ -109,7 +114,7 @@ export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
               }`}
             >
               <span className="text-xs font-bold leading-none">{marks}</span>
-              <span className={`text-[8px] leading-none ${active ? 'text-blue-100' : 'text-slate-600'}`}>{pages}</span>
+              <span className={`text-[8px] leading-none ${active ? 'text-blue-100' : 'text-slate-600'}`}>{words}</span>
             </button>
           );
         })}
@@ -147,6 +152,24 @@ export const SidebarUPSCSettings: React.FC<SidebarUPSCSettingsProps> = ({
         })}
       </div>
       <p className="text-[9px] text-slate-600 px-1 leading-relaxed">{STYLE_HINTS[upscAnswerStyle]}</p>
+    </div>
+
+    {/* PYQ Question Bank — type a topic above, then find every distinct
+        question-type UPSC PYQs have asked on it, tick the ones you want,
+        and get model answers for just those. */}
+    <div className="space-y-1.5 pt-1">
+      <button
+        type="button"
+        onClick={onFindPYQQuestions}
+        disabled={isFindingPyq}
+        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-300 text-xs font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {isFindingPyq ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5" />}
+        {isFindingPyq ? 'Finding PYQ questions…' : 'Find PYQ Question Set for this Topic'}
+      </button>
+      <p className="text-[9px] text-slate-600 px-1 leading-relaxed">
+        Type a topic above, then tap this to get several distinct PYQ-style questions on it — tick the ones you want and generate model answers for all of them together.
+      </p>
     </div>
   </>
 );

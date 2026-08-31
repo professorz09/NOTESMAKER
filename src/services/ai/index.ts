@@ -1,7 +1,8 @@
 export { createAIClient } from './client';
 export type { UPSCAnswerStyle, UPSCSubject } from './upscAnswerGeneration';
 export { generateTopicContent } from './topicGeneration';
-export { generateUPSCAnswer, generateNextUPSCQuestion, correctQuestionHindi } from './upscAnswerGeneration';
+export { generateUPSCAnswer, generateNextUPSCQuestion, correctQuestionHindi, generatePYQQuestionSet, marksToWordLimit } from './upscAnswerGeneration';
+export type { PYQQuestionItem } from './upscAnswerGeneration';
 export { generateSmartTable, extendTableRows } from './tableGeneration';
 export { generateFormattedNotes, generateFileNotes, generateOnePagerNotes } from './notesGeneration';
 export { chunkTranscript, restructureTranscriptChunk, generateTranscriptTitle, generateNotesFromTranscriptChunk, outlineTranscriptChunk } from './transcriptGeneration';

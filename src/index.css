@@ -80,6 +80,8 @@ html, body {
 .editor-content tr:hover td { background: #f1f5f9; }
 .editor-content .key-point { background: #eff6ff; border-left: 4px solid #2563eb; padding: 10px 14px; margin: 12px 0; border-radius: 0 8px 8px 0; font-size: 0.9em; }
 .editor-content .note-box { background: #fefce8; border: 1px solid #fde68a; padding: 10px 14px; margin: 12px 0; border-radius: 8px; font-size: 0.9em; }
+.editor-content .answer-variant { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; margin: 10px 0; border-radius: 8px; font-size: 0.95em; }
+.editor-content .answer-variant h4 { margin: 0 0 6px 0; font-size: 0.78em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
 .editor-content .ca-verified { background: #eff6ff; border-left: 3px solid #38bdf8; color: #0369a1; padding: 6px 12px; margin: 6px 0 16px; border-radius: 0 8px 8px 0; font-size: 0.82em; }
 .editor-content .essay-block { line-height: 1.85; }
 .editor-content .essay-title { font-style: italic; font-weight: 700; margin-bottom: 22px; }
@@ -125,6 +127,8 @@ html, body {
 .dark .editor-content tr:hover td { background: #243347; }
 .dark .editor-content .key-point { background: #1e3a5f; border-left-color: #3b82f6; }
 .dark .editor-content .note-box { background: #292524; border-color: #78350f; }
+.dark .editor-content .answer-variant { background: #1e293b; border-color: #334155; }
+.dark .editor-content .answer-variant h4 { color: #94a3b8; }
 .dark .editor-content .ca-verified { background: #0c1e2e; border-left-color: #0ea5e9; color: #7dd3fc; }
 .dark .editor-content .ca-range-meta { color: #94a3b8; }
 .dark .editor-content .table-of-contents { background: #1e293b; border-color: #334155; }
