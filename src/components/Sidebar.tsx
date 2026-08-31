@@ -71,6 +71,7 @@ interface SidebarProps {
   onSync: () => void;
   onSaveNow: () => void;
   onSelectProject: (id: string) => void;
+  openingProjectId: string | null;
   onCreateProject: () => void;
   onDeleteProject: (id: string) => void;
   onRenameProject: (id: string, name: string) => void;
@@ -142,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   handleGenerate, handleGenerateTable,
   status, handleClearCanvas, handleUndo, canUndo,
   projects, projectsLoading, projectsError, activeProjectId, isSupabaseConfigured,
-  lastSavedAt, onFetchProjects, onSync, onSaveNow, onSelectProject, onCreateProject, onDeleteProject,
+  lastSavedAt, onFetchProjects, onSync, onSaveNow, onSelectProject, openingProjectId, onCreateProject, onDeleteProject,
   onRenameProject, hasContent,
   translatePdfFile, handleTranslatePdfUpload, handleTranslatePdf, handleResumePdf,
   setTranslatePdfFile, translateProgress, translateResumeState, setTranslateResumeState,
@@ -351,6 +352,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onSync={onSync}
             onSaveNow={onSaveNow}
             onSelectProject={onSelectProject}
+            openingProjectId={openingProjectId}
             onCreateProject={onCreateProject}
             onDeleteProject={onDeleteProject}
             onRenameProject={onRenameProject}

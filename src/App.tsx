@@ -86,6 +86,10 @@ const App: React.FC = () => {
   );
   // Confirm-clear modal state
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  // Id of the project currently being fetched from the sidebar history —
+  // lets that one row show a spinner instead of looking unresponsive while
+  // a large document downloads.
+  const [openingProjectId, setOpeningProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
@@ -189,6 +193,11 @@ const App: React.FC = () => {
     fetchProjectsByDateRange,
   } = useProjects();
 
+  // Guards against a fast double-click / clicking a second project before
+  // the first one's fetch has returned — whichever request finishes LAST
+  // used to win regardless of which one the user actually clicked last.
+  const projectLoadSeqRef = React.useRef(0);
+
   const handleSelectProject = async (id: string) => {
     // A running pipeline keeps writing to the canvas as sections land — and
     // the debounced auto-save would then write that generated content into
@@ -198,18 +207,31 @@ const App: React.FC = () => {
       toast.warning('Notes are still being generated — let it finish or press Clear before opening a project.');
       return;
     }
-    const raw = await loadProjectContent(id);
-    if (raw !== null) {
+    const mySeq = ++projectLoadSeqRef.current;
+    setOpeningProjectId(id);
+    try {
+      const raw = await loadProjectContent(id);
+      if (projectLoadSeqRef.current !== mySeq) return; // superseded by a later click
       // Re-sanitize on load: projects saved before the style-leak fix can
       // carry global <style> blocks that break the whole app UI.
-      const content = sanitizeHtml(raw);
+      const content = sanitizeHtml(raw ?? '');
       isResettingRef.current = true;
       setGeneratedHtml(content);
       pushToHistory(content);
       safeSaveDraft(content);
       setTimeout(() => { isResettingRef.current = false; }, 100);
+      // Only mark this project "active" on a SUCCESSFUL load — otherwise a
+      // failed fetch would still let the debounced auto-save below start
+      // overwriting this project with whatever unrelated document is
+      // already on screen.
+      setActiveProjectId(id);
+    } catch (err: any) {
+      if (projectLoadSeqRef.current !== mySeq) return;
+      console.error(err);
+      toast.error(`Could not open that project: ${err?.message || 'please try again.'}`);
+    } finally {
+      if (projectLoadSeqRef.current === mySeq) setOpeningProjectId(null);
     }
-    setActiveProjectId(id);
   };
 
   // "Read by date range" — the special calendar feature: pulls every
@@ -706,6 +728,7 @@ const App: React.FC = () => {
         onSync={syncProjects}
         onSaveNow={handleSaveNow}
         onSelectProject={handleSelectProject}
+        openingProjectId={openingProjectId}
         onCreateProject={handleCreateProject}
         onDeleteProject={deleteProject}
         onRenameProject={renameProject}
@@ -755,7 +778,7 @@ const App: React.FC = () => {
         onReadDateRange={handleReadDateRange}
       />
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">
+      <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative transition-all duration-300">
         {!mindmap && <LoadingOverlay status={status} />}
         {mindmap && (
           <MindmapOverlay

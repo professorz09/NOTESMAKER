@@ -19,6 +19,7 @@ interface ProjectsPanelProps {
   onSync: () => void;        // manual force-refetch
   onSaveNow: () => void;
   onSelectProject: (id: string) => void;
+  openingProjectId: string | null;
   onCreateProject: () => void;
   onDeleteProject: (id: string) => void;
   onRenameProject: (id: string, name: string) => void;
@@ -57,7 +58,7 @@ function fmtEntryDate(d: string): string {
 
 export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
   projects, loading, error, activeProjectId, isSupabaseConfigured,
-  lastSavedAt, onOpen, onSync, onSaveNow, onSelectProject, onCreateProject,
+  lastSavedAt, onOpen, onSync, onSaveNow, onSelectProject, openingProjectId, onCreateProject,
   onDeleteProject, onRenameProject, hasContent, onReadDateRange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -370,6 +371,7 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
                       const isActive = activeProjectId === project.id;
                       const isRenaming = renamingId === project.id;
                       const isConfirming = confirmDeleteId === project.id;
+                      const isOpening = openingProjectId === project.id;
 
                       return (
                         <div
@@ -429,18 +431,21 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
                             <div className="flex items-center gap-1.5 p-2">
                               <button
                                 onClick={() => onSelectProject(project.id)}
-                                className="flex-1 min-w-0 text-left"
+                                disabled={isOpening}
+                                className="flex-1 min-w-0 text-left disabled:cursor-wait"
                               >
                                 <div className="flex items-center gap-1">
-                                  {project.tags?.includes(CURRENT_AFFAIRS_TAG) && (
-                                    <Newspaper className="w-2.5 h-2.5 text-amber-400/90 flex-shrink-0" />
-                                  )}
+                                  {isOpening
+                                    ? <Loader2 className="w-2.5 h-2.5 text-indigo-400 animate-spin flex-shrink-0" />
+                                    : project.tags?.includes(CURRENT_AFFAIRS_TAG) && (
+                                        <Newspaper className="w-2.5 h-2.5 text-amber-400/90 flex-shrink-0" />
+                                      )}
                                   <p className={`text-[11px] font-semibold leading-tight truncate ${isActive ? 'text-indigo-200' : 'text-slate-300'}`}>
                                     {project.name}
                                   </p>
                                 </div>
                                 <p className="text-[9px] text-slate-600 mt-0.5">
-                                  {project.entry_date ? fmtEntryDate(project.entry_date) : timeAgo(project.updated_at)}
+                                  {isOpening ? 'Opening…' : project.entry_date ? fmtEntryDate(project.entry_date) : timeAgo(project.updated_at)}
                                 </p>
                               </button>
 
