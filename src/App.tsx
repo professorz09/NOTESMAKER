@@ -120,6 +120,10 @@ const App: React.FC = () => {
     detailLevel, setDetailLevel,
     groundingEnabled, setGroundingEnabled,
     upscGroundingEnabled, setUpscGroundingEnabled,
+    upscMultiVariant, setUpscMultiVariant,
+    pyqQuestions, pyqSelectedIds, isFindingPyq,
+    handleFindPYQQuestions, togglePyqQuestion, setAllPyqSelected,
+    handleDismissPyqQuestions, handleGeneratePYQAnswers,
     notesProgress,
     status,
     language, setLanguage,
@@ -667,6 +671,8 @@ const App: React.FC = () => {
         detailLevel={detailLevel} setDetailLevel={setDetailLevel}
         groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled}
         upscGroundingEnabled={upscGroundingEnabled} setUpscGroundingEnabled={setUpscGroundingEnabled}
+        upscMultiVariant={upscMultiVariant} setUpscMultiVariant={setUpscMultiVariant}
+        onFindPYQQuestions={handleFindPYQQuestions} isFindingPyq={isFindingPyq}
         notesProgress={notesProgress}
         topicInput={topicInput} setTopicInput={setTopicInput}
         textInput={textInput} setTextInput={setTextInput}
@@ -801,6 +807,12 @@ const App: React.FC = () => {
             upscSubject={upscSubject}
             marks={upscMarks}
             handleNextUPSCQuestion={handleNextUPSCQuestion}
+            pyqQuestions={pyqQuestions}
+            pyqSelectedIds={pyqSelectedIds}
+            togglePyqQuestion={togglePyqQuestion}
+            setAllPyqSelected={setAllPyqSelected}
+            onDismissPyqQuestions={handleDismissPyqQuestions}
+            onGeneratePyqAnswers={handleGeneratePYQAnswers}
           />
         </div>
       </main>

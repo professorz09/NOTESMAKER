@@ -8,6 +8,8 @@ import {
   generateUPSCAnswer,
   generateNextUPSCQuestion,
   correctQuestionHindi,
+  generatePYQQuestionSet,
+  type PYQQuestionItem,
   generateResearchPaper,
   translatePdfPageToHindi,
   analyzeAnswerPdf,
@@ -303,6 +305,17 @@ export function useGeneration({
   // unlike the general pipeline toggle above which defaults off. Kept apart
   // from `groundingEnabled` so switching one doesn't silently flip the other.
   const [upscGroundingEnabled, setUpscGroundingEnabled] = useState(true);
+  // Off by default — when on, every UPSC answer generated (single question,
+  // "Next Question", or the PYQ batch pipeline below) carries two intro
+  // options and two outro options instead of one fixed pair, so the student
+  // can pick whichever opening/closing suits them at revision time.
+  const [upscMultiVariant, setUpscMultiVariant] = useState(false);
+  // PYQ question-bank pipeline: give a topic → AI proposes several distinct
+  // PYQ-style questions on it → the student ticks the ones they want →
+  // model answers are generated for just those, one by one, and appended.
+  const [pyqQuestions, setPyqQuestions] = useState<PYQQuestionItem[] | null>(null);
+  const [pyqSelectedIds, setPyqSelectedIds] = useState<Set<string>>(new Set());
+  const [isFindingPyq, setIsFindingPyq] = useState(false);
   // Multi-step notes-pipeline progress (Medium/Detailed/Deep topic generation).
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
@@ -2506,7 +2519,7 @@ export function useGeneration({
               }
             } catch { /* keep original if correction fails */ }
           }
-          const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject, upscGroundingEnabled);
+          const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject, upscGroundingEnabled, upscMultiVariant);
           result = wrapUPSCBlock(question, answer, upscSubject);
         }
         else if (outputStyle === 'essay') {
@@ -2624,7 +2637,7 @@ export function useGeneration({
         scrollToLatestAnswer();
       }
 
-      const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useMarks, useStyle, useSubject);
+      const answer = await generateUPSCAnswer(nextQuestion, language, aiModel, useMarks, useStyle, useSubject, true, upscMultiVariant);
       if (isStaleRun(myRun)) return;
       const newBlock = wrapUPSCBlock(nextQuestion, answer, useSubject);
       const combined = existing + divider + newBlock;
@@ -2641,6 +2654,99 @@ export function useGeneration({
       }
     } finally {
       if (!isStaleRun(myRun)) setStatus(GenerationStatus.IDLE);
+    }
+  };
+
+  // --- PYQ question-bank pipeline -----------------------------------------
+  // Stage 1: turn a bare topic into several distinct PYQ-style questions the
+  // student can review and tick. Stage 2 (handleGeneratePYQAnswers) writes a
+  // model answer for each ticked question, one at a time, appending as it
+  // goes — same "grows the document downward" pattern as Next Question.
+  const handleFindPYQQuestions = async () => {
+    const topic = topicInput.trim();
+    if (!topic) {
+      toast.warning('Please enter a topic first.');
+      return;
+    }
+    setIsFindingPyq(true);
+    setPyqQuestions(null);
+    setPyqSelectedIds(new Set());
+    try {
+      const list = await generatePYQQuestionSet(topic, language, upscSubject, 'gemini-3.1-flash-lite', 6);
+      if (list.length === 0) {
+        toast.error('Could not find PYQ-style questions for this topic. Try rephrasing it.');
+        return;
+      }
+      setPyqQuestions(list);
+      setPyqSelectedIds(new Set(list.map(q => q.id)));
+    } catch (error: any) {
+      console.error(error);
+      toast.error(`Could not fetch PYQ questions: ${error.message || 'Please try again.'}`);
+    } finally {
+      setIsFindingPyq(false);
+    }
+  };
+
+  const togglePyqQuestion = (id: string) => {
+    setPyqSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const setAllPyqSelected = (selected: boolean) => {
+    setPyqSelectedIds(selected && pyqQuestions ? new Set(pyqQuestions.map(q => q.id)) : new Set());
+  };
+
+  const handleDismissPyqQuestions = () => {
+    setPyqQuestions(null);
+    setPyqSelectedIds(new Set());
+  };
+
+  const handleGeneratePYQAnswers = async () => {
+    if (!pyqQuestions || pyqSelectedIds.size === 0) {
+      toast.warning('Select at least one question first.');
+      return;
+    }
+    const selected = pyqQuestions.filter(q => pyqSelectedIds.has(q.id));
+    const myRun = runSeqRef.current;
+    setStatus(GenerationStatus.GENERATING_CHAPTER);
+    let existing = getCurrentHtml();
+    try {
+      for (let i = 0; i < selected.length; i++) {
+        if (isStaleRun(myRun)) return;
+        setNotesProgress({ current: i, total: selected.length, label: `Writing answer ${i + 1} of ${selected.length}…` });
+        let question = selected[i].question;
+        if (language === 'Hindi' || upscSubject === 'hindi_literature') {
+          try {
+            const corrected = await correctQuestionHindi(question);
+            if (corrected) question = corrected;
+          } catch { /* keep original if correction fails */ }
+        }
+        const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject, upscGroundingEnabled, upscMultiVariant);
+        if (isStaleRun(myRun)) return;
+        const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
+        existing = existing + divider + wrapUPSCBlock(question, answer, upscSubject);
+        setGeneratedHtml(existing);
+        scrollToLatestAnswer();
+      }
+      if (!isStaleRun(myRun)) {
+        finishGeneration(existing, myRun);
+        toast.success(`Generated ${selected.length} PYQ answer${selected.length > 1 ? 's' : ''}!`);
+        setPyqQuestions(null);
+        setPyqSelectedIds(new Set());
+      }
+    } catch (error: any) {
+      if (!isStaleRun(myRun)) {
+        console.error(error);
+        toast.error(`Generation failed: ${error.message || 'Please try again.'}`);
+      }
+    } finally {
+      if (!isStaleRun(myRun)) {
+        setStatus(GenerationStatus.IDLE);
+        setNotesProgress(null);
+      }
     }
   };
 
@@ -2787,6 +2893,10 @@ export function useGeneration({
     detailLevel, setDetailLevel,
     groundingEnabled, setGroundingEnabled,
     upscGroundingEnabled, setUpscGroundingEnabled,
+    upscMultiVariant, setUpscMultiVariant,
+    pyqQuestions, pyqSelectedIds, isFindingPyq,
+    handleFindPYQQuestions, togglePyqQuestion, setAllPyqSelected,
+    handleDismissPyqQuestions, handleGeneratePYQAnswers,
     notesProgress,
     status,
     language, setLanguage,

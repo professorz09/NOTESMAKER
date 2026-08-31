@@ -176,6 +176,7 @@ export async function exportContentAsDocx(
     'note-box': { fill: 'FEFCE8', border: 'FDE68A' },
     'key-point': { fill: 'EFF6FF', border: '2563EB' },
     'ca-verified': { fill: 'EFF6FF', border: '38BDF8' },
+    'answer-variant': { fill: 'F8FAFC', border: 'E2E8F0' },
   };
   const getBoxStyle = (el: Element) => {
     for (const cls of Object.keys(BOX_STYLE)) if (el.classList?.contains(cls)) return BOX_STYLE[cls];

@@ -90,7 +90,7 @@ const ATOMIC_TAGS = new Set([
   'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P',
 ]);
 const ATOMIC_CLASSES = [
-  'note-box', 'key-point', 'table-of-contents', 'flowchart-container',
+  'note-box', 'key-point', 'answer-variant', 'table-of-contents', 'flowchart-container',
   'pdf-figure', 'image-placeholder', 'math', 'generated-image-container',
   'answer-analysis', 'question-list',
 ];
@@ -193,6 +193,9 @@ const ANSWER_COPY_OVERRIDES = (prefix: string) => {
     }
     ${p}.key-point {
       background: #fff !important; border-left: 3px solid #111 !important; color: #111 !important;
+    }
+    ${p}.answer-variant {
+      background: #fff !important; border: 1px solid #333 !important; color: #111 !important;
     }
   `;
 };
