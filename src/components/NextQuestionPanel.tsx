@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronUp, GraduationCap, BookText, Loader2, Sparkles } from 'lucide-react';
+import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronUp, GraduationCap, BookText, Loader2, Sparkles, ListPlus } from 'lucide-react';
 import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 
 interface NextQuestionPanelProps {
@@ -8,6 +8,12 @@ interface NextQuestionPanelProps {
   defaultSubject: UPSCSubject;
   isGenerating?: boolean;
   onGenerate: (style: UPSCAnswerStyle, marks: number, customQuestion: string, subject: UPSCSubject) => void;
+  // Batch queue: adds this exact question (with the Subject/Marks/Style
+  // picked right here) to the queue below instead of generating it right
+  // now — lets the student line up several next-questions in one go and
+  // walk away while they're written one at a time in the background.
+  onAddToQueue: (style: UPSCAnswerStyle, marks: number, question: string, subject: UPSCSubject) => void;
+  queuedCount?: number;
 }
 
 const STYLES: { id: UPSCAnswerStyle; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
@@ -31,6 +37,8 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
   defaultSubject,
   isGenerating = false,
   onGenerate,
+  onAddToQueue,
+  queuedCount = 0,
 }) => {
   const [open, setOpen] = useState(true);
   const [style, setStyle] = useState<UPSCAnswerStyle>(defaultStyle);
@@ -47,7 +55,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
         >
           <ArrowRight className="w-4 h-4" />
-          Next Question
+          Next Question{queuedCount > 0 ? ` (${queuedCount} queued)` : ''}
         </button>
       </div>
     );
@@ -170,21 +178,40 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           </div>
         </div>
 
-        <button
-          disabled={isGenerating}
-          onClick={() => {
-            onGenerate(style, marks, question.trim(), subject);
-            setQuestion('');
-          }}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
-          style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
-        >
-          {isGenerating ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Writing the answer below…</>
-          ) : (
-            <><ArrowRight className="w-4 h-4" /> Generate Next Question</>
-          )}
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            disabled={isGenerating}
+            onClick={() => {
+              onGenerate(style, marks, question.trim(), subject);
+              setQuestion('');
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
+            style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
+          >
+            {isGenerating ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Writing…</>
+            ) : (
+              <><ArrowRight className="w-4 h-4" /> Generate Now</>
+            )}
+          </button>
+          <button
+            disabled={isGenerating || !question.trim()}
+            title={!question.trim() ? 'Type a question first — the queue needs the exact question text' : 'Add this question (with the Subject/Marks/Style above) to the batch queue instead of generating it right now'}
+            onClick={() => {
+              onAddToQueue(style, marks, question.trim(), subject);
+              setQuestion('');
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 50%, #155e75 100%)' }}
+          >
+            <ListPlus className="w-4 h-4" /> Add to Queue{queuedCount > 0 ? ` (${queuedCount})` : ''}
+          </button>
+        </div>
+        {!question.trim() && (
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center -mt-1">
+            Type a question above, then "Add to Queue" to line up several without waiting for each one.
+          </p>
+        )}
       </div>
     </div>
   );

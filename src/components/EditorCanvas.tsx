@@ -35,7 +35,13 @@ interface EditorCanvasProps {
   onGeneratePyqAnswers: () => void;
   // Batch Question Queue
   batchQueueItems: BatchQueueItem[];
-  onAddToBatchQueue: (rawText: string) => void;
+  onAddToBatchQueue: (rawText: string, overrides?: {
+    outputStyle?: 'notes' | 'upsc' | 'essay' | 'research';
+    answerStyle?: UPSCAnswerStyle;
+    marks?: number;
+    subject?: UPSCSubject;
+    multiVariant?: boolean;
+  }) => void;
   onRemoveFromBatchQueue: (id: string) => void;
 }
 
@@ -118,6 +124,10 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           defaultSubject={upscSubject}
           isGenerating={isBusy}
           onGenerate={(style, wl, q, subj) => handleNextUPSCQuestion(style, wl, q, subj)}
+          onAddToQueue={(style, wl, q, subj) => onAddToBatchQueue(q, {
+            outputStyle: 'upsc', answerStyle: style, marks: wl, subject: subj,
+          })}
+          queuedCount={batchQueueItems.filter(it => it.outputStyle === 'upsc').length}
         />
       )}
 

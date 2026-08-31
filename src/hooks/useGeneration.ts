@@ -2874,22 +2874,36 @@ export function useGeneration({
   // One line per question — lets the student paste/type as many as they
   // want and add them all in one go; more can be added later the same way
   // while the worker is already running.
-  const addToBatchQueue = async (rawText: string, styleOverride?: BatchOutputStyle) => {
+  // `overrides` lets a caller with its own local settings (e.g. Next
+  // Question's per-panel Subject/Marks/Answer Style, which can differ from
+  // the sidebar's current values) queue with exactly what it's showing,
+  // instead of silently picking up whatever the sidebar happens to have
+  // selected right now.
+  const addToBatchQueue = async (
+    rawText: string,
+    overrides?: {
+      outputStyle?: BatchOutputStyle;
+      answerStyle?: UPSCAnswerStyle;
+      marks?: number;
+      subject?: UPSCSubject;
+      multiVariant?: boolean;
+    },
+  ) => {
     const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length === 0) return;
-    const targetStyle: BatchOutputStyle = styleOverride
+    const targetStyle: BatchOutputStyle = overrides?.outputStyle
       ?? (outputStyle === 'table' ? 'notes' : outputStyle);
     const isUpsc = targetStyle === 'upsc';
     const drafts: BatchQueueDraft[] = lines.map(q => ({
       question: q,
       outputStyle: targetStyle,
-      answerStyle: isUpsc ? upscAnswerStyle : null,
-      marks: isUpsc ? upscMarks : null,
-      subject: isUpsc ? upscSubject : null,
+      answerStyle: isUpsc ? (overrides?.answerStyle ?? upscAnswerStyle) : null,
+      marks: isUpsc ? (overrides?.marks ?? upscMarks) : null,
+      subject: isUpsc ? (overrides?.subject ?? upscSubject) : null,
       language,
       aiModel,
       grounded: isUpsc || targetStyle === 'essay' ? upscGroundingEnabled : true,
-      multiVariant: isUpsc ? upscMultiVariant : false,
+      multiVariant: isUpsc ? (overrides?.multiVariant ?? upscMultiVariant) : false,
     }));
     try {
       await batchQueue.addItems(drafts);
