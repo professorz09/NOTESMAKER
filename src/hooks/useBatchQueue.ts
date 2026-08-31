@@ -24,6 +24,14 @@ export interface BatchQueueDraft {
   aiModel: string;
   grounded: boolean;
   multiVariant: boolean;
+  // The note this item's generated answer belongs to — captured at the
+  // moment it was queued, NOT re-read later. Without this, an item queued
+  // while note A is open would land in whatever note happens to be open
+  // by the time the worker gets to it, including a completely different
+  // note the student switched to in between. Null means "no note was open
+  // yet when this was queued" (the very first generation of a fresh
+  // document) — that one case still appends to whatever's on screen.
+  projectId: string | null;
 }
 
 export interface BatchQueueItem extends BatchQueueDraft {
@@ -67,6 +75,7 @@ function rowToItem(row: any): BatchQueueItem {
     aiModel: row.ai_model || 'gemini-3.1-pro-preview',
     grounded: row.grounding ?? true,
     multiVariant: row.multi_variant ?? false,
+    projectId: row.project_id ?? null,
     status: (row.status as BatchItemStatus) || 'pending',
     attempt: row.attempt || 0,
     error: row.error ?? null,
@@ -91,20 +100,26 @@ export function useBatchQueue() {
     if (!usingServerRef.current) saveLocal(itemsRef.current);
   }, []);
 
-  const loadQueue = useCallback(async () => {
+  // Scoped to ONE note (`projectId`, or null for "no note open yet") — the
+  // list shown is always specific to whichever note is currently open, so
+  // switching notes and coming back shows exactly what was left queued for
+  // that note, not a mix of everything the account has ever queued.
+  const loadQueue = useCallback(async (projectId: string | null) => {
     if (!isSupabaseConfigured) {
-      const local = loadLocal();
+      const local = loadLocal().filter(it => it.projectId === projectId);
       itemsRef.current = local;
       setItems(local);
       return;
     }
     try {
       const sb = getSupabaseClient();
-      const { data, error } = await sb
+      let query = sb
         .from('pending_questions')
         .select('*')
         .in('status', ['pending', 'active', 'failed'])
         .order('created_at', { ascending: true });
+      query = projectId ? query.eq('project_id', projectId) : query.is('project_id', null);
+      const { data, error } = await query;
       if (error) throw error;
       usingServerRef.current = true;
       const list = ((data as any[]) || []).map(rowToItem);
@@ -113,7 +128,7 @@ export function useBatchQueue() {
     } catch (e: any) {
       if (isMissingTableError(e)) {
         usingServerRef.current = false;
-        const local = loadLocal();
+        const local = loadLocal().filter(it => it.projectId === projectId);
         itemsRef.current = local;
         setItems(local);
       }
@@ -130,6 +145,7 @@ export function useBatchQueue() {
         if (!user) throw new Error('Not signed in');
         const rows = drafts.map(d => ({
           user_id: user.id,
+          project_id: d.projectId,
           question: d.question,
           output_style: d.outputStyle,
           answer_style: d.answerStyle,

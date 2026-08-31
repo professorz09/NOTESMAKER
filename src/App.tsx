@@ -114,6 +114,25 @@ const App: React.FC = () => {
     execFormat,
   } = useEditorContent({ pushToHistory });
 
+  // --- PROJECTS --- (moved above useGeneration: the batch queue needs
+  // activeProjectId/loadProjectContent/saveProject to scope itself to
+  // whichever note is currently open.)
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+    activeProjectId,
+    setActiveProjectId,
+    fetchProjects,
+    syncProjects,
+    loadProjectContent,
+    createProject,
+    saveProject,
+    renameProject,
+    deleteProject,
+    fetchProjectsByDateRange,
+  } = useProjects();
+
   const {
     mode, setMode,
     outputStyle, setOutputStyle,
@@ -156,7 +175,10 @@ const App: React.FC = () => {
     mindmap, resolveMindmapAction, handleMindmapAddMore, handleMindmapNodeClick, handleMindmapDone,
     handleMindmapApprove, handleMindmapRestructure, handleMindmapCompareApply, handleMindmapCompareDiscard,
     handleMindmapSetNodeInstruction,
-  } = useGeneration({ pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml });
+  } = useGeneration({
+    pushToHistory, isResettingRef, setGeneratedHtml, resetHistory, setIsEditing, setSidebarOpen, getCurrentHtml,
+    activeProjectId, loadProjectContent, saveProject,
+  });
 
   const {
     rewriteModalOpen, closeRewriteModal,
@@ -175,23 +197,6 @@ const App: React.FC = () => {
     handleRewriteSubmit,
     handleSectionRemove,
   } = useAIEdit({ isEditing, generatedHtml, getCurrentHtml, pushToHistory, saveToStorage, editorRef, isResettingRef, setGeneratedHtml });
-
-  // --- PROJECTS ---
-  const {
-    projects,
-    loading: projectsLoading,
-    error: projectsError,
-    activeProjectId,
-    setActiveProjectId,
-    fetchProjects,
-    syncProjects,
-    loadProjectContent,
-    createProject,
-    saveProject,
-    renameProject,
-    deleteProject,
-    fetchProjectsByDateRange,
-  } = useProjects();
 
   // Guards against a fast double-click / clicking a second project before
   // the first one's fetch has returned — whichever request finishes LAST

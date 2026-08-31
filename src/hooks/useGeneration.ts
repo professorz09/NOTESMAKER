@@ -269,6 +269,13 @@ interface UseGenerationProps {
   setIsEditing: (editing: boolean) => void;
   setSidebarOpen: (open: boolean) => void;
   getCurrentHtml: () => string;
+  // Which note is currently open — the batch queue scopes its list to this
+  // (see the queue-loading effect below), and uses the read/write pair to
+  // deliver a finished item straight into ITS OWN note's saved content when
+  // the student has since switched to viewing a different one.
+  activeProjectId: string | null;
+  loadProjectContent: (id: string) => Promise<string | null>;
+  saveProject: (id: string, content: string) => Promise<boolean>;
 }
 
 export function useGeneration({
@@ -279,6 +286,9 @@ export function useGeneration({
   resetHistory,
   setIsEditing,
   setSidebarOpen,
+  activeProjectId,
+  loadProjectContent,
+  saveProject,
 }: UseGenerationProps) {
   const [mode, setMode] = useState<'topic' | 'text' | 'file' | 'transcript' | 'currentAffairs'>('topic');
   const [outputStyle, setOutputStyle] = useState<'notes' | 'upsc' | 'essay' | 'research' | 'table'>('notes');
@@ -324,6 +334,11 @@ export function useGeneration({
   // queue survives a reload instead of living only in this tab.
   const batchQueue = useBatchQueue();
   const batchRunningRef = useRef(false);
+  // Read inside the async worker loop instead of the `activeProjectId`
+  // closure value, which would go stale the moment the student switches
+  // notes mid-run.
+  const activeProjectIdRef = useRef(activeProjectId);
+  useEffect(() => { activeProjectIdRef.current = activeProjectId; }, [activeProjectId]);
   // Multi-step notes-pipeline progress (Medium/Detailed/Deep topic generation).
   const [notesProgress, setNotesProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   // Live mind map shown while a leveled pipeline runs.
@@ -2830,10 +2845,29 @@ export function useGeneration({
         if (isStaleRun(myRun)) return;
 
         if (html) {
-          const existing = getCurrentHtml();
-          const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
-          finishGeneration(existing + divider + html, myRun);
-          scrollToLatestAnswer();
+          if (!next.projectId || next.projectId === activeProjectIdRef.current) {
+            // Either this item wasn't tied to a specific note (queued
+            // before any note existed yet) or the student is still looking
+            // at the same note it was queued for — append live so it's
+            // visible immediately.
+            const existing = getCurrentHtml();
+            const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
+            finishGeneration(existing + divider + html, myRun);
+            scrollToLatestAnswer();
+          } else {
+            // The student has since switched to a different note — write
+            // straight into THIS item's own note instead of whatever's on
+            // screen right now, so a background item never lands in the
+            // wrong document.
+            try {
+              const existing = (await loadProjectContent(next.projectId)) || '';
+              const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
+              await saveProject(next.projectId, existing + divider + html);
+            } catch (err) {
+              console.error(err);
+              toast.error(`Wrote an answer for a different note but could not save it there — check that note's history.`);
+            }
+          }
           await batchQueue.removeItem(next.id);
         } else {
           await batchQueue.updateItem(next.id, { status: 'failed', error: lastErr?.message || 'Failed after retries' });
@@ -2851,17 +2885,21 @@ export function useGeneration({
       batchRunningRef.current = false;
       if (!isStaleRun(myRun)) {
         setStatus(GenerationStatus.IDLE);
-        toast.success('Batch queue finished.');
       }
     }
   };
 
-  // Loads whatever's already queued (e.g. from before a reload) once on
-  // mount, resumes anything that was left 'active' from an interrupted
-  // session, and kicks the worker if there's work waiting.
+  // Reloads the queue scoped to whichever note is currently open — on
+  // mount, AND every time the student opens a different note. This is what
+  // makes the list "belong" to a note: switching away hides that note's
+  // remaining items (the worker just can't see them to pick up next) and
+  // switching back brings them straight back into view, still pending. Any
+  // item already generating when the switch happens still finishes and
+  // gets delivered to ITS OWN note via the projectId check in
+  // runBatchQueue, never the one now on screen.
   useEffect(() => {
     (async () => {
-      await batchQueue.loadQueue();
+      await batchQueue.loadQueue(activeProjectId);
       const stuck = batchQueue.itemsRef.current.filter(it => it.status === 'active');
       for (const it of stuck) await batchQueue.updateItem(it.id, { status: 'pending' });
       if (batchQueue.itemsRef.current.some(it => it.status === 'pending') && !batchRunningRef.current) {
@@ -2869,7 +2907,7 @@ export function useGeneration({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeProjectId]);
 
   // One line per question — lets the student paste/type as many as they
   // want and add them all in one go; more can be added later the same way
@@ -2904,6 +2942,10 @@ export function useGeneration({
       aiModel,
       grounded: isUpsc || targetStyle === 'essay' ? upscGroundingEnabled : true,
       multiVariant: isUpsc ? (overrides?.multiVariant ?? upscMultiVariant) : false,
+      // Captured now, not re-read later — this is what lets a finished
+      // item find its way to the right note even if the student has moved
+      // on to a different one by the time it's actually generated.
+      projectId: activeProjectId,
     }));
     try {
       await batchQueue.addItems(drafts);
