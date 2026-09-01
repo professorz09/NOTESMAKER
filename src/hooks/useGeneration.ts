@@ -2839,6 +2839,14 @@ export function useGeneration({
         const next = batchQueue.itemsRef.current.find(it => it.status === 'pending');
         if (!next) break;
         await batchQueue.updateItem(next.id, { status: 'active' });
+        // Pacing is measured from when THIS call starts, not from when it
+        // finishes — a fixed post-completion wait meant a call that itself
+        // took 70s (grounding, a high-marks answer) still cost another full
+        // 60s on top, making the queue far slower than the "about a minute
+        // apart" it's meant to feel like. Now the gap only makes up
+        // whatever's left of that minute; a call that already ran long
+        // enough on its own starts the next one immediately.
+        const callStartedAt = Date.now();
 
         let html: string | null = null;
         let lastErr: any = null;
@@ -2901,7 +2909,8 @@ export function useGeneration({
         // running dry) is checked live off the ref — no need to pace a gap
         // before a loop iteration that's about to find nothing anyway.
         if (batchQueue.itemsRef.current.some(it => it.status === 'pending')) {
-          await batchDelay(BATCH_ITEM_GAP_MS);
+          const remainingGap = BATCH_ITEM_GAP_MS - (Date.now() - callStartedAt);
+          if (remainingGap > 0) await batchDelay(remainingGap);
         }
       }
     } finally {

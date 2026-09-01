@@ -50,7 +50,8 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
   const [draft, setDraft] = useState('');
 
   const pendingCount = items.filter(it => it.status === 'pending').length;
-  const activeCount = items.filter(it => it.status === 'active').length;
+  const activeItem = items.find(it => it.status === 'active');
+  const activeCount = activeItem ? 1 : 0;
   const failedCount = items.filter(it => it.status === 'failed').length;
 
   const handleAdd = () => {
@@ -115,6 +116,17 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
 
         {items.length > 0 && (
           <div className="space-y-2">
+            {/* Names the exact question currently generating — without
+                this, scrolling a long queue gave no way to tell which one
+                (if any) was actually in progress right now. */}
+            {activeItem && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+                <Loader2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 flex-shrink-0 animate-spin" />
+                <span className="text-[12px] text-cyan-800 dark:text-cyan-200 leading-snug min-w-0 truncate">
+                  <span className="font-bold">Writing now:</span> {activeItem.question}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between px-0.5 gap-2">
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
                 {failedCount > 0
