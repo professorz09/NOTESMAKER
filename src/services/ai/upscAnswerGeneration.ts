@@ -43,7 +43,9 @@ const VARIETY_RULE = `
 Do not force this answer into the same skeleton you'd use for every other question:
 • The opening move, the number/naming of sections, and how the ending lands should come from what THIS question needs — not a habit.
 • A comparison question should read like a comparison; a dilemma should read like a dilemma is being worked through; a "discuss all aspects" question should read like it's covering aspects — don't flatten every question into three generic body paragraphs.
-• Vary the opening device (a quote, a real incident, a statistic, a sharp definition, a real contrast) rather than reaching for the same type of hook every time.
+• Do NOT default to a quotation as your go-to hook out of habit — reach for one only when a specific, verified line genuinely fits this question better than the alternatives. For most Polity/Economy/Environment/Science questions, a real statistic, a named incident, or a sharp definition will fit better than a quote. Actively vary which device you reach for across different questions.
+• Do NOT default to exactly three body sections regardless of what's asked. Let the number come from the question's own sub-parts and the marks: a narrow question may need only two tight sections; a "discuss all aspects of X" at higher marks may genuinely need four or five. Forcing a fixed count is what makes answers feel interchangeable.
+• Before finalizing, check: could this same shape (same hook type, same section count, same closing move) be swapped onto a different question just by changing the nouns? If yes, that's a sign you defaulted to habit — restructure around what THIS question specifically demands.
 `;
 
 // Optional add-on: instead of one fixed intro and one fixed conclusion, give
