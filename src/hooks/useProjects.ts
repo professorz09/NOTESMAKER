@@ -75,11 +75,38 @@ function loadInitialProjects(): ProjectMeta[] {
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
 
+// Which project is "open" has to survive more than a manual refresh: on
+// mobile especially, switching to another browser tab for a while often
+// gets this tab evicted and silently reloaded from scratch when the user
+// switches back. The generated document itself already survives that
+// (STORAGE_KEY's draft cache) — but activeProjectId used to reset to null
+// on that reload while the draft still showed the open project's content.
+// The app then read "no project is open" and treated the next generation
+// (a batch-queue item finishing, Next Question, anything) as a brand-new
+// document, silently forking off a duplicate project instead of updating
+// the one already open. Persisting this alongside the draft keeps the two
+// in sync across exactly that kind of reload.
+const ACTIVE_PROJECT_KEY = 'ai_book_writer_active_project_id';
+
+function loadStoredActiveProjectId(): string | null {
+  try { return localStorage.getItem(ACTIVE_PROJECT_KEY); } catch { return null; }
+}
+
 export function useProjects() {
   const [projects, setProjects] = useState<ProjectMeta[]>(loadInitialProjects);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectIdState] = useState<string | null>(loadStoredActiveProjectId);
+  const setActiveProjectId = useCallback((id: string | null) => {
+    setActiveProjectIdState(id);
+    try {
+      if (id) localStorage.setItem(ACTIVE_PROJECT_KEY, id);
+      else localStorage.removeItem(ACTIVE_PROJECT_KEY);
+    } catch {
+      // Quota exceeded or storage unavailable — non-fatal; the app just
+      // won't remember the open project across a reload this time.
+    }
+  }, []);
 
   // Guard: prevent concurrent fetches
   const fetchingRef = useRef(false);
@@ -298,12 +325,12 @@ export function useProjects() {
       }
       // Optimistic update
       setProjects(prev => prev.filter(p => p.id !== id));
-      setActiveProjectId(prev => (prev === id ? null : prev));
+      if (activeProjectId === id) setActiveProjectId(null);
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [activeProjectId, setActiveProjectId]);
 
   // Combined "read by date range" — pulls every project carrying `tag` whose
   // entry_date falls within [start, end] (inclusive, 'YYYY-MM-DD'), content

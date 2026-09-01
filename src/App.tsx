@@ -416,6 +416,11 @@ const App: React.FC = () => {
   };
 
   const confirmClear = () => {
+    // Detach from whatever project was open — otherwise the next thing to
+    // land on this now-empty canvas (a batch-queue item queued before the
+    // clear, an autosave tick) would still think it belongs to the old
+    // project and silently overwrite its saved content with the fragment.
+    setActiveProjectId(null);
     handleClearCanvas(activeEditIdRef, selectionRangeRef);
     setShowClearConfirm(false);
   };
