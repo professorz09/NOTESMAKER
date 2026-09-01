@@ -44,6 +44,7 @@ interface EditorCanvasProps {
     multiVariant?: boolean;
   }) => void;
   onRemoveFromBatchQueue: (id: string) => void;
+  onRetryBatchQueueItem: (id: string) => void;
   isBatchPaused: boolean;
   onPauseBatchQueue: () => void;
   onResumeBatchQueue: () => void;
@@ -76,6 +77,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   batchQueueItems,
   onAddToBatchQueue,
   onRemoveFromBatchQueue,
+  onRetryBatchQueueItem,
   isBatchPaused,
   onPauseBatchQueue,
   onResumeBatchQueue,
@@ -156,6 +158,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           outputStyle={outputStyle}
           onAdd={onAddToBatchQueue}
           onRemove={onRemoveFromBatchQueue}
+          onRetry={onRetryBatchQueueItem}
           isPaused={isBatchPaused}
           onPause={onPauseBatchQueue}
           onResume={onResumeBatchQueue}

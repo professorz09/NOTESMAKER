@@ -14,6 +14,9 @@ interface BatchQueuePanelProps {
     multiVariant?: boolean;
   }) => void;
   onRemove: (id: string) => void;
+  // Resets a failed item back to pending IN PLACE (not a new item at the
+  // bottom of the list) and lets the queue continue from there.
+  onRetry: (id: string) => void;
   // Stop/Resume: doesn't touch what's already generating (an AI call can't
   // be cancelled cleanly, and it's already been paid for) — it just stops
   // the NEXT pending item from starting until Resume is pressed.
@@ -42,7 +45,7 @@ const STYLE_PLACEHOLDER: Record<BatchOutputStyle, string> = {
 // panel just lets the student add more, watch progress, and pull out
 // anything still pending. It's deliberately independent of the notes
 // canvas's edit mode: these are queue controls, not document content.
-export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputStyle, onAdd, onRemove, isPaused, onPause, onResume }) => {
+export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputStyle, onAdd, onRemove, onRetry, isPaused, onPause, onResume }) => {
   const [open, setOpen] = useState(items.length > 0);
   const [draft, setDraft] = useState('');
 
@@ -114,12 +117,17 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
           <div className="space-y-2">
             <div className="flex items-center justify-between px-0.5 gap-2">
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                {isPaused
-                  ? <span className="text-amber-600 dark:text-amber-400 font-semibold">Stopped — </span>
-                  : activeCount > 0 && <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Writing… </span>}
+                {failedCount > 0
+                  ? <span className="text-red-600 dark:text-red-400 font-semibold">Stopped — fix the failed item below to continue. </span>
+                  : isPaused
+                    ? <span className="text-amber-600 dark:text-amber-400 font-semibold">Stopped — </span>
+                    : activeCount > 0 && <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Writing… </span>}
                 {pendingCount} pending{failedCount > 0 ? `, ${failedCount} failed` : ''}
               </span>
-              {pendingCount > 0 && (
+              {/* Once something has failed, the queue is already stopped by
+                  that — Stop/Resume only makes sense while everything is
+                  still healthy (nothing to fix before it can continue). */}
+              {pendingCount > 0 && failedCount === 0 && (
                 isPaused ? (
                   <button
                     type="button"
@@ -176,29 +184,26 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
                     </button>
                   )}
                   {it.status === 'failed' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Re-queue with the item's OWN original settings —
-                        // not whatever the sidebar currently has selected,
-                        // which could be a completely different output
-                        // style/marks by now — then drop the stale failed
-                        // row so it doesn't linger next to the fresh retry.
-                        onAdd(it.question, {
-                          outputStyle: it.outputStyle,
-                          answerStyle: (it.answerStyle as UPSCAnswerStyle) ?? undefined,
-                          marks: it.marks ?? undefined,
-                          subject: (it.subject as UPSCSubject) ?? undefined,
-                          multiVariant: it.multiVariant,
-                        });
-                        onRemove(it.id);
-                      }}
-                      className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 flex-shrink-0"
-                      title="Re-queue with its original settings"
-                      aria-label="Re-queue"
-                    >
-                      <ListRestart className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onRetry(it.id)}
+                        className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400"
+                        title="Retry with the same settings"
+                        aria-label="Retry"
+                      >
+                        <ListRestart className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRemove(it.id)}
+                        className="text-slate-400 hover:text-red-500"
+                        title="Remove from queue"
+                        aria-label="Remove"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}

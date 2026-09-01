@@ -2883,7 +2883,12 @@ export function useGeneration({
           await batchQueue.removeItem(next.id);
         } else {
           await batchQueue.updateItem(next.id, { status: 'failed', error: lastErr?.message || 'Failed after retries' });
-          toast.error(`Could not generate "${next.question.slice(0, 50)}…" after ${BATCH_MAX_ATTEMPTS} attempts.`);
+          toast.error(`Could not generate "${next.question.slice(0, 50)}…" after ${BATCH_MAX_ATTEMPTS} attempts. Retry or remove it to continue the queue.`);
+          // A failure stops the WHOLE queue here, not just this item — the
+          // remaining pending items are left untouched (still in order)
+          // until this one is retried or removed, rather than silently
+          // skipping ahead to whatever comes next.
+          break;
         }
 
         // Stop was pressed while the item above was generating — it's
@@ -2907,6 +2912,14 @@ export function useGeneration({
     }
   };
 
+  // A failed item stops the whole queue (see runBatchQueue) until the
+  // student explicitly Retries or Removes it — so nothing here should
+  // auto-start (or silently resume) while one is still sitting there.
+  const canStartBatchQueue = () =>
+    !batchRunningRef.current && !batchPausedRef.current
+    && batchQueue.itemsRef.current.some(it => it.status === 'pending')
+    && !batchQueue.itemsRef.current.some(it => it.status === 'failed');
+
   // Reloads the queue scoped to whichever note is currently open — on
   // mount, AND every time the student opens a different note. This is what
   // makes the list "belong" to a note: switching away hides that note's
@@ -2920,9 +2933,7 @@ export function useGeneration({
       await batchQueue.loadQueue(activeProjectId);
       const stuck = batchQueue.itemsRef.current.filter(it => it.status === 'active');
       for (const it of stuck) await batchQueue.updateItem(it.id, { status: 'pending' });
-      if (batchQueue.itemsRef.current.some(it => it.status === 'pending') && !batchRunningRef.current && !batchPausedRef.current) {
-        runBatchQueue();
-      }
+      if (canStartBatchQueue()) runBatchQueue();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId]);
@@ -2968,20 +2979,33 @@ export function useGeneration({
     try {
       await batchQueue.addItems(drafts);
       toast.success(`${lines.length} item${lines.length > 1 ? 's' : ''} added to the queue.`);
-      if (!batchRunningRef.current && !batchPausedRef.current) runBatchQueue();
+      if (canStartBatchQueue()) runBatchQueue();
     } catch (error: any) {
       console.error(error);
       toast.error(`Could not queue: ${error.message || 'please try again.'}`);
     }
   };
 
-  // Only pending items can be pulled out — one already generating is left to
-  // finish (its slot in the document is already committed to), but removing
-  // it from the list here still stops it from being retried again later.
+  // Resets a failed item back to pending IN PLACE — it keeps its position
+  // and identity rather than being deleted and re-added as a new item at
+  // the bottom of the queue. That in-place reset is also what makes this
+  // safe to click more than once: a second click just re-sets the same
+  // item to pending again instead of creating another copy.
+  const retryBatchQueueItem = async (id: string) => {
+    await batchQueue.updateItem(id, { status: 'pending', attempt: 0, error: null });
+    if (canStartBatchQueue()) runBatchQueue();
+  };
+
+  // Only pending/failed items can be pulled out — one already generating is
+  // left to finish (its slot in the document is already committed to).
+  // Removing a FAILED item is also what un-blocks the queue: if it was the
+  // one holding everything up, the remaining pending items resume right
+  // after it's gone.
   const removeFromBatchQueue = (id: string) => {
     const item = batchQueue.itemsRef.current.find(it => it.id === id);
     if (item && item.status === 'active') return;
     batchQueue.removeItem(id);
+    if (canStartBatchQueue()) runBatchQueue();
   };
 
   const handleGenerateTable = async (e: React.MouseEvent) => {
@@ -3132,7 +3156,7 @@ export function useGeneration({
     handleFindPYQQuestions, togglePyqQuestion, setAllPyqSelected,
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
     batchQueueItems: batchQueue.items,
-    addToBatchQueue, removeFromBatchQueue,
+    addToBatchQueue, removeFromBatchQueue, retryBatchQueueItem,
     isBatchPaused, pauseBatchQueue, resumeBatchQueue,
     notesProgress,
     status,

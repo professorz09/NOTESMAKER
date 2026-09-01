@@ -154,7 +154,7 @@ const App: React.FC = () => {
     pyqQuestions, pyqSelectedIds, isFindingPyq,
     handleFindPYQQuestions, togglePyqQuestion, setAllPyqSelected,
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
-    batchQueueItems, addToBatchQueue, removeFromBatchQueue,
+    batchQueueItems, addToBatchQueue, removeFromBatchQueue, retryBatchQueueItem,
     isBatchPaused, pauseBatchQueue, resumeBatchQueue,
     notesProgress,
     status,
@@ -863,6 +863,7 @@ const App: React.FC = () => {
             batchQueueItems={batchQueueItems}
             onAddToBatchQueue={addToBatchQueue}
             onRemoveFromBatchQueue={removeFromBatchQueue}
+            onRetryBatchQueueItem={retryBatchQueueItem}
             isBatchPaused={isBatchPaused}
             onPauseBatchQueue={pauseBatchQueue}
             onResumeBatchQueue={resumeBatchQueue}
