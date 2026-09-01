@@ -334,6 +334,18 @@ export function useGeneration({
   // queue survives a reload instead of living only in this tab.
   const batchQueue = useBatchQueue();
   const batchRunningRef = useRef(false);
+  // A student "Stop"ping the queue shouldn't abort whatever's mid-generation
+  // right now (an AI call can't be cancelled cleanly, and the item already
+  // cost a call) — it just stops the NEXT item from starting. The paused
+  // items stay in the queue, exactly where they were, until "Resume".
+  const batchPausedRef = useRef(false);
+  const [isBatchPaused, setIsBatchPaused] = useState(false);
+  const pauseBatchQueue = () => { batchPausedRef.current = true; setIsBatchPaused(true); };
+  const resumeBatchQueue = () => {
+    batchPausedRef.current = false;
+    setIsBatchPaused(false);
+    if (!batchRunningRef.current) runBatchQueue();
+  };
   // Read inside the async worker loop instead of the `activeProjectId`
   // closure value, which would go stale the moment the student switches
   // notes mid-run.
@@ -2874,6 +2886,12 @@ export function useGeneration({
           toast.error(`Could not generate "${next.question.slice(0, 50)}…" after ${BATCH_MAX_ATTEMPTS} attempts.`);
         }
 
+        // Stop was pressed while the item above was generating — it's
+        // already delivered, so stop here rather than also sitting out the
+        // pacing gap; every remaining pending item is untouched for
+        // "Resume" to pick back up.
+        if (batchPausedRef.current) break;
+
         // Removing a still-pending item mid-run (or the queue simply
         // running dry) is checked live off the ref — no need to pace a gap
         // before a loop iteration that's about to find nothing anyway.
@@ -2902,7 +2920,7 @@ export function useGeneration({
       await batchQueue.loadQueue(activeProjectId);
       const stuck = batchQueue.itemsRef.current.filter(it => it.status === 'active');
       for (const it of stuck) await batchQueue.updateItem(it.id, { status: 'pending' });
-      if (batchQueue.itemsRef.current.some(it => it.status === 'pending') && !batchRunningRef.current) {
+      if (batchQueue.itemsRef.current.some(it => it.status === 'pending') && !batchRunningRef.current && !batchPausedRef.current) {
         runBatchQueue();
       }
     })();
@@ -2950,7 +2968,7 @@ export function useGeneration({
     try {
       await batchQueue.addItems(drafts);
       toast.success(`${lines.length} item${lines.length > 1 ? 's' : ''} added to the queue.`);
-      if (!batchRunningRef.current) runBatchQueue();
+      if (!batchRunningRef.current && !batchPausedRef.current) runBatchQueue();
     } catch (error: any) {
       console.error(error);
       toast.error(`Could not queue: ${error.message || 'please try again.'}`);
@@ -3115,6 +3133,7 @@ export function useGeneration({
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
     batchQueueItems: batchQueue.items,
     addToBatchQueue, removeFromBatchQueue,
+    isBatchPaused, pauseBatchQueue, resumeBatchQueue,
     notesProgress,
     status,
     language, setLanguage,

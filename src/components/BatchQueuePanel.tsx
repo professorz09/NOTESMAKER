@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ListPlus, ChevronUp, X, Clock, Loader2, AlertTriangle, ListRestart } from 'lucide-react';
+import { ListPlus, ChevronUp, X, Clock, Loader2, AlertTriangle, ListRestart, Pause, Play } from 'lucide-react';
 import type { BatchQueueItem, BatchOutputStyle } from '../hooks/useBatchQueue';
 import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 
@@ -14,6 +14,12 @@ interface BatchQueuePanelProps {
     multiVariant?: boolean;
   }) => void;
   onRemove: (id: string) => void;
+  // Stop/Resume: doesn't touch what's already generating (an AI call can't
+  // be cancelled cleanly, and it's already been paid for) — it just stops
+  // the NEXT pending item from starting until Resume is pressed.
+  isPaused: boolean;
+  onPause: () => void;
+  onResume: () => void;
 }
 
 const STYLE_LABEL: Record<BatchOutputStyle, string> = {
@@ -36,7 +42,7 @@ const STYLE_PLACEHOLDER: Record<BatchOutputStyle, string> = {
 // panel just lets the student add more, watch progress, and pull out
 // anything still pending. It's deliberately independent of the notes
 // canvas's edit mode: these are queue controls, not document content.
-export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputStyle, onAdd, onRemove }) => {
+export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputStyle, onAdd, onRemove, isPaused, onPause, onResume }) => {
   const [open, setOpen] = useState(items.length > 0);
   const [draft, setDraft] = useState('');
 
@@ -106,11 +112,33 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
 
         {items.length > 0 && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between px-0.5">
+            <div className="flex items-center justify-between px-0.5 gap-2">
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                {activeCount > 0 && <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Writing… </span>}
+                {isPaused
+                  ? <span className="text-amber-600 dark:text-amber-400 font-semibold">Stopped — </span>
+                  : activeCount > 0 && <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Writing… </span>}
                 {pendingCount} pending{failedCount > 0 ? `, ${failedCount} failed` : ''}
               </span>
+              {pendingCount > 0 && (
+                isPaused ? (
+                  <button
+                    type="button"
+                    onClick={onResume}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors text-[11px] font-bold flex-shrink-0"
+                  >
+                    <Play className="w-3 h-3" /> Resume
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onPause}
+                    title="Lets whatever's currently writing finish, then stops before starting the next one"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors text-[11px] font-bold flex-shrink-0"
+                  >
+                    <Pause className="w-3 h-3" /> Stop
+                  </button>
+                )
+              )}
             </div>
             <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
               {items.map((it) => (
