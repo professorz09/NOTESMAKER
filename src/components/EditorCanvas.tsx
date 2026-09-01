@@ -4,6 +4,7 @@ import { EmptyState } from './EmptyState';
 import { NextQuestionPanel } from './NextQuestionPanel';
 import { PYQQuestionPicker } from './PYQQuestionPicker';
 import { BatchQueuePanel } from './BatchQueuePanel';
+import { GeneratedQuestionsIndex } from './GeneratedQuestionsIndex';
 import type { UPSCAnswerStyle, UPSCSubject, PYQQuestionItem } from '../services/ai/index';
 import type { BatchQueueItem } from '../hooks/useBatchQueue';
 
@@ -97,6 +98,14 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           />
         )}
       </div>
+
+      {/* Show All Generated — every UPSC question written so far in this
+          note, click any one to jump straight to it. A note built up over
+          many Next Question / batch answers has no other way to see what's
+          already been asked without scrolling the whole document. */}
+      {mode !== 'transcript' && outputStyle === 'upsc' && generatedHtml && (
+        <GeneratedQuestionsIndex editorRef={editorRef} generatedHtml={generatedHtml} />
+      )}
 
       {/* PYQ question-bank picker — shown once "Find PYQ Question Set" (in
           the sidebar) has returned candidates. Stays mounted through

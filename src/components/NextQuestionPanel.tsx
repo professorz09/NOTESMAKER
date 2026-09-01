@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronUp, GraduationCap, BookText, Loader2, Sparkles, ListPlus } from 'lucide-react';
+import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronUp, GraduationCap, BookText, Loader2, Sparkles, ListPlus, X, Layers } from 'lucide-react';
 import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
+
+interface StagedQuestion {
+  id: string;
+  text: string;
+  style: UPSCAnswerStyle;
+  marks: number;
+  subject: UPSCSubject;
+}
 
 interface NextQuestionPanelProps {
   defaultStyle: UPSCAnswerStyle;
@@ -8,10 +16,10 @@ interface NextQuestionPanelProps {
   defaultSubject: UPSCSubject;
   isGenerating?: boolean;
   onGenerate: (style: UPSCAnswerStyle, marks: number, customQuestion: string, subject: UPSCSubject) => void;
-  // Batch queue: adds this exact question (with the Subject/Marks/Style
-  // picked right here) to the queue below instead of generating it right
-  // now — lets the student line up several next-questions in one go and
-  // walk away while they're written one at a time in the background.
+  // Batch queue: adds one question (with whatever Subject/Marks/Style was
+  // picked for it) to the queue below instead of generating it right now.
+  // "Generate All" calls this once per staged question, so several land in
+  // the queue together in one click instead of one at a time.
   onAddToQueue: (style: UPSCAnswerStyle, marks: number, question: string, subject: UPSCSubject) => void;
   queuedCount?: number;
 }
@@ -45,6 +53,34 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
   const [marks, setMarks] = useState<number>(defaultMarks);
   const [subject, setSubject] = useState<UPSCSubject>(defaultSubject);
   const [question, setQuestion] = useState('');
+  // Staged locally in this panel before being sent to the queue — lets the
+  // student build up a whole list ("Add Another Question" repeatedly,
+  // changing Subject/Marks/Style between each if they want) and then send
+  // all of them to the queue together with one "Generate All" click.
+  const [staged, setStaged] = useState<StagedQuestion[]>([]);
+
+  const handleAddAnother = () => {
+    if (!question.trim()) return;
+    setStaged(prev => [...prev, {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      text: question.trim(), style, marks, subject,
+    }]);
+    setQuestion('');
+  };
+
+  const removeStaged = (id: string) => setStaged(prev => prev.filter(s => s.id !== id));
+
+  const handleGenerateAll = () => {
+    const all = question.trim()
+      ? [...staged, { id: 'current', text: question.trim(), style, marks, subject }]
+      : staged;
+    if (all.length === 0) return;
+    all.forEach(item => onAddToQueue(item.style, item.marks, item.text, item.subject));
+    setStaged([]);
+    setQuestion('');
+  };
+
+  const totalStaged = staged.length + (question.trim() ? 1 : 0);
 
   if (!open) {
     return (
@@ -124,6 +160,32 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           />
         </div>
 
+        {/* Staged questions — built up via "Add Another Question" below,
+            each keeping the Subject/Marks/Style it was staged with, then
+            sent to the queue together with "Generate All". */}
+        {staged.length > 0 && (
+          <div className="space-y-1.5 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-2.5">
+            <p className="text-[10px] font-bold tracking-widest text-cyan-700 dark:text-cyan-400 uppercase px-0.5">
+              Staged ({staged.length})
+            </p>
+            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-0.5">
+              {staged.map((s) => (
+                <div key={s.id} className="flex items-start gap-2 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70">
+                  <span className="flex-1 min-w-0 text-[12px] text-slate-700 dark:text-slate-200 leading-snug">{s.text}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeStaged(s.id)}
+                    className="text-slate-400 hover:text-red-500 flex-shrink-0"
+                    aria-label="Remove"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Marks */}
         <div className="space-y-2">
           <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5">
@@ -196,20 +258,28 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
           </button>
           <button
             disabled={isGenerating || !question.trim()}
-            title={!question.trim() ? 'Type a question first — the queue needs the exact question text' : 'Add this question (with the Subject/Marks/Style above) to the batch queue instead of generating it right now'}
-            onClick={() => {
-              onAddToQueue(style, marks, question.trim(), subject);
-              setQuestion('');
-            }}
+            title={!question.trim() ? 'Type a question first' : 'Stage this question locally — pick different settings for the next one, then send them all with "Generate All"'}
+            onClick={handleAddAnother}
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-            style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 50%, #155e75 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
           >
-            <ListPlus className="w-4 h-4" /> Add to Queue{queuedCount > 0 ? ` (${queuedCount})` : ''}
+            <Layers className="w-4 h-4" /> Add Another Question
           </button>
         </div>
-        {!question.trim() && (
+
+        <button
+          disabled={isGenerating || totalStaged === 0}
+          title={totalStaged === 0 ? 'Stage at least one question first' : `Send all ${totalStaged} staged question(s) to the batch queue together`}
+          onClick={handleGenerateAll}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+          style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 50%, #155e75 100%)' }}
+        >
+          <ListPlus className="w-4 h-4" /> Generate All{totalStaged > 0 ? ` (${totalStaged})` : ''}{queuedCount > 0 ? ` — ${queuedCount} already queued` : ''}
+        </button>
+
+        {staged.length === 0 && (
           <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center -mt-1">
-            Type a question above, then "Add to Queue" to line up several without waiting for each one.
+            Type a question, tap "Add Another Question" to stage it and type the next — then "Generate All" sends everything staged to the queue at once.
           </p>
         )}
       </div>
