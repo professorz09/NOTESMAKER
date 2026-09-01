@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
 import { ListPlus, ChevronUp, X, Clock, Loader2, AlertTriangle, ListRestart } from 'lucide-react';
 import type { BatchQueueItem, BatchOutputStyle } from '../hooks/useBatchQueue';
+import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
 
 interface BatchQueuePanelProps {
   items: BatchQueueItem[];
   outputStyle: BatchOutputStyle;
-  onAdd: (rawText: string) => void;
+  onAdd: (rawText: string, overrides?: {
+    outputStyle?: BatchOutputStyle;
+    answerStyle?: UPSCAnswerStyle;
+    marks?: number;
+    subject?: UPSCSubject;
+    multiVariant?: boolean;
+  }) => void;
   onRemove: (id: string) => void;
 }
 
@@ -143,9 +150,23 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
                   {it.status === 'failed' && (
                     <button
                       type="button"
-                      onClick={() => onAdd(it.question)}
+                      onClick={() => {
+                        // Re-queue with the item's OWN original settings —
+                        // not whatever the sidebar currently has selected,
+                        // which could be a completely different output
+                        // style/marks by now — then drop the stale failed
+                        // row so it doesn't linger next to the fresh retry.
+                        onAdd(it.question, {
+                          outputStyle: it.outputStyle,
+                          answerStyle: (it.answerStyle as UPSCAnswerStyle) ?? undefined,
+                          marks: it.marks ?? undefined,
+                          subject: (it.subject as UPSCSubject) ?? undefined,
+                          multiVariant: it.multiVariant,
+                        });
+                        onRemove(it.id);
+                      }}
                       className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 flex-shrink-0"
-                      title="Re-queue"
+                      title="Re-queue with its original settings"
                       aria-label="Re-queue"
                     >
                       <ListRestart className="w-3.5 h-3.5" />

@@ -2862,7 +2862,7 @@ export function useGeneration({
             try {
               const existing = (await loadProjectContent(next.projectId)) || '';
               const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
-              await saveProject(next.projectId, existing + divider + html);
+              await saveProject(next.projectId, sanitizeHtml(existing + divider + html));
             } catch (err) {
               console.error(err);
               toast.error(`Wrote an answer for a different note but could not save it there — check that note's history.`);
