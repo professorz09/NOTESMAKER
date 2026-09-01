@@ -142,9 +142,9 @@ ${lengthLineHi(marks)}
 
 ${grounded ? `━━━ ग्राउंडिंग — सही तथ्यों हेतु Google Search का प्रयोग करें ━━━
 आपके पास live Google Search ग्राउंडिंग उपलब्ध है। लिखने से पहले इसका प्रयोग करके सुनिश्चित करें:
-• काव्य-पंक्तियाँ/दोहे बिल्कुल सही शब्दों में उद्धृत हों (गलत उद्धरण से अंक कटते हैं)
+• काव्य-पंक्तियाँ/गद्यांश/दोहे बिल्कुल सही शब्दों में उद्धृत हों (गलत उद्धरण से अंक कटते हैं)
 • रचनाकारों की सही जन्म/रचनाकाल तिथियाँ और रचनाओं के सही नाम
-• आलोचकों (रामचंद्र शुक्ल, हजारीप्रसाद द्विवेदी, नामवर सिंह आदि) के मत सही ढंग से संदर्भित हों
+• जो भी आलोचक इस विशेष रचना/विधा पर वास्तव में प्रासंगिक हों, केवल उन्हीं का सही ढंग से उल्लेख करें — उपन्यास/कहानी पर लिखने वाले आलोचक अलग हैं, कविता पर अलग; किसी चंद चुनिंदा नामों तक सीमित मत रहें
 अनुमान या अस्पष्ट-सा लगने वाला उद्धरण देने से बेहतर है सामान्य किंतु सही बात लिखना।` : ''}
 
 ━━━ UPSC हिंदी साहित्य पाठ्यक्रम के अनुसार ━━━
@@ -168,13 +168,14 @@ ${grounded ? `━━━ ग्राउंडिंग — सही तथ्�
 • महादेवी वर्मा (यामा), अज्ञेय (शेखर: एक जीवनी), मुक्तिबोध (अंधेरे में)
 
 ━━━ उत्तर लिखने के नियम ━━━
-1. **भूमिका (Introduction)**: संबंधित रचना/कवि की सटीक-उद्धृत पंक्ति या दोहे से शुरू करें, फिर 1 पंक्ति में प्रश्न का संदर्भ जोड़ें। 50 शब्दों से कम — पर प्रभावशाली।
+सबसे पहली प्राथमिकता प्रश्न का सारगर्भित, सीधा उत्तर है — उद्धरण और आलोचकों के संदर्भ सहायक प्रमाण हैं, मुख्य लक्ष्य नहीं। जहाँ कोई सटीक-याद उद्धरण वाकई बिंदु को मज़बूत करे वहीं दें; बिना ज़रूरत हर पंक्ति में उद्धरण ठूँसने से उत्तर कमज़ोर होता है, न कि मज़बूत।
+1. **भूमिका (Introduction)**: संबंधित रचना/कवि की सटीक-उद्धृत पंक्ति, कोई वास्तविक प्रसंग, या विषय की स्पष्ट परिभाषा से शुरू करें — जो भी इस प्रश्न पर सबसे सटीक बैठे। फिर 1 पंक्ति में प्रश्न का संदर्भ जोड़ें। 50 शब्दों से कम — पर प्रभावशाली।
 2. **मुख्य भाग (Body)**: प्रश्न के अनुसार बहुआयामी विश्लेषण करें, स्पष्ट उपशीर्षकों के साथ:
-   - साहित्यिक उद्धरण (काव्य-पंक्तियाँ, दोहे) — सही शब्दों में — अनिवार्य रूप से दें, हर उद्धरण के साथ 1-2 पंक्ति व्याख्या। हर उद्धृत पंक्ति को <strong> में रखें ताकि वह वाक्य में स्पष्ट रूप से अलग दिखे — कहीं भी उद्धरण को सामान्य वाक्य के बीच छिपा हुआ न छोड़ें।
-   - एक ही रचना/कवि को बार-बार दोहराने की बजाय, जहाँ प्रश्न की गुंजाइश हो वहाँ कम-से-कम दो अलग-अलग रचनाकारों/रचनाओं के उद्धरण या उदाहरण लाएं — इससे उत्तर की गहराई और विविधता दोनों दिखती हैं।
+   - जहाँ कोई सही, याद उद्धरण (काव्य-पंक्ति/गद्यांश/दोहा) वाकई बिंदु को पुष्ट करे, वहाँ दें — सही शब्दों में, 1-2 पंक्ति व्याख्या सहित, और उसे <strong> में रखें ताकि वह वाक्य में स्पष्ट अलग दिखे। हर बिंदु के लिए ज़बरदस्ती उद्धरण मत खोजें — ठोस विश्लेषण या उदाहरण भी उतना ही मान्य है।
+   - एक ही रचना/कवि को बार-बार दोहराने की बजाय, जहाँ प्रश्न की गुंजाइश हो वहाँ भिन्न रचनाकारों/रचनाओं के उदाहरण लाएं — इससे उत्तर की गहराई और विविधता दोनों दिखती हैं।
    - रस, अलंकार, छंद, काव्य-गुण का उल्लेख करें जहाँ प्रासंगिक हो, ठोस उदाहरण सहित
    - साहित्यिक आंदोलन/युग से जोड़ें — सटीक तिथियों और संदर्भों के साथ
-   - आलोचकों के मत: रामचंद्र शुक्ल, हजारीप्रसाद द्विवेदी, नामवर सिंह, रामविलास शर्मा — सही ढंग से उद्धृत, और आलोचक का नाम भी <strong> में दें
+   - जहाँ प्रासंगिक हो वहीं किसी वास्तविक आलोचक का सही-उद्धृत मत लाएं (आलोचक का नाम <strong> में) — रचना/विधा के अनुसार सही आलोचक चुनें, हर बार वही 2-3 चिर-परिचित नाम मत दोहराएं
 3. **निष्कर्ष (Conclusion)**: "अतः"/"इस प्रकार" से शुरू न करें। समकालीन प्रासंगिकता या रचना के स्थायी महत्व से जोड़ते हुए 40 शब्दों में एक यादगार समापन दें।
 
 ━━━ हर उत्तर अलग दिखे, एक जैसा ढांचा न बने ━━━
@@ -278,7 +279,7 @@ Use <strong> for every key term, name, data point, article number.
 Use <h3> sub-headings only where they genuinely help, not to look structured.
 
 ━━━ STEP 4 — SUPPORTING ELEMENTS (only if they add value)
-• <div class="key-point"> for the ONE core definition that anchors the answer (no label, or name the actual term — never "Key Concept")
+• <div class="key-point"> for the ONE core definition/claim that anchors the whole answer — but ONLY if the question genuinely turns on one definable concept. Put NO heading or label inside it at all: no "Key Concept", no "Core Idea", nothing — open the very first sentence with the actual term itself in <strong>, then its definition, as one plain paragraph. If nothing in this question needs a standalone definition, skip this element entirely rather than inventing one to fill the slot.
 • <table> only if comparative/timeline data is genuinely clearer than prose
 
 ━━━ STEP 5 — CONCLUSION (the outro — make it land)
@@ -295,29 +296,20 @@ Return ONLY raw HTML. No markdown fences.
 `;
 
   if (style === 'classic') return `
-Write a polished, top-of-the-class UPSC Mains answer using the classic three-part structure, executed to the highest standard. The SHAPE is fixed on purpose — introduction, body, conclusion — but nothing inside it should feel templated: every part must be sharp, specific to this question, and dense with real examples.
+Write a clean UPSC Mains answer in the classic three-part shape: introduction, body, conclusion.
 
 Question: "${question}"
 Language: ${lang}
 ${lengthLine}
 ${grounded ? GROUNDING_RULE : ''}${CLEAN_FORMAT_RULE}
-━━━ THE STRUCTURE (always these three parts, never skip one) ━━━
+━━━ STRUCTURE ━━━
+1. Introduction (<h2>) — one short, relevant opening (a hook of whatever kind fits — a fact, a definition, an incident, a reference) bridging into the question. Under 60 words.
+2. Body (<h3> sub-headings from the question's own sub-themes, never "Body" or "Point 1") — cover the question's real dimensions in logical order.
+3. Conclusion (<h2>) — a real synthesis (don't just restate the question) and one forward-looking or resolving line. Do NOT open with "Thus" / "Hence" / "In conclusion" / "अतः" / "इस प्रकार". Under 50 words.
 
-1. INTRODUCTION (<h2>) — Open with exactly ONE real, verified hook, choosing whichever type genuinely fits this question — don't default to the same type answer after answer:
-   • an exactly-quoted line from a relevant thinker, leader, or poet, correctly attributed
-   • a striking real historical or contemporary incident/event
-   • a precise definition of the core concept the question turns on
-   • a real, current data point or fact (with its actual source)
-   Follow the hook with 1-2 lines bridging it to exactly what this answer is about to cover. Under 60 words total — every word earning its place.
-
-2. BODY (<h3> sub-headings named from the question's own sub-themes, never "Body" or "Point 1") — Cover the question's real dimensions in logical order. This is what makes the answer feel "top level": PACK almost every paragraph/bullet with a real, verified example — a scheme, case, data point, committee, quote, or event — so claims are backed by evidence rather than left as assertions. Depth comes from the evidence density, not from extra words.
-
-3. CONCLUSION (<h2>) — A genuine निष्कर्ष: synthesize the answer's actual argument (don't just restate the question), then close with one forward-looking, balanced, or resolving line that would stay with an examiner reading dozens of copies. Do NOT open with "Thus" / "Hence" / "In conclusion" / "अतः" / "इस प्रकार". Under 50 words.
-
-Use <div class="key-point"> for the one core definition/claim anchoring the whole answer (name the actual term — never "Key Concept"). Use <table> only if comparative/timeline data is genuinely clearer than prose.
-Use <strong> for every key term, name, data point, article number.
+Use <strong> for key terms and figures. Use <table> only if it's genuinely clearer than prose.
 ${multiVariant ? MULTI_VARIANT_RULE(lang) : ''}
-RULES: ${wordRange.min}-${wordRange.max} words — never under ${wordRange.min}. No filler, no invented facts — every example must be real and verified via search.
+RULES: ${wordRange.min}-${wordRange.max} words — never under ${wordRange.min}.
 Return ONLY raw HTML. No markdown fences.
 `;
 
