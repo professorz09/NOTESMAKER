@@ -138,25 +138,28 @@ export function useProjects() {
     fetchProjects(true);
   }, [fetchProjects]);
 
+  // Intentionally does NOT swallow errors into a `null` return — a failed
+  // fetch (network drop, RLS hiccup) and a project that's genuinely empty
+  // both used to look identical to the caller, which meant opening a
+  // project during a network blip silently did nothing AND still let the
+  // caller mark that project "active", so the next auto-save would have
+  // overwritten it with whatever unrelated document was already on screen.
+  // Throwing here lets the caller tell the two cases apart and only flips
+  // the active project on an actual successful load.
   const loadProjectContent = useCallback(async (id: string): Promise<string | null> => {
-    try {
-      if (isSupabaseConfigured) {
-        const sb = getSupabaseClient();
-        const { data, error: sbErr } = await sb
-          .from('projects')
-          .select('content')
-          .eq('id', id)
-          .single();
-        if (sbErr) throw sbErr;
-        return (data as { content: string | null })?.content ?? null;
-      } else {
-        const local = getLocalProjects();
-        const p = local.find(lp => lp.id === id);
-        return p?.content ?? null;
-      }
-    } catch {
-      return null;
+    if (isSupabaseConfigured) {
+      const sb = getSupabaseClient();
+      const { data, error: sbErr } = await sb
+        .from('projects')
+        .select('content')
+        .eq('id', id)
+        .single();
+      if (sbErr) throw sbErr;
+      return (data as { content: string | null })?.content ?? null;
     }
+    const local = getLocalProjects();
+    const p = local.find(lp => lp.id === id);
+    return p?.content ?? null;
   }, []);
 
   const createProject = useCallback(async (name: string, content: string, meta?: ProjectCreateMeta): Promise<ProjectMeta | null> => {

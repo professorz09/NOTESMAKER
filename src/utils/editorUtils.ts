@@ -1,5 +1,22 @@
 export const STORAGE_KEY = 'ai_book_writer_draft';
 
+// localStorage is only a "resume last session" cache — the project itself
+// is what's authoritative (Supabase, or the local-projects fallback). A
+// long batch-generated document (many PYQ answers appended one after
+// another) can exceed the browser's per-origin localStorage quota
+// (commonly ~5MB), and an unguarded setItem throws QuotaExceededError
+// synchronously — which used to abort whatever load/save flow was mid-way
+// through it, making a big project look like it "won't load" even though
+// the in-memory content was already there. Swallow the failure here so a
+// large document degrades to "not cached for resume" instead of breaking.
+export const safeSaveDraft = (html: string): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, html);
+  } catch {
+    // Quota exceeded or storage unavailable — non-fatal.
+  }
+};
+
 /** Walk up the DOM tree and return the first element that scrolls vertically. */
 export const getScrollParent = (el: Element): HTMLElement | null => {
   let node = el.parentElement;
@@ -22,6 +39,16 @@ export const extractImagesFromHtml = (html: string): { base64: string; mimeType:
 };
 
 export const getSectionNodes = (startNode: Element): Element[] => {
+  // A UPSC Q&A block's heading lives inside `.upsc-question-header`, itself
+  // nested inside the `<section class="upsc-qa-block">` that also holds the
+  // whole answer body — the heading has no following siblings of its own,
+  // so the generic "walk next siblings until the next same/higher heading"
+  // logic below finds nothing and only the heading text gets removed,
+  // leaving the answer body orphaned. Removing the whole block is what
+  // "delete this question" actually means here, so special-case it.
+  const qaBlock = startNode.closest('.upsc-qa-block');
+  if (qaBlock) return [qaBlock];
+
   const nodes: Element[] = [startNode];
   const getLevel = (tag: string) => {
     const t = tag.toUpperCase();
