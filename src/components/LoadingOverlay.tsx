@@ -9,20 +9,29 @@ const LABELS: Record<string, string> = {
 
 interface LoadingOverlayProps {
   status: GenerationStatus;
+  // Jumps the document's scroll container to the bottom — lets the student
+  // tap the pill to watch a live-generating answer land instead of
+  // scrolling the whole page by hand to find where it's writing.
+  onClick?: () => void;
 }
 
 // A compact, NON-BLOCKING progress pill pinned to the bottom of the screen.
 // It intentionally does NOT cover the editor (no full-screen backdrop, and
 // `pointer-events-none`) so the document stays visible and the user can keep
 // reading / scrolling while an answer is being written below.
-export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status }) => {
+export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status, onClick }) => {
   if (status === GenerationStatus.IDLE) return null;
 
   const label = LABELS[status] ?? 'Generating…';
 
   return (
     <div className="pointer-events-none fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex justify-center px-4">
-      <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 shadow-lg pl-3 pr-4 py-2">
+      <button
+        type="button"
+        onClick={onClick}
+        title="Jump to the bottom of the document"
+        className="pointer-events-auto flex items-center gap-3 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 shadow-lg pl-3 pr-4 py-2 cursor-pointer transition-transform hover:scale-[1.03] active:scale-[0.98]"
+      >
         <span className="relative flex w-5 h-5 items-center justify-center">
           <span className="absolute inset-0 rounded-full border-2 border-slate-200 dark:border-slate-600" />
           <span
@@ -31,7 +40,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status }) => {
           />
         </span>
         <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{label}</span>
-      </div>
+      </button>
     </div>
   );
 };

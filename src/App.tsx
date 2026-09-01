@@ -90,6 +90,13 @@ const App: React.FC = () => {
   // lets that one row show a spinner instead of looking unresponsive while
   // a large document downloads.
   const [openingProjectId, setOpeningProjectId] = useState<string | null>(null);
+  // The document's own scroll container — the "Writing content…" pill
+  // jumps here so the student can watch a live-generating answer land
+  // instead of scrolling the whole page by hand to find it.
+  const contentScrollRef = React.useRef<HTMLDivElement>(null);
+  const scrollContentToBottom = React.useCallback(() => {
+    contentScrollRef.current?.scrollTo({ top: contentScrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
@@ -784,7 +791,7 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative transition-all duration-300">
-        {!mindmap && <LoadingOverlay status={status} />}
+        {!mindmap && <LoadingOverlay status={status} onClick={scrollContentToBottom} />}
         {mindmap && (
           <MindmapOverlay
             mindmap={mindmap}
@@ -824,7 +831,10 @@ const App: React.FC = () => {
           toggleDarkMode={() => setIsDarkMode(d => !d)}
         />
 
-        <div className="flex-1 overflow-auto pt-14 sm:pt-16 md:pt-20 lg:pt-20 pb-12 px-2 sm:px-4 md:px-6 lg:px-10 xl:px-16 relative scrollbar-thin scrollbar-track-transparent">
+        <div
+          ref={contentScrollRef}
+          className="flex-1 overflow-auto pt-14 sm:pt-16 md:pt-20 lg:pt-20 pb-12 px-2 sm:px-4 md:px-6 lg:px-10 xl:px-16 relative scrollbar-thin scrollbar-track-transparent"
+        >
           <EditorCanvas
             generatedHtml={generatedHtml}
             status={status}
