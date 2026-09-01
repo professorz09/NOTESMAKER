@@ -263,7 +263,10 @@ EVERY example, case, scheme, judgment, or data point cited must be REAL and CORR
 • Social Issues → real NFHS/SRS figures, actual state-level success stories with real outcomes
 • Science/Tech → specific, real, correctly-dated achievements, rankings, India's actual milestones
 
-Each body section should carry at least one such fully-verified concrete example — a claim without a real example reads as an opinion, not an exam-worthy answer.
+Every body section must carry AT LEAST ONE such fully-verified concrete example — a claim without a real example reads as an opinion, not an exam-worthy answer. For a 20 or 50-marks answer, give at least TWO per section — there's room, and depth here is what actually separates a topper's copy.
+Make each example UNMISTAKABLE to a reader skimming the answer — never bury it as a vague aside ("for example, some schemes have tried…"):
+• Lead with <strong>the example's own name</strong> as the first thing the eye catches — the case name, scheme name, Article number, data point, or thinker — then state in one crisp line what it actually held/did/showed.
+• Pattern to follow (not a fixed example to reuse — invent the real, verified one this question actually needs): <strong>Vishaka v. State of Rajasthan (1997)</strong> laid down workplace-harassment guidelines that the POSH Act, 2013 later codified.
 Use <strong> for every key term, name, data point, article number.
 Use <h3> sub-headings only where they genuinely help, not to look structured.
 
