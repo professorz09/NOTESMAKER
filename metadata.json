@@ -1,5 +1,8 @@
 {
   "name": "UPSC NotesMaker",
   "description": "AI-powered smart notes generator for UPSC and competitive exam preparation. Generates structured study notes, tables, flowcharts, and exports to PDF.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

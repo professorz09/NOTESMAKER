@@ -78,16 +78,28 @@ function installProxyFetchInterceptor() {
 }
 
 export const createAIClient = () => {
-  if (!PROXY_BASE_URL) {
-    throw new Error('AI proxy not configured — VITE_SUPABASE_URL missing.');
+  if (PROXY_BASE_URL) {
+    installProxyFetchInterceptor();
+    // apiKey is a placeholder — the interceptor above swaps it for the
+    // user's Supabase JWT before the request leaves the browser.
+    return new GoogleGenAI({
+      apiKey: 'proxied',
+      httpOptions: { baseUrl: PROXY_BASE_URL },
+    });
   }
-  installProxyFetchInterceptor();
-  // apiKey is a placeholder — the interceptor above swaps it for the
-  // user's Supabase JWT before the request leaves the browser.
-  return new GoogleGenAI({
-    apiKey: 'proxied',
-    httpOptions: { baseUrl: PROXY_BASE_URL },
-  });
+
+  const geminiApiKey =
+    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
+    (import.meta.env?.VITE_GEMINI_API_KEY as string | undefined) ||
+    '';
+
+  if (geminiApiKey) {
+    return new GoogleGenAI({
+      apiKey: geminiApiKey,
+    });
+  }
+
+  throw new Error('Gemini API is not configured. Please set GEMINI_API_KEY in your environment or configure Supabase.');
 };
 
 // --- Generation budgets ----------------------------------------------------

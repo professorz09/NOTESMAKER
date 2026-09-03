@@ -183,6 +183,7 @@ async function importPkcs8Pem(pem) {
  *    - All gemini-2.0 / 1.5 / 1.0   : returns 404 → 2.5-flash-lite (last-resort) */ function normaliseVertexModel(model) {
   const MAP = {
     "gemini-3-pro-preview": "gemini-3.1-pro-preview",
+    "gemini-3.7-flash": "gemini-3.8-flash",
     "gemini-3.1-flash-lite-preview": "gemini-3.1-flash-lite",
     "gemini-2.0-flash": "gemini-2.5-flash-lite",
     "gemini-2.0-flash-lite": "gemini-2.5-flash-lite",

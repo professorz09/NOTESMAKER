@@ -51,12 +51,12 @@ export const CURRENT_AFFAIRS_FLASH_MODEL = 'gemini-3.1-flash-lite';
 // The grounded (search) step specifically needs a model that reliably ACTS
 // on the googleSearch tool during a real writing call, not just accepts it —
 // Flash Lite has been observed to skip invoking search on long generation
-// calls even with the tool attached. gemini-3.7-flash ships with "Pro-level
-// agentic capabilities" (launched Aug 2026) — fast and cheap like Flash, but
+// calls even with the tool attached. gemini-3.8-flash ships with "Pro-level
+// agentic capabilities" (launched Sept 2026) — fast and cheap like Flash, but
 // trustworthy for tool-use like Pro — used for every call in this file that
 // needs live search: quick mode's topics/general path, and both deep-mode
 // calls whenever they're grounded.
-const CURRENT_AFFAIRS_GROUNDED_MODEL = 'gemini-3.7-flash';
+const CURRENT_AFFAIRS_GROUNDED_MODEL = 'gemini-3.8-flash';
 
 // Named once so every grounded prompt in this file points the model at the
 // same trusted set — PIB first (it's the primary source UPSC current

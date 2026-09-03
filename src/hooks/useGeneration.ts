@@ -85,14 +85,14 @@ const DEEP_PRO_MODEL = 'gemini-3.1-pro-preview';
 // Pro for the outline/completeness passes and this Flash model for the bulk
 // per-section expand (faster, cheaper, still solid quality).
 const DETAILED_FLASH_MODEL = 'gemini-3.1-flash-lite';
-// Grounding-safe Flash: gemini-3.7-flash (launched Aug 2026) ships with
+// Grounding-safe Flash: gemini-3.8-flash (launched Sept 2026) ships with
 // "Pro-level agentic capabilities" — unlike Flash Lite it can be trusted to
 // actually ACT on the googleSearch tool during a long section-writing call,
 // not just accept it. Whenever the user turns Grounding on, section-writing
 // calls that would otherwise run on Flash Lite are upgraded to this model
 // instead of jumping all the way to Pro — keeps the speed/cost the
 // Medium/Detailed levels promise while still making the search results real.
-const GROUNDING_FLASH_MODEL = 'gemini-3.7-flash';
+const GROUNDING_FLASH_MODEL = 'gemini-3.8-flash';
 // Swaps Flash Lite for the grounding-safe Flash whenever grounding is on —
 // leaves Pro (or any other explicit model choice) untouched, so this only
 // ever affects the specific case that was actually broken (a Flash-Lite
@@ -464,7 +464,7 @@ export function useGeneration({
   const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE);
   // Same shadowing pattern as groundingEnabled above.
   const [uiLanguage, setLanguage] = useState('Hindi');
-  const [uiAiModel, setAiModel] = useState('gemini-3.1-pro-preview');
+  const [uiAiModel, setAiModel] = useState('gemini-3.8-flash');
   const language = uiLanguage;
   const aiModel = uiAiModel;
   const [topicInput, setTopicInput] = useState('');
