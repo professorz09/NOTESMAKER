@@ -20,5 +20,5 @@ export type { GroundingSectionMeta, GroundingAddition } from './groundingEnrichm
 export { rewriteContent, rewriteSection, expandSection, generateNextContent, generateDetailedNextTopic } from './contentRewrite';
 export { generateDiagram, generateSectionImage } from './diagramAndImage';
 export { generateResearchPaper, translatePdfToHindi, analyzeAnswerPdf, generateAnswerFromTopperCopy, translatePdfPageToHindi } from './researchAndPdf';
-export { generateCurrentAffairsQuick, generateCurrentAffairsDeep, generateCurrentAffairsScan, generateCurrentAffairsAgentic, CURRENT_AFFAIRS_FLASH_MODEL, type CASource } from './currentAffairsGeneration';
+export { generateCurrentAffairsQuick, generateCurrentAffairsDeep, generateCurrentAffairsScan, generateCurrentAffairsAgentic, CURRENT_AFFAIRS_FLASH_MODEL, type CASource, type CADepth } from './currentAffairsGeneration';
 export { generateEssay } from './essayGeneration';

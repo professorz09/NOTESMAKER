@@ -170,7 +170,7 @@ const App: React.FC = () => {
     handleTranscriptFileUpload, handleGenerateTranscript,
     handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
     youtubeUrl, setYoutubeUrl,
-    caUrls, setCaUrls, caDate, setCaDate, caStyle, setCaStyle, caProgress,
+    caUrls, setCaUrls, caDate, setCaDate, caStyle, setCaStyle, caDepth, setCaDepth, caProgress,
     handleGenerateCurrentAffairs, pendingProjectMetaRef,
     mindmap, resolveMindmapAction, handleMindmapAddMore, handleMindmapNodeClick, handleMindmapDone,
     handleMindmapApprove, handleMindmapRestructure, handleMindmapCompareApply, handleMindmapCompareDiscard,
@@ -778,6 +778,8 @@ const App: React.FC = () => {
         setCaDate={setCaDate}
         caStyle={caStyle}
         setCaStyle={setCaStyle}
+        caDepth={caDepth}
+        setCaDepth={setCaDepth}
         caProgress={caProgress}
         handleGenerateCurrentAffairs={handleGenerateCurrentAffairs}
         onReadDateRange={handleReadDateRange}

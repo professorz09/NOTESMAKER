@@ -497,7 +497,8 @@ export function useGeneration({
   // verifies/expands each against live Google Search).
   const [caUrls, setCaUrls] = useState('');
   const [caDate, setCaDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [caStyle, setCaStyle] = useState<'quick' | 'deep' | 'scan' | 'agentic'>('quick');
+  const [caStyle, setCaStyle] = useState<'quick' | 'deep' | 'scan' | 'agentic'>('agentic');
+  const [caDepth, setCaDepth] = useState<'deep' | 'standard'>('deep');
   const [caProgress, setCaProgress] = useState<{ current: number; total: number; note: string } | null>(null);
   // Set right before a Current Affairs run finishes so the generic
   // "generation → new project" effect in App.tsx can tag the resulting
@@ -1228,7 +1229,7 @@ export function useGeneration({
           let ok = false;
           for (let attempt = 1; attempt <= 2; attempt++) {
             try {
-              html = sanitizeHtml(await generateFn({ kind: 'video', transcriptText: chunks[i] }, dateLabel, language));
+              html = sanitizeHtml(await generateFn({ kind: 'video', transcriptText: chunks[i] }, dateLabel, language, caDepth));
               ok = true;
               break;
             } catch (err) {
@@ -1250,20 +1251,26 @@ export function useGeneration({
       } else {
         setCaProgress({
           current: 1,
-          total: 1,
+          total: 2,
           note: caStyle === 'deep'
-            ? '🌐 Researching — PIB + trusted sources…'
+            ? '🌐 Step 1/2: Researching PIB & trusted sources…'
             : caStyle === 'scan'
-            ? '🌐 Scanning PIB + trusted sources in parallel…'
+            ? '🌐 Scanning PIB & trusted sources in parallel…'
             : caStyle === 'agentic'
-            ? '🌐 Agentic research — dual grounding + static facts…'
+            ? '🌐 Agentic Phase 1/2: Dual-grounded discovery across PIB & national portals…'
             : '🌐 Searching live for today\'s current affairs…',
         });
         let html = '';
         let ok = false;
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
-            html = sanitizeHtml(await generateFn(source, dateLabel, language));
+            html = sanitizeHtml(await generateFn(
+              source,
+              dateLabel,
+              language,
+              caDepth,
+              (note: string) => setCaProgress({ current: 2, total: 2, note }),
+            ));
             ok = true;
             break;
           } catch (err) {
@@ -3163,6 +3170,7 @@ export function useGeneration({
     caUrls, setCaUrls,
     caDate, setCaDate,
     caStyle, setCaStyle,
+    caDepth, setCaDepth,
     caProgress,
     handleGenerateCurrentAffairs,
     pendingProjectMetaRef,

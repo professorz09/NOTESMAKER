@@ -75,7 +75,48 @@ export type CASource =
   | { kind: 'topics'; topics: string[] }
   | { kind: 'general' };
 
+export type CADepth = 'deep' | 'standard';
+
 const sourceLabel = (dateLabel: string) => `daily current affairs video(s) dated ${dateLabel}`;
+
+/**
+ * Static & Core Fundamentals prompt guidance for UPSC / Competitive exams:
+ * Guarantees that every news development is linked to its underlying static syllabus
+ * (e.g. PSLV technical stages and architecture for ISRO launches, constitutional articles
+ * for polity, MPC transmission for economy).
+ */
+const STATIC_CORE_PROMPT_GUIDANCE = `
+CRITICAL "CURRENT-TO-CORE" (करेंट से स्टैटिक जुड़ाव) MANDATE:
+UPSC and state civil service exams rarely ask only about the superficial news headline; they test the STATIC & FOUNDATIONAL BASICS behind the development. For EVERY SINGLE TOPIC, you MUST provide an authoritative, deep-dive foundational breakdown:
+
+1. SCIENCE & TECHNOLOGY, SPACE & DEFENCE (e.g., ISRO, DRDO, Missiles, Satellites, Biotech, AI):
+   - Foundational Architecture & Specifications: If a launch vehicle, satellite, missile, or defense platform is mentioned (e.g. PSLV, GSLV, LVM3, SSLV, Agni, BrahMos, NavIC, INSAT, XPoSat):
+     * Explain what the vehicle/system is, its generation, and strategic role (e.g. "Workhorse of ISRO").
+     * Exact technical stages and propulsion: (e.g. For PSLV: 4-stage vehicle with alternating Solid-Liquid-Solid-Liquid configuration; 1st stage solid HTPB propellant with strap-on boosters, 2nd stage liquid Vikas engine using UDMH + N2O4, 3rd stage solid propellant, 4th stage twin liquid engines using MMH + MON-3).
+     * Payload capacity & orbital reach: (e.g. ~1,750 kg to Sun-Synchronous Polar Orbit (SSPO), ~1,425 kg to Geosynchronous Transfer Orbit (GTO)).
+     * Historical context & variants: (e.g. Chandrayaan-1, Mars Orbiter Mission / Mangalyaan, PSLV-XL, PSLV-CA, PSLV-DL, PSLV-QL).
+     * Contrast with other vehicles: (e.g. PSLV vs GSLV Mk II vs LVM3 cryogenic stage vs SSLV small-sat launcher).
+   - If AI, Quantum Computing, Semiconductor, or Biotechnology: Explain the underlying physical/biological principle, national mission (e.g. IndiaAI, National Quantum Mission), and real-world impact.
+
+2. POLITY, GOVERNANCE & CONSTITUTION:
+   - Constitutional Articles: Explicitly cite and explain the exact articles (e.g. Art 163/164 for Governor, Art 324 for Election Commission, Art 280 for Finance Commission, Art 356 for President's Rule, Art 21/19 for Rights).
+   - Statutory Framework: State parent Act, statutory vs constitutional vs executive status, appointment committee/collegium, tenure, and removal process.
+   - Landmark Supreme Court Judgments: (e.g. S.R. Bommai, Kesavananda Bharati, Vineet Narain, K.S. Puttaswamy, Prakash Singh).
+   - Important Commissions: Sarkaria Commission, M.M. Punchhi Commission, 2nd ARC, or Law Commission recommendations.
+
+3. ECONOMY & BANKING:
+   - Core Concepts & Mechanisms: (e.g. Repo rate, reverse repo, Standing Deposit Facility (SDF), Marginal Standing Facility (MSF), CRR, Headline vs Core Inflation, Fiscal Deficit vs Revenue Deficit).
+   - Statutory Basis & Regulators: (e.g. RBI Act 1934 Section 45ZB for Monetary Policy Committee (MPC: 6 members, 3 RBI + 3 Govt, Governor has casting vote), SEBI Act 1992, IBC 2016).
+   - Economic Transmission: Exactly how the decision impacts market liquidity, lending rates, rupee exchange rate, bond yields, and GDP growth.
+
+4. ENVIRONMENT, ECOLOGY & GEOGRAPHY:
+   - Conservation & Legal Status: IUCN Red List status (Critically Endangered, Endangered, Vulnerable), CITES Appendix (I, II), Wildlife Protection Act (WPA 1972) Schedule (I or II).
+   - Geographic Dimensions: State, physiographic region, major river flowing through the sanctuary/park, surrounding forest type, endemic species, threats.
+   - Conventions & Treaties: Ramsar Wetlands criteria, UNFCCC COP targets, CBD Kunming-Montreal Global Biodiversity Framework.
+
+5. INTERNATIONAL RELATIONS & GLOBAL GROUPINGS:
+   - Multilateral Bodies: Founding year, permanent secretariat/HQ, member nations (explicitly whether India is a founding or full member), core charter, strategic value for India.
+`;
 
 /**
  * Quick mode — one call. "video" reads the transcript with no search;
@@ -86,6 +127,7 @@ export const generateCurrentAffairsQuick = async (
   source: CASource,
   dateLabel: string,
   language: string,
+  depth: CADepth = 'deep',
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -98,12 +140,15 @@ export const generateCurrentAffairsQuick = async (
       Transcript:
       """${source.transcriptText}"""
 
+      ${depth === 'deep' ? STATIC_CORE_PROMPT_GUIDANCE : ''}
+
       **WHAT COUNTS AS "USEFUL":** government schemes/policies, appointments, reports/indices/rankings, international relations/summits, science & tech developments, economy/budget items, environment/ecology news, defence/security, important days/persons in the news, court judgments, static-GK-linked current facts. Ignore pure entertainment/opinion filler.
 
       **STRUCTURE:**
       - Start with a single <h1> title: "Daily Current Affairs — ${dateLabel}".
-      - One <h2> per distinct news item/topic, using a short specific headline (not "Topic 1").
-      - Under each <h2>, give the essential facts as a tight bullet list (<ul><li>) — what happened, key names/numbers/dates, and (only if genuinely relevant) why it matters for the exam. Use <strong> for the facts most likely to be asked (names, figures, dates, scheme names).
+      - One <h2> per distinct news item/topic, using a short specific headline with Category tag (e.g. "ISRO PSLV-C58 Mission (Science & Technology)").
+      - Under each <h2>, give the essential facts as a tight bullet list (<ul><li>) — what happened, key names/numbers/dates. Use <strong> for the facts most likely to be asked (names, figures, dates, scheme names).
+      - Include for each item a <div class="note-box"> with <strong>📌 Static & Core Fundamentals:</strong> detailing the background basics (${depth === 'deep' ? 'e.g. full tech architecture/stages for space missions like PSLV 4 stages/fuel, constitutional articles, or economic mechanisms' : 'concise foundational context'}).
       - Do NOT pad or add generic commentary. Every line must carry a real fact from the transcript.
 
       **Output:** Return ONLY raw HTML. No markdown, no code fences.
@@ -128,14 +173,17 @@ export const generateCurrentAffairsQuick = async (
 
     ${focus}
 
+    ${depth === 'deep' ? STATIC_CORE_PROMPT_GUIDANCE : ''}
+
     Language: ${language}
 
     **WHAT COUNTS AS "USEFUL":** government schemes/policies, appointments, reports/indices/rankings, international relations/summits, science & tech developments, economy/budget items, environment/ecology news, defence/security, important days/persons in the news, court judgments, static-GK-linked current facts.
 
     **STRUCTURE:**
     - Start with a single <h1> title: "Daily Current Affairs — ${dateLabel}".
-    - One <h2> per distinct news item/topic, using a short specific headline (not "Topic 1").
+    - One <h2> per distinct news item/topic, using a short specific headline with Category (e.g. "ISRO Launches PSLV-C58 / XPoSat (Science & Tech)").
     - Under each <h2>, give the essential facts as a tight bullet list (<ul><li>) — what happened, key names/numbers/dates. Use <strong> for the facts most likely to be asked (names, figures, dates, scheme names).
+    - Include for each item a <div class="note-box"> with <strong>📌 Static & Core Fundamentals:</strong> detailing the foundational basics (${depth === 'deep' ? 'e.g. technical specs like PSLV stages/fuel, constitutional articles, economic transmission' : 'concise background context'}).
     - Every fact must be real and search-backed for ${dateLabel} — never invented or approximated. Do not pad with generic commentary.
 
     **Output:** Return ONLY raw HTML. No markdown, no code fences.
@@ -318,6 +366,7 @@ const writeGroundedCurrentAffairsNotes = async (
   dateLabel: string,
   language: string,
   fromVideo: boolean,
+  depth: CADepth = 'deep',
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -328,17 +377,20 @@ const writeGroundedCurrentAffairsNotes = async (
     .join('\n');
 
   const prompt = `
-    Role: Current-affairs researcher with live web access (Perplexity-style deep research).
+    Role: UPSC current-affairs researcher with live web access (Perplexity-style deep research & static linkage).
     Task: Below is a list of news items relevant to ${dateLabel}${fromVideo ? ` covered in ${sourceLabel(dateLabel)}` : ''}. For EACH item, use Google Search to find the real, current, correctly-dated facts — prioritize these trusted sources: ${TRUSTED_SOURCES}. ${fromVideo ? 'Verify what the video claimed, fill in exact figures/names/dates it may have skipped' : 'Confirm and expand each with exact figures/names/dates'}, and note the current status if the item has since moved forward (e.g. a bill passed, a scheme launched, a result declared).
 
     Language: ${language}
     Items:
     ${list}
 
+    ${depth === 'deep' ? STATIC_CORE_PROMPT_GUIDANCE : ''}
+
     **STRUCTURE of your output:**
     - Start with a single <h1> title: "Daily Current Affairs — ${dateLabel} (Deep Research)".
-    - One <h2> per item, short specific headline.
+    - One <h2> per item, short specific headline with Category tag (e.g. Science & Tech, Polity, Economy, Environment, IR).
     - Under each <h2>: a tight bullet list (<ul><li>) of the verified facts (<strong> the names/numbers/dates), written from what search actually confirms${fromVideo ? ' — not just repeating the video' : ''}.
+    - Include a <div class="note-box"> with <strong>📌 Static & Core Fundamentals:</strong> providing the underlying foundational basics (${depth === 'deep' ? 'e.g. full tech architecture/stages for space missions like PSLV 4 stages/fuel, constitutional articles, or economic mechanisms' : 'concise foundational context'}).
     - End each item with one line: <p class="ca-verified">🌐 Verified via live search — [1-sentence note on what was confirmed/updated/current status, naming PIB or the source where it applies].</p>
     - If search finds nothing to add or the claim already checks out as-is, keep the verified line short ("figures confirmed current as of today").
     - Every fact must be real and search-backed — never invented or approximated.
@@ -365,7 +417,10 @@ export const generateCurrentAffairsDeep = async (
   source: CASource,
   dateLabel: string,
   language: string,
+  depth: CADepth = 'deep',
+  onProgress?: (note: string) => void,
 ): Promise<string> => {
+  onProgress?.('🔍 Step 1/2: Identifying key developments across trusted portals…');
   let topics: CATopic[];
   if (source.kind === 'video') {
     topics = await extractCurrentAffairsTopics(source.transcriptText, language);
@@ -375,8 +430,9 @@ export const generateCurrentAffairsDeep = async (
     topics = await discoverCurrentAffairsTopics(dateLabel, language);
   }
 
-  if (!topics.length) return generateCurrentAffairsQuick(source, dateLabel, language);
-  return writeGroundedCurrentAffairsNotes(topics, dateLabel, language, source.kind === 'video');
+  if (!topics.length) return generateCurrentAffairsQuick(source, dateLabel, language, depth);
+  onProgress?.('🧠 Step 2/2: Grounded verification & static core background synthesis…');
+  return writeGroundedCurrentAffairsNotes(topics, dateLabel, language, source.kind === 'video', depth);
 };
 
 // ---------------------------------------------------------------------------
@@ -412,19 +468,16 @@ const renderHeadlineScanHtml = (topics: CATopic[], dateLabel: string): string =>
 };
 
 /**
- * "Agentic" mode's writing step — one grounded call, same verification
- * approach as deep mode's writeGroundedCurrentAffairsNotes, but each item
- * gets a fuller paragraph (not just a bullet list) plus one extra
- * <div class="note-box"> of STATIC background the item builds on (a
- * constitutional article, an institution's basic mandate, a definition) —
- * the kind of standing fact a student should already know alongside today's
- * news, not the news itself.
+ * "Agentic" mode's writing step — intelligent multi-step synthesis with live
+ * search verification, explicit "Current-to-Core" static syllabus foundation,
+ * and high-yield UPSC Prelims & Mains exam pointers.
  */
 const writeAgenticDetailedNotes = async (
   topics: CATopic[],
   dateLabel: string,
   language: string,
   fromVideo: boolean,
+  depth: CADepth = 'deep',
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -435,24 +488,45 @@ const writeAgenticDetailedNotes = async (
     .join('\n');
 
   const prompt = `
-    Role: Current-affairs researcher with live web access, writing fuller exam notes (not a quick bullet scan).
-    Task: Below is a list of news items relevant to ${dateLabel}${fromVideo ? ` covered in ${sourceLabel(dateLabel)}` : ''}. For EACH item, use Google Search to find the real, current, correctly-dated facts — prioritize these trusted sources: ${TRUSTED_SOURCES}. ${fromVideo ? 'Verify what the video claimed, fill in exact figures/names/dates it may have skipped' : 'Confirm and expand each with exact figures/names/dates'}, and note the current status if the item has since moved forward.
+    Role: Senior UPSC Current Affairs Analyst and Static-Syllabus Research Specialist with live web access.
+    Task: Write comprehensive, high-yield examination notes for the news items for ${dateLabel}${fromVideo ? ` covered in ${sourceLabel(dateLabel)}` : ''}. For EACH item, use Google Search to verify exact facts, figures, dates, and current institutional status across trusted sources: ${TRUSTED_SOURCES}.
 
     Language: ${language}
     Items:
     ${list}
 
-    **STRUCTURE of your output, for EACH item:**
-    - <h2> with a short specific headline.
-    - A short paragraph (<p>, 2-4 sentences) explaining what happened and why it matters for the exam — not just a bare bullet list, but not padded either. Use <strong> for names/numbers/dates.
-    - Then a tight bullet list (<ul><li>) of the key facts likely to be asked directly (names, figures, dates, scheme/institution names).
-    - Then ONE <div class="note-box">, containing 2-3 lines of relevant STATIC background the news item builds on — e.g. the constitutional article involved, the basic mandate of the institution named, a definition of a term used. This must be a standing fact independent of today's news, not a repeat of it. Label it clearly, e.g. "Static fact: ...".
-    - End with one line: <p class="ca-verified">🌐 Verified via live search — [1-sentence note on what was confirmed/updated/current status, naming PIB or the source where it applies].</p>
+    ${STATIC_CORE_PROMPT_GUIDANCE}
 
-    Start with a single <h1> title: "Daily Current Affairs — ${dateLabel} (Agentic Research)".
-    Every fact must be real and search-backed — never invented or approximated.
+    **EXACT STRUCTURE REQUIRED FOR EACH TOPIC:**
+    1. <h2> with headline and syllabus category badge, e.g.:
+       "ISRO Launches PSLV-C58 / XPoSat Mission (Science & Technology — Space)"
+       or "Monetary Policy Committee Keeps Repo Rate Unchanged (Economy — Banking & Monetary Policy)"
+       or "Governor's Assent to State Bills and Article 200 (Polity & Governance)"
 
-    **Output:** Return ONLY raw HTML. No markdown, no code fences.
+    2. A crisp paragraph (<p>, 2-4 sentences) breaking down the core event: what happened, date, involved ministry/agency, key quantitative figures, and immediate milestone. Use <strong> on crucial exam terms.
+
+    3. A factual bullet list (<ul><li>) of the specific, testable facts (numbers, project outlay, launch site/orbit, targets, deadlines).
+
+    4. A dedicated <div class="note-box"> for **Static & Core Fundamentals (मूल अवधारणा एवं तकनीकी पृष्ठभूमि)**:
+       - Must provide a robust, authoritative breakdown of the foundational concept or technology behind the news.
+       - ${depth === 'deep' ? `For example:
+         * If Space/Defence: Describe the launch vehicle's full architecture (e.g. for PSLV: 4 stages Solid-Liquid-Solid-Liquid, fuel types like HTPB and Vikas engine with UDMH+N2O4, payload capability to SSPO/GTO, workhorse status, and comparison with GSLV/LVM3/SSLV).
+         * If Polity/Constitution: Exact Constitutional Articles, parent statutory Act, Supreme Court landmark rulings (e.g. Bommai, Shamsher Singh), committee recommendations.
+         * If Economy: Underlying economic principle, Section 45ZB of RBI Act, transmission channel to inflation and market interest rates.
+         * If Environment: IUCN Red list status, CITES appendix, Wildlife Protection Act schedule, river basin and geographical features.
+         * If IR: Year founded, headquarters, members, India's strategic interest.` : `Provide 3-4 clear sentences explaining the fundamental definition, constitutional article, or technical baseline.`}
+
+    5. A dedicated <div class="key-point"> for **🎯 UPSC Exam Edge (परीक्षा दृष्टिकोण)**:
+       - <strong>Prelims Trap:</strong> Highlight confusing statements or common traps examiners set (e.g., "PSLV has 4 stages (solid/liquid alternate), NOT 3 stages", "Is it statutory vs constitutional", "Does Governor have pocket veto").
+       - <strong>Mains Analytical Dimension:</strong> 1-2 sharp points on strategic significance, policy challenge, or way forward.
+
+    6. One-line verification badge:
+       <p class="ca-verified">🌐 Verified via live search — [1-sentence note on confirmation from PIB or official gazette/release].</p>
+
+    Start with a single <h1> title: "Daily Current Affairs — ${dateLabel} (Agentic Research & Core Fundamentals)".
+    Every fact must be search-backed, real, and mathematically accurate — never approximate or invent.
+
+    **Output:** Return ONLY raw HTML. No markdown code blocks, no backticks.
   `;
 
   const response = await ai.models.generateContent({
@@ -472,23 +546,30 @@ export const generateCurrentAffairsScan = async (
   source: CASource,
   dateLabel: string,
   language: string,
+  _depth: CADepth = 'deep',
+  onProgress?: (note: string) => void,
 ): Promise<string> => {
+  onProgress?.('📡 Scanning PIB & trusted sources in parallel…');
   const topics = await getTopicsForScanOrAgentic(source, dateLabel, language);
-  if (!topics.length) return generateCurrentAffairsQuick(source, dateLabel, language);
+  if (!topics.length) return generateCurrentAffairsQuick(source, dateLabel, language, 'standard');
   return renderHeadlineScanHtml(topics, dateLabel);
 };
 
 /**
  * Agentic mode entry point — dual-grounding discovery, then one grounded
- * writing call producing fuller per-item notes with a static-fact box each.
- * Falls back to quick mode if discovery finds nothing.
+ * writing call producing fuller per-item notes with deep static-fact fundamentals
+ * and UPSC exam traps. Falls back to quick mode if discovery finds nothing.
  */
 export const generateCurrentAffairsAgentic = async (
   source: CASource,
   dateLabel: string,
   language: string,
+  depth: CADepth = 'deep',
+  onProgress?: (note: string) => void,
 ): Promise<string> => {
+  onProgress?.('🌐 Agentic Phase 1/2: Dual-grounded discovery across PIB & national portals…');
   const topics = await getTopicsForScanOrAgentic(source, dateLabel, language);
-  if (!topics.length) return generateCurrentAffairsQuick(source, dateLabel, language);
-  return writeAgenticDetailedNotes(topics, dateLabel, language, source.kind === 'video');
+  if (!topics.length) return generateCurrentAffairsQuick(source, dateLabel, language, depth);
+  onProgress?.('🚀 Agentic Phase 2/2: Researching deep static fundamentals, tech specs & Prelims traps…');
+  return writeAgenticDetailedNotes(topics, dateLabel, language, source.kind === 'video', depth);
 };

@@ -116,6 +116,8 @@ interface SidebarProps {
   setCaDate: (v: string) => void;
   caStyle: 'quick' | 'deep' | 'scan' | 'agentic';
   setCaStyle: (v: 'quick' | 'deep' | 'scan' | 'agentic') => void;
+  caDepth: 'deep' | 'standard';
+  setCaDepth: (v: 'deep' | 'standard') => void;
   caProgress: { current: number; total: number; note: string } | null;
   handleGenerateCurrentAffairs: () => void;
   onReadDateRange: (start: string, end: string) => void;
@@ -153,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   transcriptInput, setTranscriptInput, handleTranscriptFileUpload, handleGenerateTranscript, transcriptProgress,
   handleRestructureDraft, isRestructuringDraft, draftBackup, handleUndoRestructureDraft,
   youtubeUrl, setYoutubeUrl,
-  caUrls, setCaUrls, caDate, setCaDate, caStyle, setCaStyle, caProgress, handleGenerateCurrentAffairs,
+  caUrls, setCaUrls, caDate, setCaDate, caStyle, setCaStyle, caDepth, setCaDepth, caProgress, handleGenerateCurrentAffairs,
   onReadDateRange,
 }) => {
   const isGenerating = status !== GenerationStatus.IDLE;
@@ -217,6 +219,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               setCaDate={setCaDate}
               caStyle={caStyle}
               setCaStyle={setCaStyle}
+              caDepth={caDepth}
+              setCaDepth={setCaDepth}
               caProgress={caProgress}
             />
           ) : (
