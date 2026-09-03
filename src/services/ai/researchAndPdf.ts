@@ -192,9 +192,11 @@ The uploaded images are a topper's answer copy (handwritten or typed, possibly a
 2. IDENTIFY the question being answered (read it from the top of the copy if visible, otherwise infer it precisely from the answer).
 3. REPRODUCE the topper's answer FAITHFULLY — same points, same structure, same examples/data — but rewritten in ${target}, cleanly formatted.
 
-━━━ HARD RULES ━━━
-• FIDELITY FIRST: Use ONLY what the topper actually wrote. Do NOT add new examples, schemes, cases, data or quotes that aren't in the copy, and do NOT drop the topper's points. If a word is illegible, render the most sensible reading — never invent a fresh fact.
-• LANGUAGE: Write the ENTIRE answer in ${target}, even if the topper wrote in English (translate faithfully). Keep proper nouns / Article numbers / scheme names accurate; a technical English term may follow in parentheses where helpful.
+━━━ GUIDING RULES ━━━
+• CORE BASE: Capture the essence, core arguments, structure, and key points of the copy.
+• ENRICHMENT & COMPLETION (BE BETTER): You are NOT restricted to word-for-word OCR. If the copy has incomplete points, missing context, or could be made significantly better, enrich and polish it into an exceptional UPSC answer. If the introduction or conclusion feels dry or lacks a compelling hook, feel free to add a relevant, high-value example, poetic verse/hook (especially for Hindi Literature), constitutional article, or contemporary dimension to make it an ideal topper-grade response.
+• POETIC QUOTES / VERSES / DIAGRAMS: Format poetic verses, couplets, quotes, or flowcharts prominently with clean line breaks and <strong> on key names and concepts.
+• LANGUAGE: Write the ENTIRE answer in ${target}, smoothly translated and polished if the copy was in another language. Keep proper nouns, articles, and terms precise.
 • Preserve the topper's own diagrams/flow as a <div class="note-box"> describing them in words if they can't be redrawn.
 
 ━━━ CLEAN EXAM-COPY FORMAT ━━━
