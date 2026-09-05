@@ -1,7 +1,24 @@
 import { useState, useCallback, useRef } from 'react';
 import { isSupabaseConfigured, getSupabaseClient } from '../services/supabase';
+import { toast } from '../components/Toast';
 
 const LOCAL_PROJECTS_KEY = 'ai_book_writer_projects';
+
+// A very large note (long batch-generated document, or one with several
+// pasted/generated images inlined as base64) can exceed Supabase's request
+// body size limit. That failure used to be swallowed into the `error` state
+// only — which nothing ever rendered — so a save could silently fail on a
+// big note and the student would only discover it much later with no clue
+// why. Surface it immediately and explain the likely cause when the note is
+// large enough for that to be it.
+function describeSaveFailure(err: any, content: string): string {
+  const sizeMB = new Blob([content]).size / (1024 * 1024);
+  const base = err?.message || 'Unknown error';
+  if (sizeMB > 3) {
+    return `Could not save — this note is ~${sizeMB.toFixed(1)}MB, likely too large to sync. Copy/export it now (PDF or Word) before doing anything else. (${base})`;
+  }
+  return `Could not save your note: ${base}`;
+}
 
 interface LocalProject {
   id: string;
@@ -228,6 +245,7 @@ export function useProjects() {
       }
     } catch (e: any) {
       setError(e?.message || 'Failed to create project');
+      toast.error(describeSaveFailure(e, content));
       return null;
     }
   }, []);
@@ -259,6 +277,7 @@ export function useProjects() {
       return true;
     } catch (e: any) {
       setError(e?.message || 'Failed to save project');
+      toast.error(describeSaveFailure(e, content));
       return false;
     }
   }, []);

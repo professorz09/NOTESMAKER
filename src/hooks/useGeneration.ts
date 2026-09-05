@@ -2857,7 +2857,20 @@ export function useGeneration({
             // before any note existed yet) or the student is still looking
             // at the same note it was queued for — append live so it's
             // visible immediately.
-            const existing = getCurrentHtml();
+            let existing = getCurrentHtml();
+            // Guard against an interrupted run resuming onto a blank/rolled-
+            // back canvas (tab reloaded or backgrounded-and-killed mid-batch,
+            // for instance) — the live canvas would read shorter than what's
+            // already sitting in this note, and appending onto it would
+            // finish by autosaving that short version straight over
+            // everything already saved. Whichever side is longer is the one
+            // that actually has everything, so build on that instead.
+            if (next.projectId) {
+              try {
+                const saved = await loadProjectContent(next.projectId);
+                if (saved && saved.length > existing.length) existing = saved;
+              } catch { /* fall back to the live canvas */ }
+            }
             const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
             finishGeneration(existing + divider + html, myRun);
             scrollToLatestAnswer();
