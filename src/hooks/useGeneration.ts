@@ -334,6 +334,13 @@ export function useGeneration({
   // queue survives a reload instead of living only in this tab.
   const batchQueue = useBatchQueue();
   const batchRunningRef = useRef(false);
+  // Set only when the worker is (re)started off a reload/note-switch that
+  // found items stuck 'active' or still pending — the one moment the live
+  // canvas might not reflect this note's true saved state (see the resume
+  // guard on the first completion below). NOT set when a fresh item is
+  // simply added to an already-idle-but-in-sync queue (addToBatchQueue),
+  // so a normal live edit/delete made mid-run is never second-guessed.
+  const resumingBatchRef = useRef(false);
   // Read inside the async worker loop instead of the `activeProjectId`
   // closure value, which would go stale the moment the student switches
   // notes mid-run.
@@ -2860,12 +2867,16 @@ export function useGeneration({
             let existing = getCurrentHtml();
             // Guard against an interrupted run resuming onto a blank/rolled-
             // back canvas (tab reloaded or backgrounded-and-killed mid-batch,
-            // for instance) — the live canvas would read shorter than what's
-            // already sitting in this note, and appending onto it would
-            // finish by autosaving that short version straight over
-            // everything already saved. Whichever side is longer is the one
-            // that actually has everything, so build on that instead.
-            if (next.projectId) {
+            // for instance) — right after such a resume the live canvas can
+            // read shorter than what's already sitting in this note, and
+            // appending onto it would finish by autosaving that short
+            // version straight over everything already saved. Only checked
+            // for the first completion after a detected resume (never in
+            // steady state) — otherwise this would just as happily undo a
+            // student's deliberate mid-run edit or delete, which is real
+            // content too and must never get silently reverted.
+            if (next.projectId && resumingBatchRef.current) {
+              resumingBatchRef.current = false;
               try {
                 const saved = await loadProjectContent(next.projectId);
                 if (saved && saved.length > existing.length) existing = saved;
@@ -2923,6 +2934,7 @@ export function useGeneration({
       const stuck = batchQueue.itemsRef.current.filter(it => it.status === 'active');
       for (const it of stuck) await batchQueue.updateItem(it.id, { status: 'pending' });
       if (batchQueue.itemsRef.current.some(it => it.status === 'pending') && !batchRunningRef.current) {
+        resumingBatchRef.current = true;
         runBatchQueue();
       }
     })();
