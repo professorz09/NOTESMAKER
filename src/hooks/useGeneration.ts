@@ -311,11 +311,11 @@ export function useGeneration({
   // currently shows while the resumed run continues generating sections.
   const [uiGroundingEnabled, setGroundingEnabled] = useState(false);
   const groundingEnabled = uiGroundingEnabled;
-  // Separate grounding toggle for UPSC answers/Essay — defaults ON (real
-  // facts/quotes matter there more than almost anywhere else in the app),
-  // unlike the general pipeline toggle above which defaults off. Kept apart
+  // Separate grounding toggle for UPSC answers/Essay — off by default (same
+  // as the general pipeline toggle above), so answers/batch runs don't pay
+  // the extra grounding latency/cost unless the student opts in. Kept apart
   // from `groundingEnabled` so switching one doesn't silently flip the other.
-  const [upscGroundingEnabled, setUpscGroundingEnabled] = useState(true);
+  const [upscGroundingEnabled, setUpscGroundingEnabled] = useState(false);
   // Off by default — when on, every UPSC answer generated (single question,
   // "Next Question", or the PYQ batch pipeline below) carries two intro
   // options and two outro options instead of one fixed pair, so the student
