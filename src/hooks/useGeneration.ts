@@ -49,6 +49,7 @@ import {
   type ChunkSourceKind,
   type TopicOutlineSection,
 } from '../services/ai/index';
+import { escapeHtml, wrapUPSCBlock } from '../services/ai/htmlBlocks';
 import { GenerationStatus, type MindmapState } from '../types';
 import { STORAGE_KEY, safeSaveDraft } from '../utils/editorUtils';
 import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../utils/concurrency';
@@ -2099,16 +2100,6 @@ export function useGeneration({
     pushToHistory(safe);
     safeSaveDraft(safe);
     if (window.innerWidth < 1024) setSidebarOpen(false);
-  };
-
-  const escapeHtml = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-  // Plain question — no subject-tag pill, no background box. Just a bold
-  // "Q. ..." line so the question reads like a normal exam-copy heading
-  // instead of a styled card (see .upsc-question in index.css).
-  const wrapUPSCBlock = (question: string, answerHtml: string, _subject: UPSCSubject, extraAttr = '') => {
-    return `<section class="upsc-qa-block"${extraAttr}><div class="upsc-question-header"><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
   };
 
   // Smoothly bring the most recently appended answer into view so a non-

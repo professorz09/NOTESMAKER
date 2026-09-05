@@ -2,13 +2,22 @@
 //
 // Forwards Gemini-shape requests to Vertex AI with the GCP Service Account
 // credentials attached server-side. The browser bundle NEVER sees the GCP
-// key — it can only call this function with its Supabase user JWT.
+// key — it can only call this function with its Supabase user JWT, or (see
+// below) the background worker's shared secret.
 //
 // Why this exists:
 //   The original app shipped VITE_GEMINI_API_KEY in the bundle, which a
 //   modded build (or anyone opening DevTools → Network) can extract and
 //   run unlimited inference on. This proxy keeps credentials on the
 //   server and gates access by a valid Supabase JWT.
+//
+// Background worker (worker/):
+//   A second, always-on caller with no browser session to hand over a JWT
+//   authenticates instead with `X-Worker-Secret: <WORKER_SHARED_SECRET>`,
+//   checked further down. Set WORKER_SHARED_SECRET as a secret on this
+//   function (`supabase secrets set WORKER_SHARED_SECRET=...`) and give the
+//   worker the exact same value — leave it unset to disable this path
+//   entirely (a missing secret never matches, so worker calls just 401).
 //
 // Routing:
 //   When GCP_SA_KEY + GCP_PROJECT_ID env vars are set, generateContent
@@ -215,7 +224,19 @@ Deno.serve(async (req)=>{
       headers: responseCors
     });
   }
-  if (!originAllowed) {
+  // Background-worker auth: a shared secret only the worker process (see
+  // worker/) knows, set as this function's own WORKER_SHARED_SECRET secret.
+  // The worker keeps the batch question queue moving with no browser tab
+  // open, so it has no logged-in session to pull a per-user JWT from —
+  // it authenticates with this secret instead. A trusted server-to-server
+  // call like this also skips the Origin check below: Origin is a
+  // browser-only concept (plain server fetches don't send one, and CORS
+  // itself is enforced by browsers, not by this function), so the check
+  // exists purely to gate browser callers, not this one.
+  const workerSharedSecret = Deno.env.get("WORKER_SHARED_SECRET");
+  const suppliedWorkerSecret = req.headers.get("X-Worker-Secret");
+  const isWorkerCall = !!workerSharedSecret && !!suppliedWorkerSecret && suppliedWorkerSecret === workerSharedSecret;
+  if (!isWorkerCall && !originAllowed) {
     return new Response(JSON.stringify({
       error: "Origin not allowed"
     }), {
@@ -231,36 +252,38 @@ Deno.serve(async (req)=>{
       error: "Method not allowed"
     }, 405);
   }
-  // 1. Auth gate — require a valid Supabase JWT. Without this anyone with
-  //    the public function URL can burn the GCP credit.
-  const auth = req.headers.get("Authorization");
-  if (!auth || !auth.toLowerCase().startsWith("bearer ")) {
-    return json({
-      error: "Missing Authorization header"
-    }, 401);
-  }
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!supabaseUrl || !anonKey) {
-    return json({
-      error: "Server is missing Supabase env vars"
-    }, 500);
-  }
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: {
-      headers: {
-        Authorization: auth
-      }
-    },
-    auth: {
-      persistSession: false
+  if (!isWorkerCall) {
+    // 1. Auth gate — require a valid Supabase JWT. Without this anyone with
+    //    the public function URL can burn the GCP credit.
+    const auth = req.headers.get("Authorization");
+    if (!auth || !auth.toLowerCase().startsWith("bearer ")) {
+      return json({
+        error: "Missing Authorization header"
+      }, 401);
     }
-  });
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData?.user) {
-    return json({
-      error: "Invalid or expired session"
-    }, 401);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!supabaseUrl || !anonKey) {
+      return json({
+        error: "Server is missing Supabase env vars"
+      }, 500);
+    }
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: {
+        headers: {
+          Authorization: auth
+        }
+      },
+      auth: {
+        persistSession: false
+      }
+    });
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user) {
+      return json({
+        error: "Invalid or expired session"
+      }, 401);
+    }
   }
   // 2. Extract the Gemini API path from the incoming URL. The client sets
   //    httpOptions.baseUrl on the @google/genai SDK so the SDK's native
