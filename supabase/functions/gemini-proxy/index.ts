@@ -193,6 +193,7 @@ async function importPkcs8Pem(pem) {
   const MAP = {
     "gemini-3-pro-preview": "gemini-3.1-pro-preview",
     "gemini-3.7-flash": "gemini-3.8-flash",
+    "gemini-3-flash-preview": "gemini-3.8-flash",
     "gemini-3.1-flash-lite-preview": "gemini-3.1-flash-lite",
     "gemini-2.0-flash": "gemini-2.5-flash-lite",
     "gemini-2.0-flash-lite": "gemini-2.5-flash-lite",
@@ -348,28 +349,33 @@ Deno.serve(async (req)=>{
   const isGenerateCall = resolved.pathname.endsWith(":generateContent");
   const gcpSaKey = Deno.env.get("GCP_SA_KEY");
   const gcpProjectId = Deno.env.get("GCP_PROJECT_ID");
-  const gcpRegion = Deno.env.get("GCP_REGION") ?? DEFAULT_VERTEX_REGION;
-  const vertexConfigured = !!gcpSaKey && !!gcpProjectId;
-  const useVertex = vertexConfigured && isGenerateCall;
+  let gcpRegion = Deno.env.get("GCP_REGION") ?? DEFAULT_VERTEX_REGION;
   // Extract the model name from the path so we can route it correctly.
   // Path shape: /v1beta/models/{model}:{action}
   const modelMatch = resolved.pathname.match(/\/v1beta\/models\/([^:]+):/);
   const model = modelMatch ? modelMatch[1] : "";
+  // Map AI-Studio-only preview names (gemini-3-flash-preview etc.) onto
+  // the closest Vertex-supported model so an outdated client model string
+  // doesn't 404 the whole feature.
+  const vertexModel = normaliseVertexModel(model);
+  // Gemini 3 preview models are only served on Vertex's *global* endpoint
+  // (no region prefix) — regional endpoints (us-central1, europe-west4)
+  // return 404 for gemini-3.x. Force it here regardless of GCP_REGION so a
+  // stale/misconfigured region setting can't silently break every gemini-3
+  // call.
+  if (vertexModel.startsWith("gemini-3")) {
+    gcpRegion = "global";
+  }
+  const vertexConfigured = !!gcpSaKey && !!gcpProjectId;
+  const useVertex = vertexConfigured && isGenerateCall;
   let upstreamRes;
   let lastErrText = "";
   if (useVertex) {
     // Vertex AI :generateContent — same body shape as Gemini REST except
     // for the thinkingConfig translation handled above.
-    // Map AI-Studio-only preview names (gemini-3-flash-preview etc.) onto
-    // the closest Vertex-supported model so an outdated client model
-    // string doesn't 404 the whole feature.
-    const vertexModel = normaliseVertexModel(model);
-    // Gemini 3 preview models are only served on Vertex's *global*
-    // endpoint (no region prefix). Regional endpoints (us-central1,
-    // europe-west4) return 404 for gemini-3.x. The "global" pseudo-region
-    // is the location segment AND swaps the hostname to the un-prefixed
-    // one — without that swap the URL becomes global-aiplatform...
-    // which doesn't resolve.
+    // The "global" pseudo-region is the location segment AND swaps the
+    // hostname to the un-prefixed one — without that swap the URL becomes
+    // global-aiplatform... which doesn't resolve.
     const hostname = gcpRegion === "global"
       ? "aiplatform.googleapis.com"
       : `${gcpRegion}-aiplatform.googleapis.com`;
@@ -465,7 +471,7 @@ Deno.serve(async (req)=>{
     status: upstreamRes.status,
     headers: {
       "Content-Type": upstreamRes.headers.get("Content-Type") ?? "application/json",
-      ...corsHeaders()
+      ...corsHeaders(originAllowed ? reqOrigin : "")
     }
   });
 });
