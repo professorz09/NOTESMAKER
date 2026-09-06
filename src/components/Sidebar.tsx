@@ -14,6 +14,7 @@ import {
   SidebarDetailLevel,
   SidebarGroundingToggle,
   SidebarPdfTools,
+  SidebarExtraTools,
   SidebarOnePager,
   SidebarFooter,
 } from './sidebar/index';
@@ -315,6 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             setAiModel={setAiModel}
           />
 
+          <SidebarExtraTools>
           <SidebarPdfTools
             isGenerating={isGenerating}
             translatePdfFile={translatePdfFile}
@@ -344,6 +346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onePagerLoading={onePagerLoading}
             handleAddOnePager={handleAddOnePager}
           />
+          </SidebarExtraTools>
 
           <ProjectsPanel
             projects={projects}

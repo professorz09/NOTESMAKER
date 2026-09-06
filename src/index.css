@@ -125,6 +125,110 @@ html, body {
 .dark .editor-content td { border-color: #334155; }
 .dark .editor-content tr:nth-child(even) td { background: #1e293b; }
 .dark .editor-content tr:hover td { background: #243347; }
+/* --- Answer Analysis, Topper Copy and One Pager -------------------------
+   These three tools emit their own class names, and until now the
+   stylesheet defined none of them: the analysis carried hardcoded
+   dark-theme inline colours (near-white text, invisible on the white page
+   and in every PDF export), while the topper copy's question line and the
+   whole one-pager card layout rendered as unstyled stacked HTML. The
+   prompts asked for a design nothing implemented. */
+
+/* Answer Analysis — one card per section, colour-coded by role. The colour
+   comes from a --card accent each section sets, so the shared rule handles
+   the layout and only the accent varies. */
+.editor-content .answer-analysis .section-card {
+  --card: #6366f1;
+  border-left: 4px solid var(--card);
+  background: color-mix(in srgb, var(--card) 7%, transparent);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 0 0 16px;
+}
+.editor-content .answer-analysis .section-card h2 {
+  color: var(--card);
+  font-size: 1.05em;
+  font-weight: 700;
+  margin: 0 0 12px;
+  border: none;
+  padding: 0;
+}
+.editor-content .answer-analysis .sc-question { --card: #6366f1; }
+.editor-content .answer-analysis .sc-score    { --card: #d97706; }
+.editor-content .answer-analysis .sc-weak     { --card: #dc2626; }
+.editor-content .answer-analysis .sc-improve  { --card: #16a34a; }
+.editor-content .answer-analysis .sc-model    { --card: #0891b2; }
+.editor-content .answer-analysis table { margin: 0; font-size: 0.88em; }
+.editor-content .answer-analysis .aa-total {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card) 12%, transparent);
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.editor-content .answer-analysis .aa-total strong { font-size: 1.25em; color: var(--card); }
+.editor-content .answer-analysis .aa-total span { font-size: 0.85em; color: #64748b; }
+.editor-content .answer-analysis li { margin-bottom: 8px; }
+
+/* Topper Copy — the identified question, set like an exam question line. */
+.editor-content .tc-question {
+  font-weight: 700;
+  font-size: 1.05em;
+  line-height: 1.45;
+  padding: 0 0 4px;
+  margin: 0 0 18px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+/* One Pager — a dense, scannable single card. The two-column grid collapses
+   on narrow screens and is forced back for print, where the page is always
+   wide enough. */
+.editor-content .one-pager-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin: 8px 0 20px;
+  font-size: 0.92em;
+}
+.editor-content .op-header { border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 14px; }
+.editor-content .op-title { margin: 0; font-size: 1.3em; font-weight: 800; }
+.editor-content .op-meta { font-size: 0.8em; color: #64748b; margin-top: 2px; font-weight: 600; }
+.editor-content .op-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 640px) { .editor-content .op-grid { grid-template-columns: 1fr; } }
+.editor-content .op-col { min-width: 0; }
+.editor-content .op-section { margin-bottom: 12px; break-inside: avoid; }
+.editor-content .op-section-title {
+  margin: 0 0 5px;
+  font-size: 0.82em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #2563eb;
+}
+.editor-content .op-list { margin: 0; padding-left: 18px; }
+.editor-content .op-list li { margin-bottom: 3px; line-height: 1.45; }
+.editor-content .op-table { font-size: 0.85em; margin: 6px 0; }
+.editor-content .op-summary {
+  background: #f8fafc;
+  border-left: 3px solid #2563eb;
+  border-radius: 0 8px 8px 0;
+  padding: 9px 13px;
+  margin-top: 12px;
+  font-size: 0.9em;
+}
+
+.dark .editor-content .answer-analysis .section-card h2 { color: color-mix(in srgb, var(--card) 65%, white); }
+.dark .editor-content .answer-analysis .aa-total strong { color: color-mix(in srgb, var(--card) 65%, white); }
+.dark .editor-content .answer-analysis .aa-total span { color: #94a3b8; }
+.dark .editor-content .tc-question { border-bottom-color: #334155; }
+.dark .editor-content .one-pager-card { border-color: #334155; }
+.dark .editor-content .op-header { border-bottom-color: #334155; }
+.dark .editor-content .op-meta { color: #94a3b8; }
+.dark .editor-content .op-section-title { color: #60a5fa; }
+.dark .editor-content .op-summary { background: #1e293b; border-left-color: #3b82f6; }
+
 .dark .editor-content .key-point { background: #1e3a5f; border-left-color: #3b82f6; }
 .dark .editor-content .note-box { background: #292524; border-color: #78350f; }
 .dark .editor-content .answer-variant { background: #1e293b; border-color: #334155; }

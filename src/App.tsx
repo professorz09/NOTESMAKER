@@ -437,6 +437,9 @@ const App: React.FC = () => {
       const { activeProjectId: pid, batchTabRunning: running, isEditing: editing, items } = syncStateRef.current;
       if (!pid || running || editing || isResettingRef.current) return;
       if (status !== GenerationStatus.IDLE) return;
+      // An empty canvas means the student cleared it on purpose. Pulling the
+      // note back down would undo that in front of them 15 seconds later.
+      if (!generatedHtmlRef.current) return;
       const beingWritten = items.some(it => it.status === 'active' || it.status === 'pending');
       if (!beingWritten) return;
       try {

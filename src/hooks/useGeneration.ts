@@ -3212,6 +3212,18 @@ export function useGeneration({
     setMindmap(null);
     setOnePagerTopics([]);
     setTimeout(() => { isResettingRef.current = false; }, 100);
+    // Clearing the canvas stops this tab's queue loop (runSeqRef above), but
+    // the queued rows themselves live server-side and the background worker
+    // will carry on writing them into this note. That's usually what's
+    // wanted — the note isn't deleted, just closed off the canvas — but it
+    // has to be said out loud, or answers keep appearing in a note the
+    // student believes they just stopped.
+    const stillQueued = batchQueue.itemsRef.current.filter(
+      it => it.status === 'pending' || it.status === 'active',
+    ).length;
+    if (stillQueued > 0) {
+      toast.info(`${stillQueued} queued question${stillQueued > 1 ? 's are' : ' is'} still being generated in the background — press Stop in the queue to halt them.`);
+    }
   };
 
   // Continue one interrupted leveled pipeline from its last saved snapshot
