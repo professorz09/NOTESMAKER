@@ -2567,7 +2567,14 @@ export function useGeneration({
           if (!isStaleRun(myRun)) toast.success('Detailed notes ready!');
           return;
         }
-        else result = await generateTopicContent(topicInput, language, aiModel);
+        // Normal — single-shot notes. Honours the same Google Grounding
+        // toggle the leveled pipelines use (off by default): with it on, the
+        // one call is made with live search attached, so a topic whose facts
+        // move (schemes, appointments, current data) isn't written purely
+        // from the model's training cutoff.
+        else result = await generateTopicContent(
+          topicInput, language, groundingSafeModel(aiModel, groundingEnabled), groundingEnabled,
+        );
       } else if (mode === 'text' || mode === 'file') {
         // Text and File share one sidebar panel — whichever the user actually
         // filled in decides the pipeline. Files win when both are present,

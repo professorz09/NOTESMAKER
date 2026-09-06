@@ -69,12 +69,17 @@ export const SidebarDetailLevel: React.FC<SidebarDetailLevelProps> = ({
       </p>
     )}
 
-    {/* Grounding — optional final pipeline step, only meaningful once a
-        leveled (non-Normal) pipeline actually builds a node-by-node
-        structure to scan. Off by default; behavior is 100% unchanged
-        when off, in every mode including Normal. */}
-    {detailLevel !== 'normal' && (
-      <SidebarGroundingToggle groundingEnabled={groundingEnabled} setGroundingEnabled={setGroundingEnabled} />
-    )}
+    {/* Grounding — live Google Search attached to the generation calls. Off
+        by default, and shown at EVERY detail level including Normal: the
+        single-pass Normal call takes the search tool just as the leveled
+        pipelines do, and hiding the toggle there made it look like the
+        setting had been lost on switching to Normal. */}
+    <SidebarGroundingToggle
+      groundingEnabled={groundingEnabled}
+      setGroundingEnabled={setGroundingEnabled}
+      description={detailLevel === 'normal'
+        ? 'Writes the notes with live Google Search attached, so facts that change (schemes, data, appointments) come from the web rather than the model\'s training cutoff'
+        : undefined}
+    />
   </div>
 );

@@ -1,9 +1,14 @@
-import { createAIClient, cleanHtmlOutput, DETAILED_NOTES_CONFIG } from './client';
+import { createAIClient, cleanHtmlOutput, DETAILED_NOTES_CONFIG, withGoogleSearch } from './client';
 
 export const generateTopicContent = async (
   topic: string,
   language: string,
-  modelName: string = "gemini-3.1-pro-preview"
+  modelName: string = "gemini-3.1-pro-preview",
+  // Live Google Search grounding. Defaults to false so every existing caller
+  // (the batch queue, the leveled pipelines' single-shot fallbacks) keeps its
+  // exact previous behavior — only the sidebar's Normal path passes the
+  // student's own toggle through.
+  grounded: boolean = false,
 ): Promise<string> => {
   const ai = createAIClient();
 
@@ -72,7 +77,7 @@ export const generateTopicContent = async (
   const response = await ai.models.generateContent({
     model: modelName,
     contents: prompt,
-    config: DETAILED_NOTES_CONFIG,
+    config: withGoogleSearch(DETAILED_NOTES_CONFIG, grounded),
   });
   return cleanHtmlOutput(response.text || "");
 };
