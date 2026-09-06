@@ -39,7 +39,10 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status }) => {
   };
 
   return (
-    <div className="pointer-events-none fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex justify-center px-4">
+    // Bottom-RIGHT, not centred: centred it sat right on top of the line
+    // being read at the bottom of the page, which is exactly where the eye
+    // is during a long generation.
+    <div className="pointer-events-none fixed bottom-4 right-3 sm:bottom-5 sm:right-5 z-40 flex justify-end">
       <button
         type="button"
         onClick={jumpToBottom}

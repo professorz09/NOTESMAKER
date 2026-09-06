@@ -52,7 +52,7 @@ import {
 } from '../services/ai/index';
 import { escapeHtml, wrapUPSCBlock } from '../services/ai/htmlBlocks';
 import { GenerationStatus, type MindmapState } from '../types';
-import { STORAGE_KEY, safeSaveDraft } from '../utils/editorUtils';
+import { STORAGE_KEY, safeSaveDraft, stripPendingBlocks } from '../utils/editorUtils';
 import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../utils/concurrency';
 import { sanitizeHtml } from '../utils/sanitize';
 import { loadPdf, renderSinglePage, canvasPageToJpegBase64, cropImageFromCanvas, releaseCanvas } from '../utils/pdfRenderer';
@@ -339,6 +339,11 @@ export function useGeneration({
   // Reactive mirror of batchRunningRef — lets the queue panel show/hide its
   // "Continue" button (a ref alone can't trigger a re-render).
   const [batchTabRunning, setBatchTabRunning] = useState(false);
+  // Set by Stop. Read at every await boundary in runBatchQueue so the loop
+  // bails at the first opportunity instead of working through the rest of
+  // the queue. The AI call already in flight can't be recalled — its result
+  // is simply discarded.
+  const batchStopRef = useRef(false);
   // Set only when the worker is (re)started off a reload/note-switch that
   // found items stuck 'active' or still pending — the one moment the live
   // canvas might not reflect this note's true saved state (see the resume
@@ -2829,34 +2834,63 @@ export function useGeneration({
     // single-call generator, regardless of the sidebar's Medium/Detailed/
     // Deep setting — those are multi-step pipelines of their own and don't
     // fit a "many topics unattended in the background" queue item).
-    return await generateTopicContent(item.question, item.language, item.aiModel);
+    return await generateTopicContent(item.question, item.language, item.aiModel, item.grounded);
   };
 
   const runBatchQueue = async () => {
     if (batchRunningRef.current) return;
     batchRunningRef.current = true;
+    batchStopRef.current = false;
     setBatchTabRunning(true);
     const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       while (true) {
-        if (isStaleRun(myRun)) return;
+        if (isStaleRun(myRun) || batchStopRef.current) return;
         const next = batchQueue.itemsRef.current.find(it => it.status === 'pending');
         if (!next) break;
-        // Atomic claim — the background worker could be reaching for the
-        // exact same row right now. If it already won, re-sync with the
-        // server instead of trusting this tab's now-stale local copy (which
-        // would otherwise keep re-picking the same row forever).
-        const claimed = await batchQueue.claimItem(next.id);
-        if (!claimed) {
+        // Claim it, or find out someone else is on this note.
+        const claim = await batchQueue.claimItem(next.id, next.projectId);
+        if (claim === 'busy') {
+          // The background worker (or another tab) is already writing this
+          // note's queue. Two writers on one note means two "read the note,
+          // append, save it back" cycles racing — whichever saves last wipes
+          // the other's answer. So this tab stands down entirely; the other
+          // writer will work through the rest on its own.
+          await batchQueue.loadQueue(activeProjectIdRef.current);
+          toast.info('Already being generated in the background — leaving the queue to it.');
+          break;
+        }
+        if (claim === 'taken') {
+          // Just this one row went to someone else — re-sync and try the
+          // next one rather than trusting this tab's now-stale local copy
+          // (which would otherwise keep re-picking the same row forever).
           await batchQueue.loadQueue(activeProjectIdRef.current);
           continue;
+        }
+
+        // Optimistic placeholder, same as the Next Question flow: drop the
+        // question into the document right away with a live "writing…" line
+        // so the note visibly shows WHICH question is being written, instead
+        // of nothing appearing until the whole answer lands minutes later.
+        // Only when this item belongs to the note actually on screen.
+        const showsHere = !next.projectId || next.projectId === activeProjectIdRef.current;
+        if (showsHere && !isStaleRun(myRun)) {
+          const base = stripPendingBlocks(getCurrentHtml());
+          const divider = base ? '\n<hr class="upsc-qa-divider" />\n' : '';
+          const hindi = next.language === 'Hindi' || next.subject === 'hindi_literature';
+          const loadingBody = `<p class="upsc-gen-loading">✍️ ${hindi ? 'उत्तर लिखा जा रहा है…' : 'Writing the answer…'}</p>`;
+          const placeholder = wrapUPSCBlock(
+            next.question, loadingBody, (next.subject as UPSCSubject) || 'gs', ' data-gen-pending="1"',
+          );
+          setGeneratedHtml(base + divider + placeholder);
+          scrollToLatestAnswer();
         }
 
         let html: string | null = null;
         let lastErr: any = null;
         for (let attempt = 1; attempt <= BATCH_MAX_ATTEMPTS; attempt++) {
-          if (isStaleRun(myRun)) return;
+          if (isStaleRun(myRun) || batchStopRef.current) return;
           await batchQueue.updateItem(next.id, { attempt });
           try {
             html = await generateForBatchItem(next);
@@ -2875,7 +2909,10 @@ export function useGeneration({
             // before any note existed yet) or the student is still looking
             // at the same note it was queued for — append live so it's
             // visible immediately.
-            let existing = getCurrentHtml();
+            // Read the canvas fresh (so a mid-run edit elsewhere in the note
+            // survives) but drop this item's own "writing…" placeholder —
+            // the finished answer replaces it rather than stacking under it.
+            let existing = stripPendingBlocks(getCurrentHtml());
             // Guard against an interrupted run resuming onto a blank/rolled-
             // back canvas (tab reloaded or backgrounded-and-killed mid-batch,
             // for instance) — right after such a resume the live canvas can
@@ -2912,6 +2949,9 @@ export function useGeneration({
           }
           await batchQueue.removeItem(next.id);
         } else {
+          // Nothing generated — take the placeholder back out so the note
+          // isn't left with a question stuck on "writing…" forever.
+          if (showsHere) setGeneratedHtml(stripPendingBlocks(getCurrentHtml()) || null);
           await batchQueue.updateItem(next.id, { status: 'failed', error: lastErr?.message || 'Failed after retries' });
           toast.error(`Could not generate "${next.question.slice(0, 50)}…" after ${BATCH_MAX_ATTEMPTS} attempts.`);
         }
@@ -2997,6 +3037,35 @@ export function useGeneration({
     runBatchQueue();
   };
 
+  // Stop — halts this tab's loop AND parks every remaining item as 'paused'
+  // server-side. The status change is the part that matters: the background
+  // worker only ever claims rows that are still 'pending', so this stops it
+  // too. Stopping only the local loop would leave the worker happily writing
+  // answers into the note, which reads as the button doing nothing.
+  //
+  // The one item already mid-generation can't be recalled — if this tab owns
+  // it the result is discarded, and if the worker owns it, it finishes and
+  // saves that single answer before finding nothing else to do.
+  const stopBatchQueue = async () => {
+    batchStopRef.current = true;
+    setBatchTabRunning(false);
+    await batchQueue.bulkSetStatus(activeProjectIdRef.current, ['pending', 'active'], 'paused');
+    // Take out any "writing…" placeholder the stopped item left behind.
+    setGeneratedHtml(stripPendingBlocks(getCurrentHtml()) || null);
+    setStatus(GenerationStatus.IDLE);
+    toast.success('Queue stopped. Press Resume when you want it to carry on.');
+  };
+
+  // Resume — hands the paused items back to the pool. The worker picks them
+  // up on its own within a poll cycle even if this tab is closed straight
+  // after; starting the local loop as well just means whichever gets there
+  // first does the work (the claim decides, safely).
+  const resumeBatchQueue = async () => {
+    batchStopRef.current = false;
+    await batchQueue.bulkSetStatus(activeProjectIdRef.current, ['paused'], 'pending');
+    continueBatchQueue();
+  };
+
   // One line per question — lets the student paste/type as many as they
   // want and add them all in one go; more can be added later the same way
   // while the worker is already running.
@@ -3028,7 +3097,12 @@ export function useGeneration({
       subject: isUpsc ? (overrides?.subject ?? upscSubject) : null,
       language,
       aiModel,
-      grounded: isUpsc || targetStyle === 'essay' ? upscGroundingEnabled : true,
+      // Whichever grounding toggle governs this style, read at queue time
+      // like every other setting here: UPSC/Essay have their own, Notes uses
+      // the general one, and Research always grounds by nature of what it is.
+      grounded: isUpsc || targetStyle === 'essay'
+        ? upscGroundingEnabled
+        : targetStyle === 'notes' ? groundingEnabled : true,
       multiVariant: isUpsc ? (overrides?.multiVariant ?? upscMultiVariant) : false,
       // Captured now, not re-read later — this is what lets a finished
       // item find its way to the right note even if the student has moved
@@ -3203,7 +3277,7 @@ export function useGeneration({
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
     batchQueueItems: batchQueue.items,
     addToBatchQueue, removeFromBatchQueue,
-    batchTabRunning, continueBatchQueue,
+    batchTabRunning, continueBatchQueue, stopBatchQueue, resumeBatchQueue,
     notesProgress,
     status,
     language, setLanguage,

@@ -17,6 +17,26 @@ export const safeSaveDraft = (html: string): void => {
   }
 };
 
+/**
+ * Drops any live "✍️ writing…" placeholder blocks (marked
+ * `data-gen-pending`) from a document, along with the divider left dangling
+ * in front of one. Used before an in-progress generation's real answer
+ * replaces its placeholder, and when a run is stopped or fails — otherwise
+ * the placeholder is what gets autosaved into the note and it looks like an
+ * answer that never arrived.
+ */
+export const stripPendingBlocks = (html: string): string => {
+  if (!html || !html.includes('data-gen-pending')) return html;
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  temp.querySelectorAll('[data-gen-pending]').forEach(el => {
+    const prev = el.previousElementSibling;
+    if (prev?.classList.contains('upsc-qa-divider')) prev.remove();
+    el.remove();
+  });
+  return temp.innerHTML;
+};
+
 /** Walk up the DOM tree and return the first element that scrolls vertically. */
 export const getScrollParent = (el: Element): HTMLElement | null => {
   let node = el.parentElement;

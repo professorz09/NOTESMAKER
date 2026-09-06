@@ -105,14 +105,30 @@ async function claimNextItem(): Promise<PendingRow | null> {
     .eq('status', 'pending')
     .not('project_id', 'is', null)
     .order('created_at', { ascending: true })
-    .limit(5);
+    .limit(20);
   if (error) { console.error('[worker] failed listing pending items:', error.message); return null; }
   if (!candidates || candidates.length === 0) return null;
 
-  // Claim atomically (status='pending' in the WHERE clause) so this worker
-  // and a browser tab that happens to be open at the same time never both
-  // pick up the same row — whichever update actually matches wins it.
+  // Which notes already have a writer on them (this worker mid-item after a
+  // restart, or a browser tab the student has open). ONE WRITER PER NOTE is
+  // the rule: two processors on the same note each read it, append their
+  // answer and save it back, so whichever saves second silently drops the
+  // other's answer. Claiming rows atomically alone doesn't prevent that —
+  // it only stops both taking the SAME question.
+  const freshSince = new Date(Date.now() - STALE_ACTIVE_MS).toISOString();
+  const { data: activeRows, error: activeErr } = await admin
+    .from('pending_questions')
+    .select('project_id')
+    .eq('status', 'active')
+    .gt('updated_at', freshSince);
+  if (activeErr) { console.error('[worker] failed listing active items:', activeErr.message); return null; }
+  const busyProjects = new Set((activeRows || []).map(r => r.project_id).filter(Boolean));
+
+  // Claim atomically (status='pending' in the WHERE clause) so even in the
+  // instant where the check above and a browser tab's identical check
+  // overlap, only one of them can actually take the row.
   for (const row of candidates as PendingRow[]) {
+    if (busyProjects.has(row.project_id)) continue;
     const { data: claimed, error: claimErr } = await admin
       .from('pending_questions')
       .update({ status: 'active', updated_at: new Date().toISOString() })
@@ -152,7 +168,7 @@ async function generateForItem(row: PendingRow): Promise<string> {
   if (row.output_style === 'research') {
     return await generateResearchPaper(row.question, language, aiModel);
   }
-  return await generateTopicContent(row.question, language, aiModel);
+  return await generateTopicContent(row.question, language, aiModel, row.grounding);
 }
 
 // Always re-reads the note's current saved content right before writing —

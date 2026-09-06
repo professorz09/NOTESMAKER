@@ -1,6 +1,7 @@
 import React from 'react';
 import { GenerationStatus } from '../types';
 import { EmptyState } from './EmptyState';
+import { NoteSkeleton } from './NoteSkeleton';
 import { NextQuestionPanel } from './NextQuestionPanel';
 import { PYQQuestionPicker } from './PYQQuestionPicker';
 import { BatchQueuePanel } from './BatchQueuePanel';
@@ -45,6 +46,11 @@ interface EditorCanvasProps {
   onRemoveFromBatchQueue: (id: string) => void;
   batchTabRunning: boolean;
   onContinueBatchQueue: () => void;
+  onStopBatchQueue: () => void;
+  onResumeBatchQueue: () => void;
+  // A saved note is being fetched — show the skeleton rather than whatever
+  // was on the canvas a moment ago.
+  isOpeningProject: boolean;
 }
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
@@ -76,6 +82,9 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   onRemoveFromBatchQueue,
   batchTabRunning,
   onContinueBatchQueue,
+  onStopBatchQueue,
+  onResumeBatchQueue,
+  isOpeningProject,
 }) => {
   const showContent = !!generatedHtml;
   const isBusy = status !== GenerationStatus.IDLE;
@@ -86,7 +95,9 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-md shadow-[0_4px_20px_rgb(0,0,0,0.06)] md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
         style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}
       >
-        {!showContent ? (
+        {isOpeningProject ? (
+          <NoteSkeleton />
+        ) : !showContent ? (
           <EmptyState onGetStarted={onGetStarted} />
         ) : (
           <div
@@ -147,6 +158,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           onRemove={onRemoveFromBatchQueue}
           isTabRunning={batchTabRunning}
           onContinue={onContinueBatchQueue}
+          onStop={onStopBatchQueue}
+          onResume={onResumeBatchQueue}
         />
       )}
 
