@@ -96,12 +96,14 @@ function readAll(): PipelineResumeSnapshot[] {
   }
 }
 
-function writeAll(list: PipelineResumeSnapshot[]): void {
+function writeAll(list: PipelineResumeSnapshot[]): boolean {
   try {
     localStorage.setItem(RESUME_KEY, JSON.stringify(list));
+    return true;
   } catch {
     // localStorage full/unavailable — resume just won't be offered; the
     // in-progress generation itself is unaffected.
+    return false;
   }
 }
 
@@ -113,7 +115,19 @@ export function saveResumeSnapshot(snapshot: PipelineResumeSnapshot): void {
   // Oldest-first, so trimming to the cap drops the longest-abandoned ones.
   list.sort((a, b) => a.savedAt - b.savedAt);
   while (list.length > MAX_PENDING) list.shift();
-  writeAll(list);
+  if (writeAll(list)) return;
+
+  // Out of room. A snapshot carries every section generated so far, so on a
+  // long document a few of these are enough to fill the quota outright —
+  // and the run still in progress is the one actually worth protecting.
+  // Give up the older ones for it rather than losing all resume ability.
+  while (list.length > 1) {
+    list.shift();
+    if (writeAll(list)) return;
+  }
+  // Even alone it doesn't fit: clear the slot rather than leave a stale
+  // snapshot that would resume this run from a much earlier point.
+  try { localStorage.removeItem(RESUME_KEY); } catch { /* nothing left to do */ }
 }
 
 export function loadResumeSnapshots(): PipelineResumeSnapshot[] {

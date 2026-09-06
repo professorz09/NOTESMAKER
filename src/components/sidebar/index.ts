@@ -8,5 +8,6 @@ export { SidebarLanguageModel } from './SidebarLanguageModel';
 export { SidebarDetailLevel } from './SidebarDetailLevel';
 export { SidebarGroundingToggle } from './SidebarGroundingToggle';
 export { SidebarPdfTools } from './SidebarPdfTools';
+export { SidebarExtraTools } from './SidebarExtraTools';
 export { SidebarOnePager } from './SidebarOnePager';
 export { SidebarFooter } from './SidebarFooter';

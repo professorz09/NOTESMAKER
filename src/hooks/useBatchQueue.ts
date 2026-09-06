@@ -272,14 +272,19 @@ export function useBatchQueue() {
   // one server-side update rather than a loop of updateItem calls so a long
   // queue stops in a single round trip, and so the worker sees the whole
   // queue change state at once instead of racing a trickle of updates.
+  // Returns whether the change actually reached the server. Stop depends on
+  // that answer: the pause only stops the background worker once the rows
+  // are 'paused' server-side, so a failed write means the worker is still
+  // going regardless of what this tab now shows — the caller has to be able
+  // to say so rather than report a stop that didn't happen.
   const bulkSetStatus = useCallback(async (
     projectId: string | null,
     from: BatchItemStatus[],
     to: BatchItemStatus,
-  ) => {
+  ): Promise<boolean> => {
     const nowIso = new Date().toISOString();
     setAndSync(prev => prev.map(it => (from.includes(it.status) ? { ...it, status: to, updatedAt: nowIso } : it)));
-    if (!usingServerRef.current) return;
+    if (!usingServerRef.current) return true;
     try {
       const sb = getSupabaseClient();
       let q = sb.from('pending_questions')
@@ -288,9 +293,9 @@ export function useBatchQueue() {
       q = projectId ? q.eq('project_id', projectId) : q.is('project_id', null);
       const { error } = await q;
       if (error) throw error;
+      return true;
     } catch {
-      // Best-effort — the local list already reflects it, and loadQueue's
-      // periodic refresh will resync if the write didn't land.
+      return false;
     }
   }, [setAndSync]);
 
