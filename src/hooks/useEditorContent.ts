@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { STORAGE_KEY, getScrollParent, safeSaveDraft } from '../utils/editorUtils';
 import { sanitizeHtml } from '../utils/sanitize';
+import { isSupabaseConfigured } from '../services/supabase';
 
 interface UseEditorContentProps {
   pushToHistory: (content: string) => void;
@@ -47,8 +48,16 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     return content;
   }, [getCleanHtml]);
 
-  // Load saved draft on mount — strip any editing-mode artifacts left in storage
+  // Restore the last session's draft on mount — but ONLY when there's no
+  // Supabase behind the app to hold notes properly. With Supabase on, every
+  // note already autosaves into `projects` and is reopened from the sidebar,
+  // so restoring this copy just made the app open showing some old note's
+  // content while attached to no note at all (activeProjectId null) — which
+  // both surprises the student ("why am I inside this note?") and risks the
+  // next generation forking a duplicate project out of it. Blank start, and
+  // the sidebar is how you get back to a note.
   useEffect(() => {
+    if (isSupabaseConfigured) return;
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const temp = document.createElement('div');

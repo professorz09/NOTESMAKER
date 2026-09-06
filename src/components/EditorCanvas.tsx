@@ -43,6 +43,8 @@ interface EditorCanvasProps {
     multiVariant?: boolean;
   }) => void;
   onRemoveFromBatchQueue: (id: string) => void;
+  batchTabRunning: boolean;
+  onContinueBatchQueue: () => void;
 }
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
@@ -72,6 +74,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   batchQueueItems,
   onAddToBatchQueue,
   onRemoveFromBatchQueue,
+  batchTabRunning,
+  onContinueBatchQueue,
 }) => {
   const showContent = !!generatedHtml;
   const isBusy = status !== GenerationStatus.IDLE;
@@ -141,6 +145,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           outputStyle={outputStyle}
           onAdd={onAddToBatchQueue}
           onRemove={onRemoveFromBatchQueue}
+          isTabRunning={batchTabRunning}
+          onContinue={onContinueBatchQueue}
         />
       )}
 

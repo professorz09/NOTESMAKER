@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ListPlus, ChevronUp, X, Clock, Loader2, AlertTriangle, ListRestart } from 'lucide-react';
+import { ListPlus, ChevronUp, X, Clock, Loader2, AlertTriangle, ListRestart, Play } from 'lucide-react';
 import type { BatchQueueItem, BatchOutputStyle } from '../hooks/useBatchQueue';
 
 interface BatchQueuePanelProps {
@@ -7,6 +7,11 @@ interface BatchQueuePanelProps {
   outputStyle: BatchOutputStyle;
   onAdd: (rawText: string) => void;
   onRemove: (id: string) => void;
+  // Whether THIS browser tab is currently driving the queue — items can
+  // still show "Writing…" with this false, if the background worker is the
+  // one generating them.
+  isTabRunning: boolean;
+  onContinue: () => void;
 }
 
 const STYLE_LABEL: Record<BatchOutputStyle, string> = {
@@ -29,7 +34,7 @@ const STYLE_PLACEHOLDER: Record<BatchOutputStyle, string> = {
 // panel just lets the student add more, watch progress, and pull out
 // anything still pending. It's deliberately independent of the notes
 // canvas's edit mode: these are queue controls, not document content.
-export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputStyle, onAdd, onRemove }) => {
+export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputStyle, onAdd, onRemove, isTabRunning, onContinue }) => {
   const [open, setOpen] = useState(items.length > 0);
   const [draft, setDraft] = useState('');
 
@@ -154,6 +159,30 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
                 </div>
               ))}
             </div>
+
+            {/* Opening a note no longer silently restarts generation — this
+                is the student's explicit "pick this back up here" instead.
+                Safe to press even while the background worker is running:
+                each item is claimed atomically, so the two can never both
+                generate the same question. */}
+            {pendingCount > 0 && !isTabRunning && (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-[0.98] hover:brightness-110"
+                style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%)' }}
+              >
+                <Play className="w-4 h-4" />
+                Continue ({pendingCount} left)
+              </button>
+            )}
+            {pendingCount > 0 && !isTabRunning && (
+              <p className="text-[10.5px] leading-snug text-slate-500 dark:text-slate-400 px-0.5">
+                These stay queued even if you close the app — the background
+                worker keeps generating them. Press Continue to also run them
+                here in this tab.
+              </p>
+            )}
           </div>
         )}
       </div>

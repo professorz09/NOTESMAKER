@@ -69,6 +69,22 @@ interface PendingRow {
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
+// Served as JSON from the health endpoint. Without this, "is the worker
+// actually doing anything?" can only be answered by reading Render's logs —
+// this way the service's own URL answers it: if `lastPollAt` is minutes old
+// the process is asleep or wedged, and `lastError` shows why nothing is
+// getting generated (a 401 from gemini-proxy means WORKER_SHARED_SECRET
+// doesn't match the one set on the edge function, for instance).
+const stats = {
+  startedAt: new Date().toISOString(),
+  lastPollAt: null as string | null,
+  lastClaimAt: null as string | null,
+  lastDoneAt: null as string | null,
+  processed: 0,
+  failed: 0,
+  lastError: null as string | null,
+};
+
 async function resetStuckActiveItems(): Promise<void> {
   const staleBefore = new Date(Date.now() - STALE_ACTIVE_MS).toISOString();
   const { error } = await admin
@@ -170,14 +186,18 @@ async function processItem(row: PendingRow): Promise<void> {
       await appendToProject(row.project_id as string, block);
       const { error: delErr } = await admin.from('pending_questions').delete().eq('id', row.id);
       if (delErr) console.error(`[worker] generated but failed to dequeue ${row.id}:`, delErr.message);
+      stats.processed++;
+      stats.lastDoneAt = new Date().toISOString();
       console.log(`[worker] done: "${row.question.slice(0, 60)}" (project ${row.project_id})`);
       return;
     } catch (err: any) {
       lastErr = err;
+      stats.lastError = `${new Date().toISOString()} — ${String(err?.message || err)}`;
       console.error(`[worker] attempt ${attempt}/${MAX_ATTEMPTS} failed for "${row.question.slice(0, 60)}":`, err?.message || err);
       if (attempt < MAX_ATTEMPTS) await sleep(RETRY_DELAY_MS);
     }
   }
+  stats.failed++;
   const { error: failErr } = await admin
     .from('pending_questions')
     .update({ status: 'failed', error: String(lastErr?.message || lastErr || 'Unknown error') })
@@ -189,15 +209,18 @@ async function loop(): Promise<void> {
   console.log('[worker] started, polling pending_questions…');
   while (true) {
     try {
+      stats.lastPollAt = new Date().toISOString();
       await resetStuckActiveItems();
       const row = await claimNextItem();
       if (row) {
+        stats.lastClaimAt = new Date().toISOString();
         await processItem(row);
         await sleep(ITEM_GAP_MS);
       } else {
         await sleep(IDLE_POLL_MS);
       }
-    } catch (err) {
+    } catch (err: any) {
+      stats.lastError = `${new Date().toISOString()} — loop: ${String(err?.message || err)}`;
       console.error('[worker] loop error:', err);
       await sleep(IDLE_POLL_MS);
     }
@@ -212,8 +235,16 @@ async function loop(): Promise<void> {
 // polling above runs independently of any request arriving here. See
 // README.md for the full setup.
 const server = http.createServer((_req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('ok');
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    ok: true,
+    ...stats,
+    // How long ago the poll loop last went round. Anything much above
+    // IDLE_POLL_MS while questions are queued means the loop is stuck.
+    secondsSinceLastPoll: stats.lastPollAt
+      ? Math.round((Date.now() - new Date(stats.lastPollAt).getTime()) / 1000)
+      : null,
+  }, null, 2));
 });
 const port = Number(process.env.PORT) || 3000;
 server.listen(port, () => console.log(`[worker] health server listening on :${port}`));

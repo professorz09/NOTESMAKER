@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useState, useRef, useEffect, type MutableRefObject } from 'react';
 import { useBatchQueue, type BatchQueueDraft, type BatchQueueItem, type BatchOutputStyle } from './useBatchQueue';
+import { isSupabaseConfigured } from '../services/supabase';
 import {
   generateTopicContent,
   generateSmartTable,
@@ -335,6 +336,9 @@ export function useGeneration({
   // queue survives a reload instead of living only in this tab.
   const batchQueue = useBatchQueue();
   const batchRunningRef = useRef(false);
+  // Reactive mirror of batchRunningRef — lets the queue panel show/hide its
+  // "Continue" button (a ref alone can't trigger a re-render).
+  const [batchTabRunning, setBatchTabRunning] = useState(false);
   // Set only when the worker is (re)started off a reload/note-switch that
   // found items stuck 'active' or still pending — the one moment the live
   // canvas might not reflect this note's true saved state (see the resume
@@ -2824,6 +2828,7 @@ export function useGeneration({
   const runBatchQueue = async () => {
     if (batchRunningRef.current) return;
     batchRunningRef.current = true;
+    setBatchTabRunning(true);
     const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
@@ -2831,7 +2836,15 @@ export function useGeneration({
         if (isStaleRun(myRun)) return;
         const next = batchQueue.itemsRef.current.find(it => it.status === 'pending');
         if (!next) break;
-        await batchQueue.updateItem(next.id, { status: 'active' });
+        // Atomic claim — the background worker could be reaching for the
+        // exact same row right now. If it already won, re-sync with the
+        // server instead of trusting this tab's now-stale local copy (which
+        // would otherwise keep re-picking the same row forever).
+        const claimed = await batchQueue.claimItem(next.id);
+        if (!claimed) {
+          await batchQueue.loadQueue(activeProjectIdRef.current);
+          continue;
+        }
 
         let html: string | null = null;
         let lastErr: any = null;
@@ -2905,11 +2918,22 @@ export function useGeneration({
       }
     } finally {
       batchRunningRef.current = false;
+      setBatchTabRunning(false);
       if (!isStaleRun(myRun)) {
         setStatus(GenerationStatus.IDLE);
       }
     }
   };
+
+  // An 'active' row this old almost certainly means whatever claimed it (a
+  // tab that got closed, a worker instance that got killed) never finished
+  // — safe to hand back to the pool. Anything more recent than this is
+  // left alone: it's most likely the background worker genuinely writing
+  // it right now, and resetting it here would let this tab re-claim and
+  // regenerate a question that's already mid-flight elsewhere, doubling AI
+  // usage for nothing. Matches the worker's own threshold (worker/src/
+  // index.ts) so the two sides agree on what counts as abandoned.
+  const BATCH_STALE_ACTIVE_MS = 15 * 60_000;
 
   // Reloads the queue scoped to whichever note is currently open — on
   // mount, AND every time the student opens a different note. This is what
@@ -2919,18 +2943,52 @@ export function useGeneration({
   // item already generating when the switch happens still finishes and
   // gets delivered to ITS OWN note via the projectId check in
   // runBatchQueue, never the one now on screen.
+  //
+  // Deliberately does NOT auto-start generating in this tab anymore.
+  // Opening a note that still has queued items now just shows them —
+  // either the background worker picks them up on its own (see worker/
+  // README.md), or the student presses "Continue" in the queue panel to
+  // drive them from this tab instead. Silently kicking off generation the
+  // instant a note was opened used to surprise students with a "Writing…"
+  // status they never asked for in this session.
   useEffect(() => {
     (async () => {
       await batchQueue.loadQueue(activeProjectId);
-      const stuck = batchQueue.itemsRef.current.filter(it => it.status === 'active');
+      const staleBefore = Date.now() - BATCH_STALE_ACTIVE_MS;
+      const stuck = batchQueue.itemsRef.current.filter(
+        it => it.status === 'active' && new Date(it.updatedAt).getTime() < staleBefore
+      );
       for (const it of stuck) await batchQueue.updateItem(it.id, { status: 'pending' });
-      if (batchQueue.itemsRef.current.some(it => it.status === 'pending') && !batchRunningRef.current) {
-        resumingBatchRef.current = true;
-        runBatchQueue();
-      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId]);
+
+  // Lightweight background refresh so the panel reflects the worker's
+  // progress (items flipping pending → active → gone) without the student
+  // needing to switch notes or reload to see it move.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const id = setInterval(() => {
+      if (batchQueue.itemsRef.current.some(it => it.status === 'pending' || it.status === 'active')) {
+        batchQueue.loadQueue(activeProjectId);
+      }
+    }, 15_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId]);
+
+  // Explicit, student-initiated resume — the only way this tab starts
+  // driving the queue now (besides adding fresh items, which still starts
+  // right away since that's a direct action, not a surprise). Still guarded
+  // by resumingBatchRef so the first item delivered after this reconciles
+  // against the note's saved content rather than trusting a canvas that may
+  // be behind (tab was reloaded/backgrounded since this queue was last
+  // touched).
+  const continueBatchQueue = () => {
+    if (batchRunningRef.current) return;
+    resumingBatchRef.current = true;
+    runBatchQueue();
+  };
 
   // One line per question — lets the student paste/type as many as they
   // want and add them all in one go; more can be added later the same way
@@ -3138,6 +3196,7 @@ export function useGeneration({
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
     batchQueueItems: batchQueue.items,
     addToBatchQueue, removeFromBatchQueue,
+    batchTabRunning, continueBatchQueue,
     notesProgress,
     status,
     language, setLanguage,
