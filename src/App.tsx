@@ -147,7 +147,7 @@ const App: React.FC = () => {
     pyqQuestions, pyqSelectedIds, isFindingPyq,
     handleFindPYQQuestions, togglePyqQuestion, setAllPyqSelected,
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
-    batchQueueItems, addToBatchQueue, removeFromBatchQueue,
+    batchQueueItems, addToBatchQueue, removeFromBatchQueue, retryBatchItem,
     batchTabRunning, continueBatchQueue, stopBatchQueue, resumeBatchQueue,
     notesProgress,
     status,
@@ -226,6 +226,16 @@ const App: React.FC = () => {
       pushToHistory(content);
       safeSaveDraft(content);
       setTimeout(() => { isResettingRef.current = false; }, 100);
+      // Hold the skeleton until the note is actually ON SCREEN, not merely
+      // fetched. Setting a large note's HTML is the slow part — the browser
+      // still has to parse and lay out hundreds of KB after React commits —
+      // so clearing this in the `finally` below hid the skeleton and left a
+      // blank page for the seconds that took. Two frames: the first is the
+      // commit that writes the HTML into the editor, the second is after the
+      // browser has painted it.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (projectLoadSeqRef.current === mySeq) setOpeningProjectId(null);
+      }));
       // Only mark this project "active" on a SUCCESSFUL load — otherwise a
       // failed fetch would still let the debounced auto-save below start
       // overwriting this project with whatever unrelated document is
@@ -235,7 +245,8 @@ const App: React.FC = () => {
       if (projectLoadSeqRef.current !== mySeq) return;
       console.error(err);
       toast.error(`Could not open that project: ${err?.message || 'please try again.'}`);
-    } finally {
+      // Failed — nothing is going to paint, so drop the skeleton now (the
+      // success path hands this off to the frame callback above instead).
       if (projectLoadSeqRef.current === mySeq) setOpeningProjectId(null);
     }
   };
@@ -402,6 +413,48 @@ const App: React.FC = () => {
     }, 3000);
     return () => { if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current); };
   }, [generatedHtml, activeProjectId, saveToProject]);
+
+  // While the BACKGROUND WORKER is writing this note's queued answers, keep
+  // the open canvas in step with what it's saving.
+  //
+  // Without this the tab holds whatever the note looked like when it was
+  // opened, blind to the answers the worker has appended since — and the
+  // 3s autosave above then writes that stale copy back over them the moment
+  // the student edits so much as a character. Answers generated while the
+  // note sat open would simply vanish, which is the exact failure this whole
+  // area keeps coming back to.
+  //
+  // Only runs when this tab is NOT the one generating (nothing to sync from
+  // itself) and the student isn't mid-edit (their unsaved typing must never
+  // be replaced by a server read).
+  const syncStateRef = React.useRef({ activeProjectId, batchTabRunning, isEditing, items: batchQueueItems });
+  useEffect(() => {
+    syncStateRef.current = { activeProjectId, batchTabRunning, isEditing, items: batchQueueItems };
+  }, [activeProjectId, batchTabRunning, isEditing, batchQueueItems]);
+
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      const { activeProjectId: pid, batchTabRunning: running, isEditing: editing, items } = syncStateRef.current;
+      if (!pid || running || editing || isResettingRef.current) return;
+      if (status !== GenerationStatus.IDLE) return;
+      const beingWritten = items.some(it => it.status === 'active' || it.status === 'pending');
+      if (!beingWritten) return;
+      try {
+        const saved = await loadProjectContent(pid);
+        if (saved == null) return;
+        // Re-check: an edit or a note switch may have started during the fetch.
+        const now = syncStateRef.current;
+        if (now.activeProjectId !== pid || now.isEditing || now.batchTabRunning) return;
+        const clean = sanitizeHtml(saved);
+        if (clean === (generatedHtmlRef.current || '')) return;
+        isResettingRef.current = true;
+        setGeneratedHtml(clean);
+        pushToHistory(clean);
+        setTimeout(() => { isResettingRef.current = false; }, 100);
+      } catch { /* transient — the next tick tries again */ }
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [status, loadProjectContent, setGeneratedHtml, pushToHistory, isResettingRef]);
 
   // --- CLEAR CANVAS ---
   const onClearCanvas = () => {
@@ -855,6 +908,7 @@ const App: React.FC = () => {
             batchQueueItems={batchQueueItems}
             onAddToBatchQueue={addToBatchQueue}
             onRemoveFromBatchQueue={removeFromBatchQueue}
+            onRetryBatchItem={retryBatchItem}
             batchTabRunning={batchTabRunning}
             onContinueBatchQueue={continueBatchQueue}
             onStopBatchQueue={stopBatchQueue}

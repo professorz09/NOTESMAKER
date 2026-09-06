@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { isSupabaseConfigured, getSupabaseClient } from '../services/supabase';
 import { toast } from '../components/Toast';
+import { stripPendingBlocks } from '../utils/editorUtils';
 
 const LOCAL_PROJECTS_KEY = 'ai_book_writer_projects';
 
@@ -193,7 +194,10 @@ export function useProjects() {
     return p?.content ?? null;
   }, []);
 
-  const createProject = useCallback(async (name: string, content: string, meta?: ProjectCreateMeta): Promise<ProjectMeta | null> => {
+  const createProject = useCallback(async (name: string, rawContent: string, meta?: ProjectCreateMeta): Promise<ProjectMeta | null> => {
+    // Same reason as saveProject: a live "writing…" placeholder is UI state,
+    // not something a note should be created holding.
+    const content = stripPendingBlocks(rawContent);
     const tags = meta?.tags ?? [];
     const entryDate = meta?.entryDate ?? null;
     try {
@@ -264,7 +268,13 @@ export function useProjects() {
     }
   }, []);
 
-  const saveProject = useCallback(async (id: string, content: string): Promise<boolean> => {
+  const saveProject = useCallback(async (id: string, rawContent: string): Promise<boolean> => {
+    // A "✍️ writing the answer…" placeholder is live UI state, never note
+    // content. The 3s autosave fires while one is on the canvas, so without
+    // this a tab closed (or a note switched away from) mid-generation
+    // persists that block into the note permanently — it reopens showing an
+    // answer that is forever about to be written.
+    const content = stripPendingBlocks(rawContent);
     try {
       const now = new Date().toISOString();
       if (isSupabaseConfigured) {

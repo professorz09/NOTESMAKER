@@ -3047,12 +3047,15 @@ export function useGeneration({
   // it the result is discarded, and if the worker owns it, it finishes and
   // saves that single answer before finding nothing else to do.
   const stopBatchQueue = async () => {
+    const wasRunningHere = batchRunningRef.current;
     batchStopRef.current = true;
     setBatchTabRunning(false);
     await batchQueue.bulkSetStatus(activeProjectIdRef.current, ['pending', 'active'], 'paused');
     // Take out any "writing…" placeholder the stopped item left behind.
     setGeneratedHtml(stripPendingBlocks(getCurrentHtml()) || null);
-    setStatus(GenerationStatus.IDLE);
+    // Only clear the busy indicator if the queue is what set it — Stop must
+    // not make an unrelated pipeline still running here look finished.
+    if (wasRunningHere) setStatus(GenerationStatus.IDLE);
     toast.success('Queue stopped. Press Resume when you want it to carry on.');
   };
 
@@ -3126,6 +3129,19 @@ export function useGeneration({
     const item = batchQueue.itemsRef.current.find(it => it.id === id);
     if (item && item.status === 'active') return;
     batchQueue.removeItem(id);
+  };
+
+  // Retry a failed item IN PLACE. It used to re-add the question as a brand
+  // new queue entry, which silently re-read the sidebar's settings as they
+  // are now — so retrying a 15-mark UPSC answer after switching the sidebar
+  // to Notes came back as notes. Every queued item's settings are captured
+  // when it's queued and must stay that way; resetting the existing row
+  // keeps them, and avoids leaving a duplicate row behind.
+  const retryBatchItem = (id: string) => {
+    const item = batchQueue.itemsRef.current.find(it => it.id === id);
+    if (!item || item.status !== 'failed') return;
+    batchQueue.updateItem(id, { status: 'pending', attempt: 0, error: null });
+    if (!batchRunningRef.current) runBatchQueue();
   };
 
   const handleGenerateTable = async (e: React.MouseEvent) => {
@@ -3276,7 +3292,7 @@ export function useGeneration({
     handleFindPYQQuestions, togglePyqQuestion, setAllPyqSelected,
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
     batchQueueItems: batchQueue.items,
-    addToBatchQueue, removeFromBatchQueue,
+    addToBatchQueue, removeFromBatchQueue, retryBatchItem,
     batchTabRunning, continueBatchQueue, stopBatchQueue, resumeBatchQueue,
     notesProgress,
     status,

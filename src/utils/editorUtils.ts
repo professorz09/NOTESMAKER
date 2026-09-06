@@ -1,3 +1,5 @@
+import { isSupabaseConfigured } from '../services/supabase';
+
 export const STORAGE_KEY = 'ai_book_writer_draft';
 
 // localStorage is only a "resume last session" cache — the project itself
@@ -10,6 +12,13 @@ export const STORAGE_KEY = 'ai_book_writer_draft';
 // the in-memory content was already there. Swallow the failure here so a
 // large document degrades to "not cached for resume" instead of breaking.
 export const safeSaveDraft = (html: string): void => {
+  // Nothing reads this draft back when Supabase is configured — notes live
+  // in `projects` and are reopened from the sidebar (see useEditorContent's
+  // restore effect). Writing it anyway meant a synchronous multi-hundred-KB
+  // localStorage write on every open, every autosave tick and every
+  // generated section, all of it blocking the main thread for a document
+  // this size, purely to fill a slot that is never read.
+  if (isSupabaseConfigured) return;
   try {
     localStorage.setItem(STORAGE_KEY, html);
   } catch {

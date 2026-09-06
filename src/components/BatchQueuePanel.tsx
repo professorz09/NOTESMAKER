@@ -7,6 +7,9 @@ interface BatchQueuePanelProps {
   outputStyle: BatchOutputStyle;
   onAdd: (rawText: string) => void;
   onRemove: (id: string) => void;
+  // Re-runs a FAILED item using the settings it was queued with — not a
+  // fresh add, which would silently pick up whatever the sidebar says now.
+  onRetry: (id: string) => void;
   // Whether THIS browser tab is currently driving the queue — items can
   // still show "Writing…" with this false, if the background worker is the
   // one generating them.
@@ -37,7 +40,7 @@ const STYLE_PLACEHOLDER: Record<BatchOutputStyle, string> = {
 // anything still pending. It's deliberately independent of the notes
 // canvas's edit mode: these are queue controls, not document content.
 export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
-  items, outputStyle, onAdd, onRemove, isTabRunning, onContinue, onStop, onResume,
+  items, outputStyle, onAdd, onRemove, onRetry, isTabRunning, onContinue, onStop, onResume,
 }) => {
   const [open, setOpen] = useState(items.length > 0);
   const [draft, setDraft] = useState('');
@@ -164,7 +167,7 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
                   {it.status === 'failed' && (
                     <button
                       type="button"
-                      onClick={() => onAdd(it.question)}
+                      onClick={() => onRetry(it.id)}
                       className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 flex-shrink-0"
                       title="Re-queue"
                       aria-label="Re-queue"
