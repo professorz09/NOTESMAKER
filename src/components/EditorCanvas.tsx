@@ -44,6 +44,7 @@ interface EditorCanvasProps {
     multiVariant?: boolean;
   }) => void;
   onRemoveFromBatchQueue: (id: string) => void;
+  onRetryBatchItem: (id: string) => void;
   batchTabRunning: boolean;
   onContinueBatchQueue: () => void;
   onStopBatchQueue: () => void;
@@ -80,6 +81,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   batchQueueItems,
   onAddToBatchQueue,
   onRemoveFromBatchQueue,
+  onRetryBatchItem,
   batchTabRunning,
   onContinueBatchQueue,
   onStopBatchQueue,
@@ -92,12 +94,21 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   return (
     <div className="w-full max-w-[900px] mx-auto">
       <div
-        className={`editor-container page-container size-a4 editor-content bg-white dark:bg-slate-900 transition-all duration-300 rounded-md shadow-[0_4px_20px_rgb(0,0,0,0.06)] md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
+        className={`editor-container page-container size-a4 editor-content relative bg-white dark:bg-slate-900 transition-all duration-300 rounded-md shadow-[0_4px_20px_rgb(0,0,0,0.06)] md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-slate-200/50 dark:ring-slate-700/50 ${isEditing ? 'ring-4 ring-blue-500/20 dark:ring-blue-500/40 shadow-blue-500/10' : ''}`}
         style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}
       >
-        {isOpeningProject ? (
-          <NoteSkeleton />
-        ) : !showContent ? (
+        {/* Overlaid, NOT swapped in place of the editor. Unmounting the
+            contentEditable would null out editorRef, and the effect that
+            paints saved content into it only re-runs when the HTML itself
+            changes — so reopening a note whose content matched what was
+            already loaded would have remounted an empty editor and left the
+            page blank. Covering it sidesteps that entirely. */}
+        {isOpeningProject && (
+          <div className="absolute inset-0 z-10 bg-white dark:bg-slate-900 rounded-md p-[12mm] overflow-hidden">
+            <NoteSkeleton />
+          </div>
+        )}
+        {!showContent ? (
           <EmptyState onGetStarted={onGetStarted} />
         ) : (
           <div
@@ -156,6 +167,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           outputStyle={outputStyle}
           onAdd={onAddToBatchQueue}
           onRemove={onRemoveFromBatchQueue}
+          onRetry={onRetryBatchItem}
           isTabRunning={batchTabRunning}
           onContinue={onContinueBatchQueue}
           onStop={onStopBatchQueue}
