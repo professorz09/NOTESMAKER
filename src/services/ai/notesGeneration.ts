@@ -238,16 +238,30 @@ export const generateOnePagerNotes = async (
        - ONE compact table (if adds value): <table class="op-table">...</table>
        - Quick summary box: <div class="op-summary">...</div>
 
-    4. **Density rules:**
-       - No fluff sentences — only direct, factual points
-       - Use <strong> for critical terms/numbers/years
-       - Bullet points max 6-8 words each — ultra-brief
-       - Pack maximum information — at least 30-40 key facts/points
-       - Include actual data: years, article numbers, percentages, names
+    4. **Density rules — this must FIT ON ONE PAGE:**
+       - 28-36 points total across all sections. That is the ceiling AND the
+         target: it is what actually fits on one printed A4 page at this
+         font size. Going past it defeats the entire format.
+       - Each bullet: 6-12 words, one fact per bullet. No sentences, no
+         connectives, no "It is important to note that…".
+       - Every bullet must carry something concrete — a year, an article
+         number, a percentage, a name, a committee, a scheme, a case. A
+         bullet with no specific in it is filler; cut it and use the space
+         for one that has.
+       - <strong> the specific bit (the number, year, name), not the
+         whole line.
+       - 4-6 sections, chosen for THIS topic — do not force a section type
+         in just because it is listed above.
 
-    5. Close with: </div> (closing the one-pager-card)
+    5. **Exam relevance:** pick what an examiner actually rewards on this
+       topic. If a fact wouldn't earn a mark or anchor an argument, it does
+       not belong on a one-pager.
 
-    **Output:** Return ONLY raw HTML. No markdown, no explanations. Start directly with <div class="one-pager-card">.
+    6. Close with: </div> (closing the one-pager-card)
+
+    **Output:** Return ONLY raw HTML. No markdown, no explanations, no
+    inline style attributes (the app styles these classes itself). Start
+    directly with <div class="one-pager-card">.
   `;
 
   const response = await ai.models.generateContent({

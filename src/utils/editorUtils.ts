@@ -220,8 +220,43 @@ export const buildContentStyleRules = (prefix: string, fontSize: number, lineHei
     ${p}.ca-verified { background: #eff6ff !important; border-left: 3px solid #38bdf8 !important; color: #0369a1 !important; padding: 6px 12px; margin: 6px 0 16px; border-radius: 0 8px 8px 0; font-size: 0.82em; page-break-inside: avoid; break-inside: avoid; }
     ${p}.ca-range-meta { color: #64748b !important; font-size: 0.85em; margin: -6px 0 20px; font-style: italic; }
 
-    /* Answer analysis */
-    ${p}.answer-analysis .section-card { page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; padding: 14px; }
+    /* Answer analysis — same card treatment as the live preview. Without
+       these the exported copy fell back to bare, borderless blocks. */
+    ${p}.answer-analysis .section-card {
+      --card: #6366f1;
+      border-left: 4px solid var(--card) !important;
+      background: color-mix(in srgb, var(--card) 7%, white) !important;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 12px;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    ${p}.answer-analysis .section-card h2 { color: var(--card) !important; font-size: 1em; border-bottom: none !important; padding: 0; margin: 0 0 10px; }
+    ${p}.answer-analysis .sc-question { --card: #6366f1; }
+    ${p}.answer-analysis .sc-score    { --card: #d97706; }
+    ${p}.answer-analysis .sc-weak     { --card: #dc2626; }
+    ${p}.answer-analysis .sc-improve  { --card: #16a34a; }
+    ${p}.answer-analysis .sc-model    { --card: #0891b2; }
+    ${p}.answer-analysis .aa-total { margin-top: 12px; padding: 9px 13px; border-radius: 8px; background: color-mix(in srgb, var(--card) 12%, white) !important; }
+    ${p}.answer-analysis .aa-total strong { font-size: 1.15em; color: var(--card) !important; }
+    ${p}.answer-analysis .aa-total span { font-size: 0.85em; color: #64748b !important; }
+
+    /* Topper copy — the identified question line */
+    ${p}.tc-question { font-weight: 700; font-size: 1.05em; line-height: 1.45; margin: 0 0 16px; padding-bottom: 4px; border-bottom: 2px solid #e2e8f0 !important; page-break-after: avoid; break-after: avoid; }
+
+    /* One pager — keep the two-column card; the page is always wide enough */
+    ${p}.one-pager-card { border: 1px solid #e2e8f0 !important; border-radius: 12px; padding: 16px 18px; margin: 6px 0 16px; font-size: 0.92em; page-break-inside: avoid; break-inside: avoid; }
+    ${p}.op-header { border-bottom: 2px solid #e2e8f0 !important; padding-bottom: 9px; margin-bottom: 12px; }
+    ${p}.op-title { margin: 0; font-size: 1.25em; font-weight: 800; }
+    ${p}.op-meta { font-size: 0.8em; color: #64748b !important; margin-top: 2px; font-weight: 600; }
+    ${p}.op-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+    ${p}.op-col { min-width: 0; }
+    ${p}.op-section { margin-bottom: 11px; page-break-inside: avoid; break-inside: avoid; }
+    ${p}.op-section-title { margin: 0 0 5px; font-size: 0.82em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #2563eb !important; }
+    ${p}.op-list { margin: 0; padding-left: 17px; }
+    ${p}.op-list li { margin-bottom: 3px; line-height: 1.45; }
+    ${p}.op-table { font-size: 0.85em; margin: 6px 0; }
+    ${p}.op-summary { background: #f8fafc !important; border-left: 3px solid #2563eb !important; border-radius: 0 8px 8px 0; padding: 9px 13px; margin-top: 11px; font-size: 0.9em; page-break-inside: avoid; break-inside: avoid; }
 
     /* Prevent orphans */
     ${p}p, ${p}li { orphans: 3; widows: 3; }
