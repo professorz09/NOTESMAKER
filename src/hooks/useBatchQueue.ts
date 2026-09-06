@@ -12,7 +12,12 @@ import { isSupabaseConfigured, getSupabaseClient } from '../services/supabase';
 // deployment yet, so the feature still works either way.
 
 export type BatchOutputStyle = 'notes' | 'upsc' | 'essay' | 'research';
-export type BatchItemStatus = 'pending' | 'active' | 'done' | 'failed';
+// 'paused' is what Stop puts items into. It matters that it's a status and
+// not a tab-local flag: the background worker only ever claims rows that are
+// still 'pending', so pausing here stops the worker too. Otherwise Stop would
+// only quiet this tab while the worker kept writing answers into the note —
+// which reads as the button not working at all.
+export type BatchItemStatus = 'pending' | 'active' | 'paused' | 'done' | 'failed';
 
 export interface BatchQueueDraft {
   question: string;
@@ -121,7 +126,7 @@ export function useBatchQueue() {
       let query = sb
         .from('pending_questions')
         .select('*')
-        .in('status', ['pending', 'active', 'failed'])
+        .in('status', ['pending', 'active', 'paused', 'failed'])
         .order('created_at', { ascending: true });
       query = projectId ? query.eq('project_id', projectId) : query.is('project_id', null);
       const { data, error } = await query;
@@ -199,25 +204,53 @@ export function useBatchQueue() {
     }
   }, [setAndSync]);
 
-  // Atomically claims a pending item before generating it — the update only
-  // takes effect if the row is STILL 'pending' server-side at that instant
-  // (mirrors the worker's own claim in worker/src/index.ts). Without this,
-  // the background worker and this tab could both read the same row as
-  // pending and both generate an answer for it, doubling AI usage and
-  // writing the same question into the note twice. Returns false when
-  // someone else (almost always the worker) won the race — the caller
-  // should skip this item rather than generate for it.
-  const claimItem = useCallback(async (id: string): Promise<boolean> => {
+  // How long an 'active' row is believed to be genuinely in progress. Past
+  // this it's treated as abandoned (a killed tab, a restarted worker) and
+  // no longer blocks anything. Matches the worker's own threshold.
+  const STALE_ACTIVE_MS = 15 * 60_000;
+
+  // Takes an item to generate. Two separate guards, both needed:
+  //
+  //  1. ONE WRITER PER NOTE. If anything is already generating for this note
+  //     — the background worker, or another open tab — this returns 'busy'
+  //     and the caller stands down. Claiming per-row atomically is NOT
+  //     enough on its own: it stops two processors taking the SAME question,
+  //     but happily lets them take two DIFFERENT questions from the same
+  //     note at once. Both then read that note, append their answer, and
+  //     save it back — so whichever saves second overwrites the other's
+  //     answer. That's the note-eating bug all over again, just with two
+  //     writers instead of a stale canvas.
+  //  2. ATOMIC ROW CLAIM. The update only lands if the row is still
+  //     'pending' server-side at that instant, so even in the split second
+  //     where two processors both pass guard 1, only one can win the row.
+  //
+  // Returns 'won' | 'taken' (someone else got this row) | 'busy' (this
+  // note already has a writer).
+  const claimItem = useCallback(async (
+    id: string,
+    projectId: string | null,
+  ): Promise<'won' | 'taken' | 'busy'> => {
+    const nowIso = new Date().toISOString();
     if (!usingServerRef.current) {
-      // Local-only fallback queue: this tab is the only actor, no race
-      // possible — just mark it and go.
-      const nowIso = new Date().toISOString();
+      // Local-only fallback queue: this tab is the only actor, no race.
       setAndSync(prev => prev.map(it => (it.id === id ? { ...it, status: 'active', updatedAt: nowIso } : it)));
-      return true;
+      return 'won';
     }
     try {
       const sb = getSupabaseClient();
-      const nowIso = new Date().toISOString();
+      const freshSince = new Date(Date.now() - STALE_ACTIVE_MS).toISOString();
+      let busyQuery = sb
+        .from('pending_questions')
+        .select('id')
+        .eq('status', 'active')
+        .gt('updated_at', freshSince)
+        .neq('id', id)
+        .limit(1);
+      busyQuery = projectId ? busyQuery.eq('project_id', projectId) : busyQuery.is('project_id', null);
+      const { data: busy, error: busyErr } = await busyQuery;
+      if (busyErr) throw busyErr;
+      if (busy && busy.length > 0) return 'busy';
+
       const { data, error } = await sb
         .from('pending_questions')
         .update({ status: 'active', updated_at: nowIso })
@@ -225,14 +258,39 @@ export function useBatchQueue() {
         .eq('status', 'pending')
         .select('id');
       if (error) throw error;
-      const won = !!data && data.length > 0;
-      if (won) {
-        setAndSync(prev => prev.map(it => (it.id === id ? { ...it, status: 'active', updatedAt: nowIso } : it)));
-      }
-      return won;
+      if (!data || data.length === 0) return 'taken';
+      setAndSync(prev => prev.map(it => (it.id === id ? { ...it, status: 'active', updatedAt: nowIso } : it)));
+      return 'won';
     } catch {
-      // Can't tell who has it — safer to skip than to risk a double-generate.
-      return false;
+      // Can't tell who has what — standing down is always the safe answer.
+      return 'busy';
+    }
+  }, [setAndSync]);
+
+  // Bulk status change across this note's whole queue — what Stop (pending
+  // + active -> paused) and Resume (paused -> pending) are built on. Done as
+  // one server-side update rather than a loop of updateItem calls so a long
+  // queue stops in a single round trip, and so the worker sees the whole
+  // queue change state at once instead of racing a trickle of updates.
+  const bulkSetStatus = useCallback(async (
+    projectId: string | null,
+    from: BatchItemStatus[],
+    to: BatchItemStatus,
+  ) => {
+    const nowIso = new Date().toISOString();
+    setAndSync(prev => prev.map(it => (from.includes(it.status) ? { ...it, status: to, updatedAt: nowIso } : it)));
+    if (!usingServerRef.current) return;
+    try {
+      const sb = getSupabaseClient();
+      let q = sb.from('pending_questions')
+        .update({ status: to, updated_at: nowIso })
+        .in('status', from);
+      q = projectId ? q.eq('project_id', projectId) : q.is('project_id', null);
+      const { error } = await q;
+      if (error) throw error;
+    } catch {
+      // Best-effort — the local list already reflects it, and loadQueue's
+      // periodic refresh will resync if the write didn't land.
     }
   }, [setAndSync]);
 
@@ -252,5 +310,5 @@ export function useBatchQueue() {
     }
   }, [setAndSync]);
 
-  return { items, itemsRef, loadQueue, addItems, updateItem, claimItem, removeItem };
+  return { items, itemsRef, loadQueue, addItems, updateItem, claimItem, bulkSetStatus, removeItem };
 }

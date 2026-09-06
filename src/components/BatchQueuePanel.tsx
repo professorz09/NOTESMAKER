@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ListPlus, ChevronUp, X, Clock, Loader2, AlertTriangle, ListRestart, Play } from 'lucide-react';
+import { ListPlus, ChevronUp, X, Clock, Loader2, AlertTriangle, ListRestart, Play, Square, PauseCircle } from 'lucide-react';
 import type { BatchQueueItem, BatchOutputStyle } from '../hooks/useBatchQueue';
 
 interface BatchQueuePanelProps {
@@ -12,6 +12,8 @@ interface BatchQueuePanelProps {
   // one generating them.
   isTabRunning: boolean;
   onContinue: () => void;
+  onStop: () => void;
+  onResume: () => void;
 }
 
 const STYLE_LABEL: Record<BatchOutputStyle, string> = {
@@ -34,13 +36,22 @@ const STYLE_PLACEHOLDER: Record<BatchOutputStyle, string> = {
 // panel just lets the student add more, watch progress, and pull out
 // anything still pending. It's deliberately independent of the notes
 // canvas's edit mode: these are queue controls, not document content.
-export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputStyle, onAdd, onRemove, isTabRunning, onContinue }) => {
+export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
+  items, outputStyle, onAdd, onRemove, isTabRunning, onContinue, onStop, onResume,
+}) => {
   const [open, setOpen] = useState(items.length > 0);
   const [draft, setDraft] = useState('');
 
   const pendingCount = items.filter(it => it.status === 'pending').length;
   const activeCount = items.filter(it => it.status === 'active').length;
+  const pausedCount = items.filter(it => it.status === 'paused').length;
   const failedCount = items.filter(it => it.status === 'failed').length;
+  // Paused wins the display: with items parked, nothing is going to happen
+  // (here or in the worker) until Resume, so that's the only button worth
+  // offering. Otherwise anything still moving gets Stop, and a queue sitting
+  // idle in this tab gets Continue.
+  const isPaused = pausedCount > 0;
+  const isMoving = !isPaused && (isTabRunning || activeCount > 0);
 
   const handleAdd = () => {
     if (!draft.trim()) return;
@@ -106,8 +117,10 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
           <div className="space-y-2">
             <div className="flex items-center justify-between px-0.5">
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                {isPaused && <span className="text-amber-600 dark:text-amber-400 font-semibold">Paused · </span>}
                 {activeCount > 0 && <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Writing… </span>}
-                {pendingCount} pending{failedCount > 0 ? `, ${failedCount} failed` : ''}
+                {isPaused ? `${pausedCount} waiting` : `${pendingCount} pending`}
+                {failedCount > 0 ? `, ${failedCount} failed` : ''}
               </span>
             </div>
             <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
@@ -119,11 +132,14 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
                       ? 'bg-red-500/5 border-red-500/30'
                       : it.status === 'active'
                         ? 'bg-cyan-500/10 border-cyan-500/40'
-                        : 'bg-slate-50 dark:bg-slate-800 border-transparent'
+                        : it.status === 'paused'
+                          ? 'bg-amber-500/5 border-amber-500/25'
+                          : 'bg-slate-50 dark:bg-slate-800 border-transparent'
                   }`}
                 >
                   {it.status === 'active' && <Loader2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 flex-shrink-0 mt-0.5 animate-spin" />}
                   {it.status === 'pending' && <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />}
+                  {it.status === 'paused' && <PauseCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />}
                   {it.status === 'failed' && <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />}
                   <span className="min-w-0 flex-1">
                     <span className="block text-[9px] font-bold tracking-wide uppercase text-slate-400 dark:text-slate-500 mb-0.5">
@@ -135,7 +151,7 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
                       <span className="block text-[11px] text-red-500 mt-0.5">{it.error}</span>
                     )}
                   </span>
-                  {it.status === 'pending' && (
+                  {(it.status === 'pending' || it.status === 'paused') && (
                     <button
                       type="button"
                       onClick={() => onRemove(it.id)}
@@ -160,12 +176,35 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
               ))}
             </div>
 
-            {/* Opening a note no longer silently restarts generation — this
-                is the student's explicit "pick this back up here" instead.
-                Safe to press even while the background worker is running:
-                each item is claimed atomically, so the two can never both
-                generate the same question. */}
-            {pendingCount > 0 && !isTabRunning && (
+            {/* Stop parks every remaining item server-side, so it stops the
+                background worker too — not just this tab. Resume hands them
+                back. Continue is for a queue that's simply sitting idle here
+                (opening a note no longer silently restarts generation); it's
+                safe to press even while the worker runs, since each item is
+                claimed atomically. */}
+            {isMoving && (
+              <button
+                type="button"
+                onClick={onStop}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-[0.98] hover:brightness-110"
+                style={{ background: 'linear-gradient(135deg, #e11d48 0%, #be123c 50%, #9f1239 100%)' }}
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                Stop{pendingCount > 0 ? ` (${pendingCount} left)` : ''}
+              </button>
+            )}
+            {isPaused && (
+              <button
+                type="button"
+                onClick={onResume}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-[0.98] hover:brightness-110"
+                style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%)' }}
+              >
+                <Play className="w-4 h-4" />
+                Resume ({pausedCount} paused)
+              </button>
+            )}
+            {!isPaused && !isMoving && pendingCount > 0 && (
               <button
                 type="button"
                 onClick={onContinue}
@@ -176,13 +215,11 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({ items, outputS
                 Continue ({pendingCount} left)
               </button>
             )}
-            {pendingCount > 0 && !isTabRunning && (
-              <p className="text-[10.5px] leading-snug text-slate-500 dark:text-slate-400 px-0.5">
-                These stay queued even if you close the app — the background
-                worker keeps generating them. Press Continue to also run them
-                here in this tab.
-              </p>
-            )}
+            <p className="text-[10.5px] leading-snug text-slate-500 dark:text-slate-400 px-0.5">
+              {isPaused
+                ? 'Paused — nothing will be generated, here or in the background, until you press Resume.'
+                : 'These keep generating in the background even if you close the app. Stop pauses that too.'}
+            </p>
           </div>
         )}
       </div>
