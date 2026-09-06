@@ -1,7 +1,8 @@
 import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
+import { readEnv } from '../utils/env';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const supabaseUrl = readEnv('VITE_SUPABASE_URL');
+const supabaseAnonKey = readEnv('VITE_SUPABASE_ANON_KEY');
 
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 

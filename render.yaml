@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: notesmaker-batch-worker
+    runtime: node
+    plan: free
+    # Deliberately a free Web Service, not a Background Worker — Render has
+    # no free tier for Background Worker services. A free Web Service just
+    # sleeps after 15 minutes with no HTTP traffic; see worker/README.md for
+    # the free external ping that keeps this one awake around the clock.
+    buildCommand: npm install && npm install --prefix worker
+    startCommand: npm --prefix worker start
+    healthCheckPath: /
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: WORKER_SHARED_SECRET
+        sync: false

@@ -1,5 +1,6 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { getAccessToken } from "../supabase";
+import { readEnv } from "../../utils/env";
 
 // All AI calls go through a Supabase Edge Function (gemini-proxy) that
 // holds the GCP Service Account key server-side and forwards to Vertex
@@ -12,8 +13,17 @@ import { getAccessToken } from "../supabase";
 //      prefix, swap the SDK's `x-goog-api-key` header for an
 //      `Authorization: Bearer <supabase-jwt>` header that the edge
 //      function's verify_jwt = true gate will accept.
+//
+// This module also runs, unmodified, inside the background worker (see
+// worker/ — a small always-on process that keeps the batch question queue
+// moving even with no browser tab open). There's no logged-in browser
+// session there to pull a Supabase JWT from, so the interceptor below has a
+// second branch: when running under Node (no `window`), it patches
+// `globalThis.fetch` instead and authenticates with a shared worker secret
+// (WORKER_SHARED_SECRET) that the edge function's auth gate also accepts —
+// see the `X-Worker-Secret` branch in supabase/functions/gemini-proxy.
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseUrl = readEnv('VITE_SUPABASE_URL');
 const PROXY_BASE_URL = supabaseUrl ? `${supabaseUrl}/functions/v1/gemini-proxy` : '';
 
 // --- Global AI concurrency cap -----------------------------------------
@@ -47,11 +57,16 @@ const releaseAiSlot = () => {
 };
 
 function installProxyFetchInterceptor() {
-  if (typeof window === 'undefined') return;
-  if ((window as any).__notesmakerAiFetchPatched) return;
   if (!PROXY_BASE_URL) return;
-  const origFetch = window.fetch.bind(window);
-  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  // Browser: patch window.fetch, authenticate as the logged-in user.
+  // Worker (no window): patch globalThis.fetch, authenticate with the
+  // shared worker secret instead — there's no browser session to pull a
+  // Supabase JWT from.
+  const isBrowser = typeof window !== 'undefined';
+  const globalTarget: any = isBrowser ? window : globalThis;
+  if (globalTarget.__notesmakerAiFetchPatched) return;
+  const origFetch = globalTarget.fetch.bind(globalTarget);
+  globalTarget.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string'
       ? input
       : input instanceof URL
@@ -60,13 +75,19 @@ function installProxyFetchInterceptor() {
     if (url.startsWith(PROXY_BASE_URL)) {
       await acquireAiSlot();
       try {
-        const token = await getAccessToken();
-        if (!token) throw new Error('Sign-in required for AI features.');
         const headers = new Headers(init?.headers || {});
         headers.delete('x-goog-api-key');
-        headers.set('Authorization', `Bearer ${token}`);
-        const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-        if (anon && !headers.has('apikey')) headers.set('apikey', anon);
+        if (isBrowser) {
+          const token = await getAccessToken();
+          if (!token) throw new Error('Sign-in required for AI features.');
+          headers.set('Authorization', `Bearer ${token}`);
+          const anon = readEnv('VITE_SUPABASE_ANON_KEY');
+          if (anon && !headers.has('apikey')) headers.set('apikey', anon);
+        } else {
+          const workerSecret = readEnv('WORKER_SHARED_SECRET');
+          if (!workerSecret) throw new Error('WORKER_SHARED_SECRET is not set for the background worker.');
+          headers.set('X-Worker-Secret', workerSecret);
+        }
         return await origFetch(input, { ...init, headers });
       } finally {
         releaseAiSlot();
@@ -74,7 +95,7 @@ function installProxyFetchInterceptor() {
     }
     return origFetch(input, init);
   };
-  (window as any).__notesmakerAiFetchPatched = true;
+  globalTarget.__notesmakerAiFetchPatched = true;
 }
 
 export const createAIClient = () => {

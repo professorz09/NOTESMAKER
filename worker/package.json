@@ -1,0 +1,23 @@
+{
+  "name": "notesmaker-batch-worker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Always-on background worker that keeps NotesMaker's batch question queue moving with no browser tab open. See README.md.",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^1.48.0",
+    "@supabase/supabase-js": "^2.101.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "tsx": "^4.19.2",
+    "typescript": "~5.8.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -40,6 +40,10 @@ export interface BatchQueueItem extends BatchQueueDraft {
   attempt: number;
   error: string | null;
   createdAt: string;
+  // When this row's status last changed — lets a stale 'active' claim (left
+  // behind by a killed tab or a crashed worker instance) be told apart from
+  // one still genuinely in progress, instead of guessing from status alone.
+  updatedAt: string;
 }
 
 const LOCAL_KEY = 'ai_book_writer_batch_queue';
@@ -80,6 +84,7 @@ function rowToItem(row: any): BatchQueueItem {
     attempt: row.attempt || 0,
     error: row.error ?? null,
     createdAt: row.created_at,
+    updatedAt: row.updated_at || row.created_at,
   };
 }
 
@@ -167,27 +172,67 @@ export function useBatchQueue() {
         // fall through to the local-queue path below
       }
     }
+    const nowIso = new Date().toISOString();
     const newItems: BatchQueueItem[] = drafts.map((d, i) => ({
       ...d,
       id: `local-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
       status: 'pending',
       attempt: 0,
       error: null,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
     }));
     setAndSync(prev => [...prev, ...newItems]);
     return newItems;
   }, [setAndSync]);
 
   const updateItem = useCallback(async (id: string, patch: Partial<Pick<BatchQueueItem, 'status' | 'attempt' | 'error'>>) => {
-    setAndSync(prev => prev.map(it => (it.id === id ? { ...it, ...patch } : it)));
+    const nowIso = new Date().toISOString();
+    setAndSync(prev => prev.map(it => (it.id === id ? { ...it, ...patch, updatedAt: nowIso } : it)));
     if (usingServerRef.current) {
       try {
         const sb = getSupabaseClient();
-        await sb.from('pending_questions').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+        await sb.from('pending_questions').update({ ...patch, updated_at: nowIso }).eq('id', id);
       } catch {
         // Best-effort — local state already reflects the change either way.
       }
+    }
+  }, [setAndSync]);
+
+  // Atomically claims a pending item before generating it — the update only
+  // takes effect if the row is STILL 'pending' server-side at that instant
+  // (mirrors the worker's own claim in worker/src/index.ts). Without this,
+  // the background worker and this tab could both read the same row as
+  // pending and both generate an answer for it, doubling AI usage and
+  // writing the same question into the note twice. Returns false when
+  // someone else (almost always the worker) won the race — the caller
+  // should skip this item rather than generate for it.
+  const claimItem = useCallback(async (id: string): Promise<boolean> => {
+    if (!usingServerRef.current) {
+      // Local-only fallback queue: this tab is the only actor, no race
+      // possible — just mark it and go.
+      const nowIso = new Date().toISOString();
+      setAndSync(prev => prev.map(it => (it.id === id ? { ...it, status: 'active', updatedAt: nowIso } : it)));
+      return true;
+    }
+    try {
+      const sb = getSupabaseClient();
+      const nowIso = new Date().toISOString();
+      const { data, error } = await sb
+        .from('pending_questions')
+        .update({ status: 'active', updated_at: nowIso })
+        .eq('id', id)
+        .eq('status', 'pending')
+        .select('id');
+      if (error) throw error;
+      const won = !!data && data.length > 0;
+      if (won) {
+        setAndSync(prev => prev.map(it => (it.id === id ? { ...it, status: 'active', updatedAt: nowIso } : it)));
+      }
+      return won;
+    } catch {
+      // Can't tell who has it — safer to skip than to risk a double-generate.
+      return false;
     }
   }, [setAndSync]);
 
@@ -207,5 +252,5 @@ export function useBatchQueue() {
     }
   }, [setAndSync]);
 
-  return { items, itemsRef, loadQueue, addItems, updateItem, removeItem };
+  return { items, itemsRef, loadQueue, addItems, updateItem, claimItem, removeItem };
 }

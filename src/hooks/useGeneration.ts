@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useState, useRef, useEffect, type MutableRefObject } from 'react';
 import { useBatchQueue, type BatchQueueDraft, type BatchQueueItem, type BatchOutputStyle } from './useBatchQueue';
+import { isSupabaseConfigured } from '../services/supabase';
 import {
   generateTopicContent,
   generateSmartTable,
@@ -49,6 +50,7 @@ import {
   type ChunkSourceKind,
   type TopicOutlineSection,
 } from '../services/ai/index';
+import { escapeHtml, wrapUPSCBlock } from '../services/ai/htmlBlocks';
 import { GenerationStatus, type MindmapState } from '../types';
 import { STORAGE_KEY, safeSaveDraft } from '../utils/editorUtils';
 import { mapWithConcurrency, PIPELINE_CONCURRENCY } from '../utils/concurrency';
@@ -311,11 +313,11 @@ export function useGeneration({
   // currently shows while the resumed run continues generating sections.
   const [uiGroundingEnabled, setGroundingEnabled] = useState(false);
   const groundingEnabled = uiGroundingEnabled;
-  // Separate grounding toggle for UPSC answers/Essay — defaults ON (real
-  // facts/quotes matter there more than almost anywhere else in the app),
-  // unlike the general pipeline toggle above which defaults off. Kept apart
+  // Separate grounding toggle for UPSC answers/Essay — off by default (same
+  // as the general pipeline toggle above), so answers/batch runs don't pay
+  // the extra grounding latency/cost unless the student opts in. Kept apart
   // from `groundingEnabled` so switching one doesn't silently flip the other.
-  const [upscGroundingEnabled, setUpscGroundingEnabled] = useState(true);
+  const [upscGroundingEnabled, setUpscGroundingEnabled] = useState(false);
   // Off by default — when on, every UPSC answer generated (single question,
   // "Next Question", or the PYQ batch pipeline below) carries two intro
   // options and two outro options instead of one fixed pair, so the student
@@ -334,6 +336,16 @@ export function useGeneration({
   // queue survives a reload instead of living only in this tab.
   const batchQueue = useBatchQueue();
   const batchRunningRef = useRef(false);
+  // Reactive mirror of batchRunningRef — lets the queue panel show/hide its
+  // "Continue" button (a ref alone can't trigger a re-render).
+  const [batchTabRunning, setBatchTabRunning] = useState(false);
+  // Set only when the worker is (re)started off a reload/note-switch that
+  // found items stuck 'active' or still pending — the one moment the live
+  // canvas might not reflect this note's true saved state (see the resume
+  // guard on the first completion below). NOT set when a fresh item is
+  // simply added to an already-idle-but-in-sync queue (addToBatchQueue),
+  // so a normal live edit/delete made mid-run is never second-guessed.
+  const resumingBatchRef = useRef(false);
   // Read inside the async worker loop instead of the `activeProjectId`
   // closure value, which would go stale the moment the student switches
   // notes mid-run.
@@ -2094,16 +2106,6 @@ export function useGeneration({
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 
-  const escapeHtml = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-  // Plain question — no subject-tag pill, no background box. Just a bold
-  // "Q. ..." line so the question reads like a normal exam-copy heading
-  // instead of a styled card (see .upsc-question in index.css).
-  const wrapUPSCBlock = (question: string, answerHtml: string, _subject: UPSCSubject, extraAttr = '') => {
-    return `<section class="upsc-qa-block"${extraAttr}><div class="upsc-question-header"><h2 class="upsc-question">Q. ${escapeHtml(question)}</h2></div>${answerHtml}</section>`;
-  };
-
   // Smoothly bring the most recently appended answer into view so a non-
   // blocking "next question" generation visibly grows the document downward
   // instead of the user wondering whether anything is happening.
@@ -2565,7 +2567,14 @@ export function useGeneration({
           if (!isStaleRun(myRun)) toast.success('Detailed notes ready!');
           return;
         }
-        else result = await generateTopicContent(topicInput, language, aiModel);
+        // Normal — single-shot notes. Honours the same Google Grounding
+        // toggle the leveled pipelines use (off by default): with it on, the
+        // one call is made with live search attached, so a topic whose facts
+        // move (schemes, appointments, current data) isn't written purely
+        // from the model's training cutoff.
+        else result = await generateTopicContent(
+          topicInput, language, groundingSafeModel(aiModel, groundingEnabled), groundingEnabled,
+        );
       } else if (mode === 'text' || mode === 'file') {
         // Text and File share one sidebar panel — whichever the user actually
         // filled in decides the pipeline. Files win when both are present,
@@ -2826,6 +2835,7 @@ export function useGeneration({
   const runBatchQueue = async () => {
     if (batchRunningRef.current) return;
     batchRunningRef.current = true;
+    setBatchTabRunning(true);
     const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
@@ -2833,7 +2843,15 @@ export function useGeneration({
         if (isStaleRun(myRun)) return;
         const next = batchQueue.itemsRef.current.find(it => it.status === 'pending');
         if (!next) break;
-        await batchQueue.updateItem(next.id, { status: 'active' });
+        // Atomic claim — the background worker could be reaching for the
+        // exact same row right now. If it already won, re-sync with the
+        // server instead of trusting this tab's now-stale local copy (which
+        // would otherwise keep re-picking the same row forever).
+        const claimed = await batchQueue.claimItem(next.id);
+        if (!claimed) {
+          await batchQueue.loadQueue(activeProjectIdRef.current);
+          continue;
+        }
 
         let html: string | null = null;
         let lastErr: any = null;
@@ -2860,12 +2878,16 @@ export function useGeneration({
             let existing = getCurrentHtml();
             // Guard against an interrupted run resuming onto a blank/rolled-
             // back canvas (tab reloaded or backgrounded-and-killed mid-batch,
-            // for instance) — the live canvas would read shorter than what's
-            // already sitting in this note, and appending onto it would
-            // finish by autosaving that short version straight over
-            // everything already saved. Whichever side is longer is the one
-            // that actually has everything, so build on that instead.
-            if (next.projectId) {
+            // for instance) — right after such a resume the live canvas can
+            // read shorter than what's already sitting in this note, and
+            // appending onto it would finish by autosaving that short
+            // version straight over everything already saved. Only checked
+            // for the first completion after a detected resume (never in
+            // steady state) — otherwise this would just as happily undo a
+            // student's deliberate mid-run edit or delete, which is real
+            // content too and must never get silently reverted.
+            if (next.projectId && resumingBatchRef.current) {
+              resumingBatchRef.current = false;
               try {
                 const saved = await loadProjectContent(next.projectId);
                 if (saved && saved.length > existing.length) existing = saved;
@@ -2903,11 +2925,22 @@ export function useGeneration({
       }
     } finally {
       batchRunningRef.current = false;
+      setBatchTabRunning(false);
       if (!isStaleRun(myRun)) {
         setStatus(GenerationStatus.IDLE);
       }
     }
   };
+
+  // An 'active' row this old almost certainly means whatever claimed it (a
+  // tab that got closed, a worker instance that got killed) never finished
+  // — safe to hand back to the pool. Anything more recent than this is
+  // left alone: it's most likely the background worker genuinely writing
+  // it right now, and resetting it here would let this tab re-claim and
+  // regenerate a question that's already mid-flight elsewhere, doubling AI
+  // usage for nothing. Matches the worker's own threshold (worker/src/
+  // index.ts) so the two sides agree on what counts as abandoned.
+  const BATCH_STALE_ACTIVE_MS = 15 * 60_000;
 
   // Reloads the queue scoped to whichever note is currently open — on
   // mount, AND every time the student opens a different note. This is what
@@ -2917,17 +2950,52 @@ export function useGeneration({
   // item already generating when the switch happens still finishes and
   // gets delivered to ITS OWN note via the projectId check in
   // runBatchQueue, never the one now on screen.
+  //
+  // Deliberately does NOT auto-start generating in this tab anymore.
+  // Opening a note that still has queued items now just shows them —
+  // either the background worker picks them up on its own (see worker/
+  // README.md), or the student presses "Continue" in the queue panel to
+  // drive them from this tab instead. Silently kicking off generation the
+  // instant a note was opened used to surprise students with a "Writing…"
+  // status they never asked for in this session.
   useEffect(() => {
     (async () => {
       await batchQueue.loadQueue(activeProjectId);
-      const stuck = batchQueue.itemsRef.current.filter(it => it.status === 'active');
+      const staleBefore = Date.now() - BATCH_STALE_ACTIVE_MS;
+      const stuck = batchQueue.itemsRef.current.filter(
+        it => it.status === 'active' && new Date(it.updatedAt).getTime() < staleBefore
+      );
       for (const it of stuck) await batchQueue.updateItem(it.id, { status: 'pending' });
-      if (batchQueue.itemsRef.current.some(it => it.status === 'pending') && !batchRunningRef.current) {
-        runBatchQueue();
-      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId]);
+
+  // Lightweight background refresh so the panel reflects the worker's
+  // progress (items flipping pending → active → gone) without the student
+  // needing to switch notes or reload to see it move.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const id = setInterval(() => {
+      if (batchQueue.itemsRef.current.some(it => it.status === 'pending' || it.status === 'active')) {
+        batchQueue.loadQueue(activeProjectId);
+      }
+    }, 15_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId]);
+
+  // Explicit, student-initiated resume — the only way this tab starts
+  // driving the queue now (besides adding fresh items, which still starts
+  // right away since that's a direct action, not a surprise). Still guarded
+  // by resumingBatchRef so the first item delivered after this reconciles
+  // against the note's saved content rather than trusting a canvas that may
+  // be behind (tab was reloaded/backgrounded since this queue was last
+  // touched).
+  const continueBatchQueue = () => {
+    if (batchRunningRef.current) return;
+    resumingBatchRef.current = true;
+    runBatchQueue();
+  };
 
   // One line per question — lets the student paste/type as many as they
   // want and add them all in one go; more can be added later the same way
@@ -3135,6 +3203,7 @@ export function useGeneration({
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
     batchQueueItems: batchQueue.items,
     addToBatchQueue, removeFromBatchQueue,
+    batchTabRunning, continueBatchQueue,
     notesProgress,
     status,
     language, setLanguage,

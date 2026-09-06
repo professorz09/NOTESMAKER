@@ -102,6 +102,20 @@ export function useProjects() {
   const fetchingRef = useRef(false);
   // Track if we've ever fetched from Supabase
   const hasFetchedRef = useRef(!isSupabaseConfigured);
+  // Throttles repeated save-failure toasts — a persistent problem (offline,
+  // a note stuck over the size limit) fires on every 3s autosave tick, and
+  // without this a few minutes of typing while offline stacks up a wall of
+  // near-identical "Could not save…" toasts.
+  const lastSaveToastRef = useRef<{ message: string; at: number } | null>(null);
+  const SAVE_TOAST_COOLDOWN_MS = 8000;
+  const toastSaveFailure = useCallback((err: any, content: string) => {
+    const message = describeSaveFailure(err, content);
+    const now = Date.now();
+    const last = lastSaveToastRef.current;
+    if (last && last.message === message && now - last.at < SAVE_TOAST_COOLDOWN_MS) return;
+    lastSaveToastRef.current = { message, at: now };
+    toast.error(message);
+  }, []);
 
   const fetchProjects = useCallback(async (force = false) => {
     // For local storage — always instant, no loading needed
@@ -245,7 +259,7 @@ export function useProjects() {
       }
     } catch (e: any) {
       setError(e?.message || 'Failed to create project');
-      toast.error(describeSaveFailure(e, content));
+      toastSaveFailure(e, content);
       return null;
     }
   }, []);
@@ -277,7 +291,7 @@ export function useProjects() {
       return true;
     } catch (e: any) {
       setError(e?.message || 'Failed to save project');
-      toast.error(describeSaveFailure(e, content));
+      toastSaveFailure(e, content);
       return false;
     }
   }, []);
