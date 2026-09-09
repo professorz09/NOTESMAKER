@@ -49,6 +49,7 @@ interface EditorCanvasProps {
   onContinueBatchQueue: () => void;
   onStopBatchQueue: () => void;
   onResumeBatchQueue: () => void;
+  batchWorkerActive: boolean;
   // A saved note is being fetched — show the skeleton rather than whatever
   // was on the canvas a moment ago.
   isOpeningProject: boolean;
@@ -86,6 +87,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   onContinueBatchQueue,
   onStopBatchQueue,
   onResumeBatchQueue,
+  batchWorkerActive,
   isOpeningProject,
 }) => {
   const showContent = !!generatedHtml;
@@ -172,6 +174,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           onContinue={onContinueBatchQueue}
           onStop={onStopBatchQueue}
           onResume={onResumeBatchQueue}
+          workerActive={batchWorkerActive}
         />
       )}
 

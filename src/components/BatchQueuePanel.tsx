@@ -17,6 +17,10 @@ interface BatchQueuePanelProps {
   onContinue: () => void;
   onStop: () => void;
   onResume: () => void;
+  // Something outside this tab is visibly working this queue (the
+  // background worker). Detected from the queue advancing, not from a row
+  // being 'active' — that only holds for ~30s of every ~95s cycle.
+  workerActive: boolean;
 }
 
 const STYLE_LABEL: Record<BatchOutputStyle, string> = {
@@ -40,7 +44,7 @@ const STYLE_PLACEHOLDER: Record<BatchOutputStyle, string> = {
 // anything still pending. It's deliberately independent of the notes
 // canvas's edit mode: these are queue controls, not document content.
 export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
-  items, outputStyle, onAdd, onRemove, onRetry, isTabRunning, onContinue, onStop, onResume,
+  items, outputStyle, onAdd, onRemove, onRetry, isTabRunning, onContinue, onStop, onResume, workerActive,
 }) => {
   const [open, setOpen] = useState(items.length > 0);
   const [draft, setDraft] = useState('');
@@ -54,7 +58,7 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
   // offering. Otherwise anything still moving gets Stop, and a queue sitting
   // idle in this tab gets Continue.
   const isPaused = pausedCount > 0;
-  const isMoving = !isPaused && (isTabRunning || activeCount > 0);
+  const isMoving = !isPaused && (isTabRunning || activeCount > 0 || workerActive);
 
   const handleAdd = () => {
     if (!draft.trim()) return;
@@ -121,7 +125,11 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
             <div className="flex items-center justify-between px-0.5">
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
                 {isPaused && <span className="text-amber-600 dark:text-amber-400 font-semibold">Paused · </span>}
-                {activeCount > 0 && <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Writing… </span>}
+                {!isPaused && (activeCount > 0 || workerActive) && (
+                  <span className="text-cyan-600 dark:text-cyan-400 font-semibold">
+                    {activeCount > 0 ? 'Writing… ' : 'Writing in the background… '}
+                  </span>
+                )}
                 {isPaused ? `${pausedCount} waiting` : `${pendingCount} pending`}
                 {failedCount > 0 ? `, ${failedCount} failed` : ''}
               </span>
@@ -221,7 +229,9 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
             <p className="text-[10.5px] leading-snug text-slate-500 dark:text-slate-400 px-0.5">
               {isPaused
                 ? 'Paused — nothing will be generated, here or in the background, until you press Resume.'
-                : 'These keep generating in the background even if you close the app. Stop pauses that too.'}
+                : isMoving
+                  ? 'Answers are being written one at a time, with about a minute between each. They appear here on their own — you can close the app. Stop halts the background run too.'
+                  : 'These keep generating in the background even if you close the app. Stop pauses that too.'}
             </p>
           </div>
         )}
