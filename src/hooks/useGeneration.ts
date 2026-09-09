@@ -344,6 +344,11 @@ export function useGeneration({
   // the queue. The AI call already in flight can't be recalled — its result
   // is simply discarded.
   const batchStopRef = useRef(false);
+  // Whether something outside this tab is visibly working this note's queue.
+  // Derived from the queue SHRINKING (see the refresh effect below), not
+  // from a row being 'active' — that is true for only ~30s of every ~95s.
+  const lastQueueShrinkRef = useRef<number | null>(null);
+  const [batchWorkerActive, setBatchWorkerActive] = useState(false);
   // Set only when the worker is (re)started off a reload/note-switch that
   // found items stuck 'active' or still pending — the one moment the live
   // canvas might not reflect this note's true saved state (see the resume
@@ -2858,7 +2863,9 @@ export function useGeneration({
           // the other's answer. So this tab stands down entirely; the other
           // writer will work through the rest on its own.
           await batchQueue.loadQueue(activeProjectIdRef.current);
-          toast.info('Already being generated in the background — leaving the queue to it.');
+          lastQueueShrinkRef.current = Date.now();
+          setBatchWorkerActive(true);
+          toast.info('This note is already being written in the background — the answers will keep appearing here on their own.');
           break;
         }
         if (claim === 'taken') {
@@ -3013,12 +3020,28 @@ export function useGeneration({
   // Lightweight background refresh so the panel reflects the worker's
   // progress (items flipping pending → active → gone) without the student
   // needing to switch notes or reload to see it move.
+  //
+  // It also watches for the queue SHRINKING, which is the only reliable
+  // sign that something is working this note. A row is only 'active' for
+  // the ~30s an answer takes; the worker then deletes it and waits a full
+  // minute before claiming the next. So for most of every cycle nothing is
+  // active, and judging by that alone the panel decided the queue was idle
+  // and offered "Continue" — which the student would press, only to be told
+  // the note was already being generated. An item disappearing means an
+  // answer just landed, and that stays true through the gap.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    const id = setInterval(() => {
-      if (batchQueue.itemsRef.current.some(it => it.status === 'pending' || it.status === 'active')) {
-        batchQueue.loadQueue(activeProjectId);
-      }
+    const id = setInterval(async () => {
+      if (!batchQueue.itemsRef.current.some(it => it.status === 'pending' || it.status === 'active')) return;
+      const before = batchQueue.itemsRef.current.length;
+      await batchQueue.loadQueue(activeProjectId);
+      if (batchQueue.itemsRef.current.length < before) lastQueueShrinkRef.current = Date.now();
+      // Generous next to the worker's ~95s cycle, so a slow answer doesn't
+      // read as "stopped" — but short enough that a worker which has
+      // actually died stops being reported as working within minutes.
+      const stillMoving = lastQueueShrinkRef.current !== null
+        && Date.now() - lastQueueShrinkRef.current < 4 * 60_000;
+      setBatchWorkerActive(prev => (prev === stillMoving ? prev : stillMoving));
     }, 15_000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3305,7 +3328,7 @@ export function useGeneration({
     handleDismissPyqQuestions, handleGeneratePYQAnswers,
     batchQueueItems: batchQueue.items,
     addToBatchQueue, removeFromBatchQueue, retryBatchItem,
-    batchTabRunning, continueBatchQueue, stopBatchQueue, resumeBatchQueue,
+    batchTabRunning, continueBatchQueue, stopBatchQueue, resumeBatchQueue, batchWorkerActive,
     notesProgress,
     status,
     language, setLanguage,
