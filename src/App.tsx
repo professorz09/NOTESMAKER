@@ -16,6 +16,7 @@ import { useAIEdit } from './hooks/useAIEdit';
 import { useProjects } from './hooks/useProjects';
 import { buildPrintHtml, safeSaveDraft } from './utils/editorUtils';
 import { sanitizeHtml } from './utils/sanitize';
+import { isOutdatedBuild } from './utils/buildVersion';
 import { toast } from './components/Toast';
 import { getCachedSession, signInWithCredentials, isSupabaseConfigured } from './services/supabase';
 import { CURRENT_AFFAIRS_TAG } from './hooks/useProjects';
@@ -90,6 +91,13 @@ const App: React.FC = () => {
   // lets that one row show a spinner instead of looking unresponsive while
   // a large document downloads.
   const [openingProjectId, setOpeningProjectId] = useState<string | null>(null);
+
+  // A tab running an outdated bundle still has the OLD save path — the one
+  // that overwrites a note by id with no revision check. Left open across a
+  // deploy, its autosave wipes whatever the worker wrote in the meantime;
+  // that is how two generated answers were lost. Such a tab must stop
+  // writing until it is reloaded, and must say so rather than looking fine.
+  const [staleBuild, setStaleBuild] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
@@ -327,12 +335,16 @@ const App: React.FC = () => {
 
   const handleSaveNow = useCallback(async () => {
     if (!activeProjectId) return;
+    if (staleBuild) {
+      toast.warning('This tab is running an old version of the app — reload the page before saving, or it could overwrite newer answers.');
+      return;
+    }
     const html = isEditing && editorRef.current ? getCleanHtml() : (generatedHtmlRef.current || '');
     if (html) {
       await saveToProject(activeProjectId, html);
       toast.success('Saved!');
     }
-  }, [activeProjectId, isEditing, editorRef, getCleanHtml, saveToProject]);
+  }, [activeProjectId, isEditing, editorRef, getCleanHtml, saveToProject, staleBuild]);
 
   // --- UNDO / REDO ---
   const applyHistoryIndex = useCallback((newIndex: number, historySnap: string[]) => {
@@ -406,13 +418,16 @@ const App: React.FC = () => {
   const projectSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!activeProjectId || !generatedHtml || isResettingRef.current) return;
+    // Outdated tab: its save would be the unguarded kind. Better to save
+    // nothing than to overwrite answers written since this tab loaded.
+    if (staleBuild) return;
     if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current);
     projectSaveTimerRef.current = setTimeout(() => {
       const html = generatedHtmlRef.current;
       if (activeProjectId && html) saveToProject(activeProjectId, html);
     }, 3000);
     return () => { if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current); };
-  }, [generatedHtml, activeProjectId, saveToProject]);
+  }, [generatedHtml, activeProjectId, saveToProject, staleBuild]);
 
   // While the BACKGROUND WORKER is writing this note's queued answers, keep
   // the open canvas in step with what it's saving.
@@ -486,6 +501,24 @@ const App: React.FC = () => {
       window.removeEventListener('focus', onWake);
     };
   }, [syncOpenNoteFromServer]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      if (cancelled || staleBuild || document.visibilityState !== 'visible') return;
+      if (await isOutdatedBuild()) setStaleBuild(true);
+    };
+    check();
+    const timer = setInterval(check, 5 * 60_000);
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('focus', check);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('focus', check);
+    };
+  }, [staleBuild]);
 
   // --- CLEAR CANVAS ---
   const onClearCanvas = () => {
@@ -779,6 +812,22 @@ const App: React.FC = () => {
   return (
     <div className={`flex h-screen w-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden dot-pattern ${isDarkMode ? 'dark' : ''}`}>
       <style>{`@media print { @page { size: A4 portrait; margin: 5mm; } }`}</style>
+
+      {/* Saving is switched off in this tab until it reloads (see staleBuild),
+          so this has to be impossible to miss — a note that silently stops
+          saving is worse than one that says why. */}
+      {staleBuild && (
+        <div className="fixed top-0 inset-x-0 z-[60] bg-amber-500 text-amber-950 px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13px] font-semibold shadow-lg no-print">
+          <span>This tab is running an old version — saving is paused here so it can't overwrite newer answers.</span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-3 py-1 rounded-lg bg-amber-950 text-amber-50 font-bold hover:brightness-125 transition"
+          >
+            Reload
+          </button>
+        </div>
+      )}
 
       <Sidebar
         sidebarOpen={sidebarOpen}
