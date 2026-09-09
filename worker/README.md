@@ -50,20 +50,24 @@ Service**, same repo, Build Command `npm install && npm install --prefix
 worker`, Start Command `npm --prefix worker start`, plan **Free**, same
 three env vars.)
 
-### 4. Keep it awake (free tier only)
+### 4. Keeping it awake (free tier) — handled automatically
 
-Render's free Web Service tier sleeps after 15 minutes with no incoming
-HTTP request — the queue only gets processed while it's awake. Point a free
-external pinger at your service's URL every 5–10 minutes:
+Render's free Web Service tier sleeps after ~15 minutes with no **inbound**
+HTTP request. Everything this worker does is outbound, so its own work
+counts for nothing: without inbound traffic a long queue goes to sleep
+mid-run and simply stops, with items still pending and nothing generating.
 
-- [cron-job.org](https://cron-job.org) (free, no card) → create a cronjob
-  hitting `https://<your-service>.onrender.com/` every 10 minutes.
-- Or [UptimeRobot](https://uptimerobot.com) (free tier) the same way.
+The worker handles this itself now — it requests its own public URL every
+10 minutes (using `RENDER_EXTERNAL_URL`, which Render sets for you), which
+is inbound traffic like any other. Nothing to configure. Check
+`lastSelfPingAt` on the health endpoint to confirm it's firing.
 
-Without this, the worker still runs whenever it happens to be awake, but a
-long unattended batch run may pause for stretches while the service sleeps.
-If you're on a paid Render plan instead, skip this step — paid services
-don't sleep.
+An external pinger ([cron-job.org](https://cron-job.org),
+[UptimeRobot](https://uptimerobot.com) — both free) pointed at the same URL
+every 10 minutes still works as a belt-and-braces backup, and covers the
+one case the self-ping can't: a process that has already died. It is no
+longer required, though. On a paid plan none of this matters — paid
+services don't sleep.
 
 ## How it behaves
 

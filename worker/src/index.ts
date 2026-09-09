@@ -52,6 +52,16 @@ const IDLE_POLL_MS = 20_000;
 // restarted mid-item (a Render redeploy, an OOM, …) — reclaim it rather
 // than leaving it stuck forever.
 const STALE_ACTIVE_MS = 15 * 60_000;
+// Render's free tier spins a web service down after ~15 minutes with no
+// INBOUND HTTP request. The work this process does is all outbound, so it
+// counts for nothing: a long queue would go to sleep mid-run and simply
+// stop, which is exactly what happened — a batch stalled for 20 minutes
+// with items still pending and nothing generating. The documented fix is an
+// external pinger, but that is a second thing to set up and a second thing
+// to silently stop working. Hitting our own public URL is inbound traffic
+// like any other, so the process keeps itself up without depending on
+// anything outside it. Comfortably under the 15-minute window.
+const SELF_PING_MS = 10 * 60_000;
 
 interface PendingRow {
   id: string;
@@ -83,6 +93,9 @@ const stats = {
   processed: 0,
   failed: 0,
   lastError: null as string | null,
+  // Proof the keep-awake is actually firing — without it, "the queue
+  // stalled" and "the service was asleep" look identical from outside.
+  lastSelfPingAt: null as string | null,
 };
 
 async function resetStuckActiveItems(): Promise<void> {
@@ -277,5 +290,25 @@ const server = http.createServer((_req, res) => {
 });
 const port = Number(process.env.PORT) || 3000;
 server.listen(port, () => console.log(`[worker] health server listening on :${port}`));
+
+// Keep ourselves awake (see SELF_PING_MS). RENDER_EXTERNAL_URL is set by
+// Render automatically; anywhere else this simply doesn't run, and a paid
+// plan doesn't need it either — but pinging costs nothing there, so it's
+// gated only on the URL existing rather than on guessing the plan.
+const selfUrl = process.env.RENDER_EXTERNAL_URL;
+if (selfUrl) {
+  setInterval(() => {
+    fetch(selfUrl, { method: 'GET' })
+      .then(res => { stats.lastSelfPingAt = `${new Date().toISOString()} (${res.status})`; })
+      .catch(err => {
+        // Not fatal on its own — an external pinger may still be covering
+        // us, and the next attempt is only ten minutes away.
+        stats.lastSelfPingAt = `${new Date().toISOString()} (failed: ${String(err?.message || err)})`;
+      });
+  }, SELF_PING_MS).unref?.();
+  console.log(`[worker] self-ping every ${SELF_PING_MS / 60000}m at ${selfUrl}`);
+} else {
+  console.log('[worker] no RENDER_EXTERNAL_URL — self-ping disabled');
+}
 
 loop();
