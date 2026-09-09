@@ -160,6 +160,16 @@ export function useProjects() {
     }
   }, []);
 
+  // Which server revision each note's in-memory copy came from: the content
+  // as it was read, and the `updated_at` stamped on it. saveProject writes
+  // against that stamp, so a copy that has gone stale — a tab left open
+  // while the background worker appended fifty answers — can no longer
+  // overwrite the newer version. This is the whole defence against the
+  // "notes came back with answers missing" failure: without it, the last
+  // writer simply wins, and the last writer is usually the tab holding the
+  // oldest copy.
+  const baseRef = useRef<Map<string, { content: string; updatedAt: string }>>(new Map());
+
   // Called on first panel open — only fetches once unless forced
   const onPanelOpen = useCallback(() => {
     fetchProjects(false);
@@ -183,11 +193,16 @@ export function useProjects() {
       const sb = getSupabaseClient();
       const { data, error: sbErr } = await sb
         .from('projects')
-        .select('content')
+        .select('content, updated_at')
         .eq('id', id)
         .single();
       if (sbErr) throw sbErr;
-      return (data as { content: string | null })?.content ?? null;
+      const row = data as { content: string | null; updated_at: string } | null;
+      const content = row?.content ?? null;
+      // Remember exactly which revision this copy came from — saveProject
+      // refuses to overwrite anything newer than it.
+      if (row) baseRef.current.set(id, { content: content ?? '', updatedAt: row.updated_at });
+      return content;
     }
     const local = getLocalProjects();
     const p = local.find(lp => lp.id === id);
@@ -268,6 +283,73 @@ export function useProjects() {
     }
   }, []);
 
+  // Called when a save found the note already changed by someone else —
+  // in practice the background worker, which appends answers while a tab
+  // sits open holding an older copy.
+  //
+  // The rule is that no writer may delete another writer's work. Since
+  // every writer here APPENDS, the two versions almost always share a
+  // common prefix, and merging is exact rather than a guess: take the
+  // server's version (it has their additions) and re-apply whatever this
+  // copy added on top of the shared base.
+  const reconcileConflict = useCallback(async (
+    sb: ReturnType<typeof getSupabaseClient>,
+    id: string,
+    base: { content: string; updatedAt: string },
+    ours: string,
+  ): Promise<boolean> => {
+    const { data, error } = await sb
+      .from('projects')
+      .select('content, updated_at')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    const row = data as { content: string | null; updated_at: string };
+    const theirs = row.content ?? '';
+
+    // Nothing of ours to add — adopt theirs and move on quietly.
+    if (theirs === ours) {
+      baseRef.current.set(id, { content: theirs, updatedAt: row.updated_at });
+      return true;
+    }
+
+    // Our copy is the base plus our own additions: replay those on top of
+    // their newer version. This is the case that matters — it keeps BOTH
+    // the worker's answers and whatever this tab added.
+    if (ours.startsWith(base.content)) {
+      const ourAdditions = ours.slice(base.content.length);
+      const merged = ourAdditions ? theirs + ourAdditions : theirs;
+      if (merged === theirs) {
+        baseRef.current.set(id, { content: theirs, updatedAt: row.updated_at });
+        return true;
+      }
+      const stamp = new Date().toISOString();
+      const { data: w, error: wErr } = await sb
+        .from('projects')
+        .update({ content: merged, updated_at: stamp })
+        .eq('id', id)
+        .eq('updated_at', row.updated_at)
+        .select('id');
+      if (wErr) throw wErr;
+      if (w && w.length > 0) {
+        baseRef.current.set(id, { content: merged, updatedAt: stamp });
+        return true;
+      }
+      // Changed again mid-merge. Leave it; the next autosave tick retries
+      // from the newer revision rather than racing this one.
+      return false;
+    }
+
+    // Our copy diverged from the base (an edit or deletion in the middle of
+    // the document), so the additions can't be isolated. Refuse to write:
+    // discarding a save is recoverable, overwriting someone else's answers
+    // is not. Adopt their revision as the new base so the canvas sync pulls
+    // it in and the next save starts from something current.
+    baseRef.current.set(id, { content: theirs, updatedAt: row.updated_at });
+    toast.warning('This note was updated in the background while it was open — reloading it so nothing is lost. Re-apply your last edit if it is missing.');
+    return false;
+  }, []);
+
   const saveProject = useCallback(async (id: string, rawContent: string): Promise<boolean> => {
     // A "✍️ writing the answer…" placeholder is live UI state, never note
     // content. The 3s autosave fires while one is on the canvas, so without
@@ -279,11 +361,26 @@ export function useProjects() {
       const now = new Date().toISOString();
       if (isSupabaseConfigured) {
         const sb = getSupabaseClient();
-        const { error: sbErr } = await sb
-          .from('projects')
-          .update({ content, updated_at: now })
-          .eq('id', id);
+        const base = baseRef.current.get(id);
+
+        // Write ONLY against the revision this copy was read from. If the
+        // note has moved on since — the background worker appended answers
+        // while this tab sat in the background, where its refresh timer is
+        // throttled or suspended outright — zero rows match and nothing is
+        // overwritten. Previously this was a bare update by id: last writer
+        // wins, and the last writer is routinely the tab holding the oldest
+        // copy. That is how a note comes back with dozens of answers gone.
+        let query = sb.from('projects').update({ content, updated_at: now }).eq('id', id);
+        if (base) query = query.eq('updated_at', base.updatedAt);
+        const { data: written, error: sbErr } = await query.select('id');
         if (sbErr) throw sbErr;
+
+        if (base && (!written || written.length === 0)) {
+          const reconciled = await reconcileConflict(sb, id, base, content);
+          if (!reconciled) return false;
+        } else {
+          baseRef.current.set(id, { content, updatedAt: now });
+        }
       } else {
         const local = getLocalProjects();
         const idx = local.findIndex(p => p.id === id);
@@ -304,7 +401,7 @@ export function useProjects() {
       toastSaveFailure(e, content);
       return false;
     }
-  }, []);
+  }, [reconcileConflict]);
 
   const renameProject = useCallback(async (id: string, name: string): Promise<boolean> => {
     try {

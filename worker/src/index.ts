@@ -176,20 +176,33 @@ async function generateForItem(row: PendingRow): Promise<string> {
 // the "resumed onto a stale canvas" bug class the browser has to guard
 // against explicitly.
 async function appendToProject(projectId: string, block: string): Promise<void> {
-  const { data: proj, error: readErr } = await admin
-    .from('projects')
-    .select('content')
-    .eq('id', projectId)
-    .single();
-  if (readErr) throw readErr;
-  const existing = (proj?.content as string | null) || '';
-  const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
-  const combined = sanitizeHtml(existing + divider + block);
-  const { error: writeErr } = await admin
-    .from('projects')
-    .update({ content: combined, updated_at: new Date().toISOString() })
-    .eq('id', projectId);
-  if (writeErr) throw writeErr;
+  // Read-modify-write, guarded by the revision that was read. A browser tab
+  // can save the same note in the gap between this read and this write, and
+  // a bare update-by-id would drop whatever it wrote. Retried a few times
+  // because losing a generated answer here means paying to generate it
+  // again — the retry re-reads, so it appends to the newest version.
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const { data: proj, error: readErr } = await admin
+      .from('projects')
+      .select('content, updated_at')
+      .eq('id', projectId)
+      .single();
+    if (readErr) throw readErr;
+    const existing = (proj?.content as string | null) || '';
+    const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
+    const combined = sanitizeHtml(existing + divider + block);
+    const { data: written, error: writeErr } = await admin
+      .from('projects')
+      .update({ content: combined, updated_at: new Date().toISOString() })
+      .eq('id', projectId)
+      .eq('updated_at', proj!.updated_at)
+      .select('id');
+    if (writeErr) throw writeErr;
+    if (written && written.length > 0) return;
+    console.warn(`[worker] ${projectId} changed mid-append, retrying (${attempt}/4)`);
+    await sleep(500 * attempt);
+  }
+  throw new Error('Could not append: the note kept changing under us');
 }
 
 async function processItem(row: PendingRow): Promise<void> {

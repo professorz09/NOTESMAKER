@@ -431,33 +431,61 @@ const App: React.FC = () => {
   useEffect(() => {
     syncStateRef.current = { activeProjectId, batchTabRunning, isEditing, items: batchQueueItems };
   }, [activeProjectId, batchTabRunning, isEditing, batchQueueItems]);
+  // Read inside the sync callback, which must not be rebuilt (and its
+  // listeners re-registered) every time the generation status ticks.
+  const statusRef = React.useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+
+  const syncOpenNoteFromServer = useCallback(async (requireLiveQueue: boolean) => {
+    const { activeProjectId: pid, batchTabRunning: running, isEditing: editing, items } = syncStateRef.current;
+    if (!pid || running || editing || isResettingRef.current) return;
+    if (statusRef.current !== GenerationStatus.IDLE) return;
+    // An empty canvas means the student cleared it on purpose. Pulling the
+    // note back down would undo that in front of them.
+    if (!generatedHtmlRef.current) return;
+    if (requireLiveQueue && !items.some(it => it.status === 'active' || it.status === 'pending')) return;
+    try {
+      const saved = await loadProjectContent(pid);
+      if (saved == null) return;
+      // Re-check: an edit or a note switch may have started during the fetch.
+      const now = syncStateRef.current;
+      if (now.activeProjectId !== pid || now.isEditing || now.batchTabRunning) return;
+      const clean = sanitizeHtml(saved);
+      if (clean === (generatedHtmlRef.current || '')) return;
+      isResettingRef.current = true;
+      setGeneratedHtml(clean);
+      pushToHistory(clean);
+      setTimeout(() => { isResettingRef.current = false; }, 100);
+    } catch { /* transient — the next attempt tries again */ }
+  }, [loadProjectContent, setGeneratedHtml, pushToHistory, isResettingRef]);
 
   useEffect(() => {
-    const timer = setInterval(async () => {
-      const { activeProjectId: pid, batchTabRunning: running, isEditing: editing, items } = syncStateRef.current;
-      if (!pid || running || editing || isResettingRef.current) return;
-      if (status !== GenerationStatus.IDLE) return;
-      // An empty canvas means the student cleared it on purpose. Pulling the
-      // note back down would undo that in front of them 15 seconds later.
-      if (!generatedHtmlRef.current) return;
-      const beingWritten = items.some(it => it.status === 'active' || it.status === 'pending');
-      if (!beingWritten) return;
-      try {
-        const saved = await loadProjectContent(pid);
-        if (saved == null) return;
-        // Re-check: an edit or a note switch may have started during the fetch.
-        const now = syncStateRef.current;
-        if (now.activeProjectId !== pid || now.isEditing || now.batchTabRunning) return;
-        const clean = sanitizeHtml(saved);
-        if (clean === (generatedHtmlRef.current || '')) return;
-        isResettingRef.current = true;
-        setGeneratedHtml(clean);
-        pushToHistory(clean);
-        setTimeout(() => { isResettingRef.current = false; }, 100);
-      } catch { /* transient — the next tick tries again */ }
-    }, 15000);
+    const timer = setInterval(() => { syncOpenNoteFromServer(true); }, 15000);
     return () => clearInterval(timer);
-  }, [status, loadProjectContent, setGeneratedHtml, pushToHistory, isResettingRef]);
+  }, [syncOpenNoteFromServer]);
+
+  // The interval above is not enough on its own, and this is the gap that
+  // actually cost a note: browsers throttle — and on mobile suspend
+  // outright — timers in a backgrounded tab. That is exactly when the
+  // worker does its work, so the tab wakes up holding a copy that can be
+  // hours old, and the first autosave after any edit writes it back over
+  // everything generated in the meantime.
+  //
+  // So re-read the note the moment the tab is looked at again. Deliberately
+  // WITHOUT requiring a live queue: if the worker drained the whole queue
+  // while the tab slept there is nothing left pending to key off, and that
+  // is the very case where the canvas is most stale and most dangerous.
+  useEffect(() => {
+    const onWake = () => {
+      if (document.visibilityState === 'visible') syncOpenNoteFromServer(false);
+    };
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    return () => {
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+    };
+  }, [syncOpenNoteFromServer]);
 
   // --- CLEAR CANVAS ---
   const onClearCanvas = () => {
