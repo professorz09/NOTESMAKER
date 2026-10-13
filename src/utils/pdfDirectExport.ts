@@ -109,10 +109,17 @@ function isAtomicBlock(el: HTMLElement): boolean {
 function collectFlowBlocks(container: HTMLElement): HTMLElement[] {
   const out: HTMLElement[] = [];
   for (const child of Array.from(container.children) as HTMLElement[]) {
+    // Only descend when the container holds nothing but elements — a <div>
+    // with its own text next to the elements ("Line with <b>bold</b> word",
+    // the kind contentEditable makes) must stay one block, or its bare text
+    // nodes were dropped from the PDF.
+    const onlyElements = Array.from(child.childNodes).every(n =>
+      n.nodeType === Node.ELEMENT_NODE || (n.nodeType === Node.TEXT_NODE && !(n.textContent || '').trim()) || n.nodeType === Node.COMMENT_NODE);
     const isContainer =
       (child.tagName === 'SECTION' || child.tagName === 'DIV' || child.tagName === 'ARTICLE') &&
       !isAtomicBlock(child) &&
-      child.children.length > 0;
+      child.children.length > 0 &&
+      onlyElements;
     if (isContainer) out.push(...collectFlowBlocks(child));
     else out.push(child);
   }
@@ -148,10 +155,14 @@ async function waitForAssets(root: HTMLElement) {
   const fontsReady = (document as any).fonts?.ready?.catch(() => {}) ?? Promise.resolve();
   const imgs = Array.from(root.querySelectorAll('img'));
   const imgsReady = Promise.all(imgs.map((img) => {
+    // Off-screen lazy images never load; a dead image host never answers.
+    // Neither may hang the export on "Preparing…".
+    if (img.loading === 'lazy') img.loading = 'eager';
     if (img.complete) return Promise.resolve();
     return new Promise<void>((resolve) => {
-      img.addEventListener('load', () => resolve(), { once: true });
-      img.addEventListener('error', () => resolve(), { once: true });
+      const t = setTimeout(resolve, 8000);
+      img.addEventListener('load', () => { clearTimeout(t); resolve(); }, { once: true });
+      img.addEventListener('error', () => { clearTimeout(t); resolve(); }, { once: true });
     });
   }));
   await Promise.all([fontsReady, imgsReady]);

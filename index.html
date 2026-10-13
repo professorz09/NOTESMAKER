@@ -815,7 +815,7 @@
         }
 
         /* Reset layout for print */
-        html, body, #root, main {
+        html, body, #root, main, .nm-app, .nm-scroll, .nm-canvas {
           width: 100% !important; height: auto !important; min-height: auto !important;
           overflow: visible !important; display: block !important; margin: 0 !important; padding: 0 !important;
           background: white !important; position: static !important;
@@ -823,7 +823,7 @@
         }
 
         /* Hide UI chrome */
-        aside, button, header, nav, .no-print, .ai-edit-trigger,
+        aside, button, header, nav, .no-print, .ai-edit-trigger, .nmg-wrap, .nmg-dock, .nm-toast-stack,
         .toolbar-container, .pdf-page-divider::before, .pdf-page-divider::after { display: none !important; }
 
         .flex { display: block !important; }
