@@ -1,5 +1,6 @@
 import React from 'react';
 import { GenerationStatus } from '../types';
+import '../liquid-sidebar.css';
 import { ProjectsPanel } from './ProjectsPanel';
 import type { ProjectMeta } from '../hooks/useProjects';
 import type { UPSCAnswerStyle, UPSCSubject, DetailLevel } from '../services/ai/index';
@@ -173,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 nm-backdrop z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -182,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // When closed on mobile, -translate-x-[105%] pushes the panel
         // entirely off-screen (plus a tiny gap) so the right-edge border
         // doesn't slip back into the viewport as a 1px vertical strip.
-        // The border itself is hidden on mobile (lg:border-r only) for
+        // The desktop right border only exists in the open state (.nms-open) for
         // belt-and-suspenders.
         // Width is applied CONDITIONALLY per state — never emit two
         // competing `lg:w-*` utilities at once. Previously the base class
@@ -191,17 +192,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // refused to collapse. Now the open branch owns the desktop width
         // and the closed branch owns the zero-width collapse.
         className={`
-          fixed lg:relative z-50
+          nms-aside fixed lg:relative z-50
           w-[88vw] max-w-[340px] sm:max-w-[360px]
           flex flex-col
           transition-all duration-300 ease-in-out overflow-hidden
-          lg:border-r lg:border-white/5
           ${sidebarOpen
-            ? 'translate-x-0 lg:w-[360px] xl:w-[380px]'
-            : '-translate-x-[105%] lg:translate-x-0 lg:w-0 lg:max-w-0 lg:border-r-0'}
+            ? 'nms-open translate-x-0 lg:w-[360px] xl:w-[380px]'
+            : '-translate-x-[105%] lg:translate-x-0 lg:w-0 lg:max-w-0'}
         `}
         style={{
-          background: '#0b1120',
           height: '100dvh',
           paddingTop: 'env(safe-area-inset-top, 0px)',
         }}
@@ -209,7 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <SidebarHeader />
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        <div className="flex-1 min-h-0 overflow-y-auto nms-scroll px-4 pt-3 pb-5 space-y-5">
           <SidebarModeTabs mode={mode} setMode={setMode} />
 
           {mode === 'currentAffairs' ? (
@@ -253,17 +252,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {notesProgress && (
-            <div className="space-y-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/6 px-3 py-2.5">
-              <div className="w-full bg-white/8 rounded-full h-1.5 overflow-hidden">
+            <div className="space-y-1.5 nms-card px-3 py-2.5">
+              <div className="nms-bar">
                 <div
-                  className="h-1.5 rounded-full transition-all duration-500"
                   style={{
                     width: `${Math.max(6, Math.round((notesProgress.current / Math.max(1, notesProgress.total)) * 100))}%`,
-                    background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
                   }}
                 />
               </div>
-              <p className="text-[10px] text-indigo-300/90 leading-snug truncate">{notesProgress.label}</p>
+              <p className="text-[11px] nm-muted leading-snug truncate">{notesProgress.label}</p>
             </div>
           )}
 

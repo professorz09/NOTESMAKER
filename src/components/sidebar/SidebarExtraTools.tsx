@@ -12,21 +12,19 @@ export const SidebarExtraTools: React.FC<{ children: React.ReactNode }> = ({ chi
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+    <div className="nms-card overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/4 transition-colors"
+        className="nms-disclosure"
       >
-        <div className="w-6 h-6 rounded-lg bg-white/6 flex items-center justify-center flex-shrink-0">
-          <Wrench className="w-3.5 h-3.5 text-slate-400" />
-        </div>
-        <span className="flex-1 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+        <Wrench className="w-4 h-4 nm-muted flex-shrink-0" />
+        <span className="flex-1 text-left nm-label">
           PDF &amp; Extra Tools
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 nm-muted flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
