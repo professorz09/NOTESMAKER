@@ -40,7 +40,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({
         type="button"
         onClick={handleMainClick}
         disabled={isGenerating}
-        className="nm-btn-primary w-full min-h-[52px] px-4 text-[15px]"
+        className="nm-btn-primary nms-cta w-full min-h-[50px] px-4 text-[15px]"
       >
         {isGenerating ? (
           <>
@@ -58,21 +58,21 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({
         )}
       </button>
 
-      {/* Clear + Undo */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Clear + Undo — secondary, so they stay quiet next to Generate */}
+      <div className="flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={handleClearCanvas}
-          className="nm-btn danger min-h-[40px] text-[13px]"
+          className="nms-ghost danger"
         >
           <Eraser className="w-4 h-4" />
-          Clear
+          Clear page
         </button>
         <button
           type="button"
           onClick={handleUndo}
           disabled={!canUndo || isGenerating}
-          className="nm-btn min-h-[40px] text-[13px]"
+          className="nms-ghost"
         >
           <Undo className="w-4 h-4" />
           Undo

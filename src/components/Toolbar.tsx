@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   PanelLeft,
   Undo,
@@ -16,10 +16,12 @@ import {
   ListOrdered,
   AlignJustify,
   Type,
+  ChevronDown,
   Bold,
   Italic,
   Underline,
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import '../liquid-top.css';
 
 interface ToolbarProps {
@@ -65,9 +67,7 @@ const IconBtn: React.FC<{
     disabled={disabled}
     title={title}
     aria-label={title}
-    // 40px on touch screens, 36px on lg+ (sized in liquid-top.css);
-    // focus-visible draws a mint outline for keyboard users.
-    className={`nm-icon-btn ${className}`}
+    className={`nmt-btn ${className}`}
   >
     {children}
   </button>
@@ -79,16 +79,111 @@ const IconBtn: React.FC<{
 // the click.
 const keepSelection = (e: React.MouseEvent<HTMLButtonElement>) => e.preventDefault();
 
-// Thin rule between groups — desktop only; phones rely on spacing.
-const Divider: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`nm-tb-div hidden md:block ${className}`} aria-hidden="true" />
-);
-
 const Spinner = () => (
-  <svg className="animate-spin h-3.5 w-3.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+  <svg className="animate-spin h-4 w-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
+);
+
+// A button with a dropdown panel, positioned against the button's rect so
+// the bar's sideways scroll (narrow phones while editing) can't clip it.
+const Menu: React.FC<{
+  label: React.ReactNode;
+  title: string;
+  buttonClass?: string;
+  width?: number;
+  children: (close: () => void) => React.ReactNode;
+}> = ({ label, title, buttonClass = 'nmt-btn', width = 248, children }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const close = () => setOpen(false);
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const place = () => {
+      const r = btnRef.current!.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+      setPos({ top: r.bottom + 8, left });
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [open, width]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!panelRef.current?.contains(t) && !btnRef.current?.contains(t)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); btnRef.current?.focus(); } };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        title={title}
+        aria-label={title}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`${buttonClass}${open ? ' on' : ''}`}
+      >
+        {label}
+      </button>
+      {/* Portalled: the bar's backdrop-filter makes it the containing block
+          for position:fixed children, which threw the panel off-screen. The
+          .nm-app wrapper carries the theme class, so render inside it. */}
+      {open && pos && createPortal(
+        <div ref={panelRef} role="menu" className="nmt-menu nm-pop" style={{ top: pos.top, left: pos.left, width }}>
+          {children(close)}
+        </div>,
+        btnRef.current?.closest('.nm-app') ?? document.body,
+      )}
+    </>
+  );
+};
+
+const MenuItem: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+  onClick: () => void;
+  disabled?: boolean;
+}> = ({ icon, label, hint, onClick, disabled }) => (
+  <button type="button" role="menuitem" className="nmt-item" onClick={onClick} disabled={disabled}>
+    <span className="nmt-item-ico">{icon}</span>
+    <span className="min-w-0 flex-1 text-left">
+      <span className="nmt-item-label">{label}</span>
+      {hint && <span className="nmt-item-hint">{hint}</span>}
+    </span>
+  </button>
+);
+
+const Stepper: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onDec: () => void;
+  onInc: () => void;
+}> = ({ icon, label, value, onDec, onInc }) => (
+  <div className="nmt-step">
+    <span className="nmt-item-ico">{icon}</span>
+    <span className="nmt-item-label flex-1">{label}</span>
+    <div className="nmt-step-ctl">
+      <button type="button" onClick={onDec} aria-label={`Decrease ${label.toLowerCase()}`}><Minus className="w-3.5 h-3.5" /></button>
+      <span>{value}</span>
+      <button type="button" onClick={onInc} aria-label={`Increase ${label.toLowerCase()}`}><Plus className="w-3.5 h-3.5" /></button>
+    </div>
+  </div>
 );
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -103,187 +198,149 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   handleAddTableOfContents,
   isDarkMode, toggleDarkMode,
 }) => {
-  // One flat row. DOM order is the desktop layout (tools left, actions
-  // right); on phones `order-*` pulls the most used actions to the front
-  // and the row scrolls sideways instead of wrapping. md:order-none
-  // restores DOM order from tablet up.
+  const busy = isDownloadingPdf || isDownloadingDocx;
+  // One quiet row: navigation and history on the left, the document's
+  // actions on the right. Everything secondary lives in two menus — "Aa"
+  // (reading size, spacing, theme) and Export — so the bar fits a phone
+  // without scrolling and reads as one control, not a row of chips.
   return (
-    <div
-      className="nm-tb absolute left-2 right-2 sm:left-3 sm:right-3 md:left-4 md:right-4 xl:left-7 xl:right-7 z-30 no-print"
-    >
-      <div className="nm-tb-row flex items-center gap-1.5 md:gap-1 p-[5px] overflow-x-auto">
-
-        {/* Sidebar toggle */}
+    <div className="nm-tb nmt absolute left-2 right-2 sm:left-3 sm:right-3 md:left-4 md:right-4 xl:left-7 xl:right-7 z-30 no-print">
+      <div className="nm-tb-row flex items-center gap-1 p-[5px] overflow-x-auto">
         <IconBtn
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          title={sidebarOpen ? 'Close Sidebar (⌘B)' : 'Open Sidebar (⌘B)'}
-          className={`order-1 md:order-none ${sidebarOpen ? 'on' : ''}`}
+          title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          className={sidebarOpen ? 'on' : ''}
         >
           <PanelLeft className="w-[18px] h-[18px]" />
         </IconBtn>
 
-        <Divider />
+        <span className="nmt-sep" aria-hidden="true" />
 
-        {/* Undo / Redo */}
-        <div className="nm-tb-group order-4 md:order-none">
-          <IconBtn onClick={handleUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
-            <Undo className="w-4 h-4" />
-          </IconBtn>
-          <IconBtn onClick={handleRedo} disabled={!canRedo} title="Redo (Ctrl+Y)">
-            <Redo className="w-4 h-4" />
-          </IconBtn>
-        </div>
-
-        {/* Bold / Italic / Underline — only actionable while editing, so it
-            only takes up space then. Mirrors Ctrl+B/I/U for touch users who
-            have no keyboard shortcut. */}
-        {isEditing && (
-          <div className="nm-tb-group order-3 md:order-none">
-            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('bold')} title="Bold (Ctrl+B)">
-              <Bold className="w-4 h-4" />
-            </IconBtn>
-            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('italic')} title="Italic (Ctrl+I)">
-              <Italic className="w-4 h-4" />
-            </IconBtn>
-            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('underline')} title="Underline (Ctrl+U)">
-              <Underline className="w-4 h-4" />
-            </IconBtn>
-          </div>
-        )}
-
-        {/* Font size */}
-        <div className="nm-tb-group order-9 md:order-none">
-          <IconBtn onClick={handleZoomOut} title="Decrease Font (A-)">
-            <Minus className="w-3.5 h-3.5" />
-          </IconBtn>
-          <span className="nm-tb-val">
-            <Type className="w-3 h-3 md:hidden 2xl:block" />
-            <span className="w-4 text-center">{fontSize}</span>
-          </span>
-          <IconBtn onClick={handleZoomIn} title="Increase Font (A+)">
-            <Plus className="w-3.5 h-3.5" />
-          </IconBtn>
-        </div>
-
-        {/* Line height */}
-        <div className={`nm-tb-group order-10 md:order-none ${sidebarOpen ? 'md:max-xl:hidden' : ''}`}>
-          <IconBtn onClick={handleLineHeightDecrease} title="Tighter Spacing">
-            <Minus className="w-3.5 h-3.5" />
-          </IconBtn>
-          <span className="nm-tb-val">
-            <AlignJustify className="w-3 h-3 md:hidden 2xl:block" />
-            <span className="w-6 text-center">{lineHeight.toFixed(1)}</span>
-          </span>
-          <IconBtn onClick={handleLineHeightIncrease} title="Looser Spacing">
-            <Plus className="w-3.5 h-3.5" />
-          </IconBtn>
-        </div>
-
-        {/* Pushes the actions to the right edge when there is room */}
-        <div className="hidden md:block flex-1 min-w-2" aria-hidden="true" />
-
-        {/* Dark mode */}
-        <IconBtn
-          onClick={toggleDarkMode}
-          title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
-          className="order-8 md:order-none"
-        >
-          {isDarkMode
-            ? <Sun className="w-[18px] h-[18px]" />
-            : <Moon className="w-[18px] h-[18px]" />
-          }
+        <IconBtn onClick={handleUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+          <Undo className="w-[18px] h-[18px]" />
+        </IconBtn>
+        <IconBtn onClick={handleRedo} disabled={!canRedo} title="Redo (Ctrl+Y)">
+          <Redo className="w-[18px] h-[18px]" />
         </IconBtn>
 
-        <Divider />
+        {/* Bold / Italic / Underline — only while editing. Mirrors Ctrl+B/I/U
+            for touch users who have no keyboard shortcut. */}
+        {isEditing && (
+          <>
+            <span className="nmt-sep" aria-hidden="true" />
+            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('bold')} title="Bold (Ctrl+B)">
+              <Bold className="w-[18px] h-[18px]" />
+            </IconBtn>
+            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('italic')} title="Italic (Ctrl+I)">
+              <Italic className="w-[18px] h-[18px]" />
+            </IconBtn>
+            <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('underline')} title="Underline (Ctrl+U)">
+              <Underline className="w-[18px] h-[18px]" />
+            </IconBtn>
+          </>
+        )}
 
-        {/* Edit / Done / Rewrite */}
+        <div className="flex-1 min-w-1" aria-hidden="true" />
+
         {isEditing ? (
-          <div className="flex gap-1.5 md:gap-1 flex-shrink-0 order-2 md:order-none">
+          <>
             <button
               type="button"
+              onMouseDown={keepSelection}
               onClick={openSelectionRewriteModal}
-              className="nm-btn nm-tb-pill accent"
-              title="Rewrite selected text"
+              className="nmt-text accent"
+              title="Rewrite the selected text with AI"
               aria-label="Rewrite selected text"
             >
               <Wand2 className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline md:hidden 2xl:inline">Rewrite</span>
+              <span className="hidden sm:inline">Rewrite</span>
             </button>
             <button
               type="button"
               onClick={() => { setIsEditing(false); saveToStorage(); }}
-              className="nm-chip on nm-tb-pill !px-3.5 justify-center"
+              className="nmt-text done"
               title="Done editing (Ctrl+E)"
-              aria-label="Done editing (Ctrl+E)"
+              aria-label="Done editing"
             >
               <Check className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline md:hidden 2xl:inline">Done</span>
+              <span className="hidden sm:inline">Done</span>
             </button>
-          </div>
+          </>
         ) : (
           <button
             type="button"
             onClick={() => setIsEditing(true)}
-            className="nm-btn nm-tb-pill order-2 md:order-none"
+            className="nmt-text"
             title="Edit document (Ctrl+E)"
-            aria-label="Edit document (Ctrl+E)"
+            aria-label="Edit document"
           >
             <PenTool className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline md:hidden 2xl:inline">Edit</span>
+            <span className="hidden sm:inline">Edit</span>
           </button>
         )}
 
-        <Divider />
+        <Menu title="Reading view — text size, spacing, theme" width={272} label={<Type className="w-[18px] h-[18px]" />}>
+          {() => (
+            <>
+              <p className="nmt-menu-head">Reading view</p>
+              <Stepper icon={<Type className="w-4 h-4" />} label="Text size" value={String(fontSize)} onDec={handleZoomOut} onInc={handleZoomIn} />
+              <Stepper icon={<AlignJustify className="w-4 h-4" />} label="Line spacing" value={lineHeight.toFixed(1)} onDec={handleLineHeightDecrease} onInc={handleLineHeightIncrease} />
+              <div className="nmt-rule" />
+              <div className="nmt-seg" role="group" aria-label="Theme">
+                <button type="button" className={!isDarkMode ? 'on' : ''} onClick={() => { if (isDarkMode) toggleDarkMode(); }}>
+                  <Sun className="w-4 h-4" /> Light
+                </button>
+                <button type="button" className={isDarkMode ? 'on' : ''} onClick={() => { if (!isDarkMode) toggleDarkMode(); }}>
+                  <Moon className="w-4 h-4" /> Dark
+                </button>
+              </div>
+            </>
+          )}
+        </Menu>
 
-        {/* Index */}
-        <button
-          type="button"
-          onClick={handleAddTableOfContents}
-          className="nm-btn nm-tb-pill order-11 md:order-none"
-          title="Toggle table of contents"
-          aria-label="Toggle table of contents"
+        <Menu
+          title="Export — PDF, Word, print"
+          buttonClass="nmt-primary"
+          width={272}
+          label={<>
+            {busy ? <Spinner /> : <Download className="w-4 h-4 flex-shrink-0" />}
+            <span className="hidden sm:inline">{busy ? 'Preparing…' : 'Export'}</span>
+            <ChevronDown className="w-3.5 h-3.5 hidden sm:block opacity-70" />
+          </>}
         >
-          <ListOrdered className="w-4 h-4 flex-shrink-0" />
-          <span className="hidden 2xl:inline">Index</span>
-        </button>
-
-        {/* Export via browser print dialog (fine control, needs pop-ups allowed) */}
-        <button
-          type="button"
-          onClick={handleExportPDF}
-          className="nm-btn nm-tb-pill order-7 md:order-none"
-          title="Print / Export via browser (opens print dialog)"
-          aria-label="Print / Export via browser (opens print dialog)"
-        >
-          <Printer className="w-4 h-4 flex-shrink-0" />
-          <span className="hidden 2xl:inline">Print</span>
-        </button>
-
-        {/* Direct DOCX download — a real, editable Word document */}
-        <button
-          type="button"
-          onClick={handleDownloadDocx}
-          disabled={isDownloadingDocx}
-          className="nm-btn nm-tb-pill order-6 md:order-none"
-          title="Download as Word document (.docx)"
-          aria-label="Download as Word document (.docx)"
-        >
-          {isDownloadingDocx ? <Spinner /> : <FileText className="w-4 h-4 flex-shrink-0" />}
-          <span className="hidden sm:inline md:hidden 2xl:inline">{isDownloadingDocx ? 'Preparing…' : 'DOCX'}</span>
-        </button>
-
-        {/* Direct PDF download — no print dialog, saves straight to Downloads */}
-        <button
-          type="button"
-          onClick={handleDownloadPdfDirect}
-          disabled={isDownloadingPdf}
-          className="nm-btn-primary nm-tb-pill order-3 md:order-none"
-          title="Download as PDF (direct, no print dialog)"
-          aria-label="Download as PDF (direct, no print dialog)"
-        >
-          {isDownloadingPdf ? <Spinner /> : <Download className="w-4 h-4 flex-shrink-0" />}
-          <span className="hidden sm:inline md:hidden xl:inline">{isDownloadingPdf ? 'Preparing…' : 'Download'}</span>
-        </button>
+          {(close) => (
+            <>
+              <p className="nmt-menu-head">Export</p>
+              <MenuItem
+                icon={isDownloadingPdf ? <Spinner /> : <Download className="w-4 h-4" />}
+                label="Download PDF"
+                hint="Saved straight to your device"
+                disabled={isDownloadingPdf}
+                onClick={() => { close(); handleDownloadPdfDirect(); }}
+              />
+              <MenuItem
+                icon={isDownloadingDocx ? <Spinner /> : <FileText className="w-4 h-4" />}
+                label="Download Word (.docx)"
+                hint="Editable document"
+                disabled={isDownloadingDocx}
+                onClick={() => { close(); handleDownloadDocx(); }}
+              />
+              <MenuItem
+                icon={<Printer className="w-4 h-4" />}
+                label="Print…"
+                hint="Browser print dialog — paper & margins"
+                onClick={() => { close(); handleExportPDF(); }}
+              />
+              <div className="nmt-rule" />
+              <MenuItem
+                icon={<ListOrdered className="w-4 h-4" />}
+                label="Table of contents"
+                hint="Add or remove the index at the top"
+                onClick={() => { close(); handleAddTableOfContents(); }}
+              />
+            </>
+          )}
+        </Menu>
       </div>
     </div>
   );
