@@ -58,18 +58,40 @@ async function importPkcs8Pem(pem) {
     "sign"
   ]);
 }
+/** Parse the service-account key exactly as downloaded from Google Cloud
+ *  (the whole JSON file pasted into ONE secret). Tolerates what pasting into
+ *  a dashboard tends to do to it: wrapping quotes, a base64-encoded copy,
+ *  and a private key whose newlines arrived as literal "\\n". */ function parseServiceAccount(raw) {
+  let text = String(raw ?? "").trim();
+  if ((text.startsWith("'") && text.endsWith("'")) || (text.startsWith('"') && text.endsWith('"') && !text.startsWith('"{'))) {
+    text = text.slice(1, -1).trim();
+  }
+  if (!text.startsWith("{")) {
+    try {
+      text = atob(text).trim();
+    } catch  {
+    /* not base64 — fall through to the JSON error */ }
+  }
+  let sa;
+  try {
+    sa = JSON.parse(text);
+    // A JSON string that itself contains the JSON (double-encoded paste).
+    if (typeof sa === "string") sa = JSON.parse(sa);
+  } catch  {
+    throw new Error("GCP_SA_KEY is not valid JSON — paste the whole service-account .json file contents");
+  }
+  if (typeof sa.private_key === "string" && sa.private_key.includes("\\n")) {
+    sa.private_key = sa.private_key.replace(/\\n/g, "\n");
+  }
+  return sa;
+}
 /** Sign a service-account JWT and exchange it at Google's OAuth endpoint
  *  for a short-lived access token. Cached at module scope until ~60s
  *  before expiry so concurrent calls don't race on the boundary. */ async function getVertexAccessToken(saJson) {
   if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now() + 60_000) {
     return cachedAccessToken.token;
   }
-  let sa;
-  try {
-    sa = JSON.parse(saJson);
-  } catch  {
-    throw new Error("GCP_SA_KEY is not valid JSON");
-  }
+  const sa = parseServiceAccount(saJson);
   if (!sa.private_key || !sa.client_email) {
     throw new Error("GCP_SA_KEY missing private_key or client_email");
   }
@@ -348,7 +370,15 @@ Deno.serve(async (req)=>{
   }
   const isGenerateCall = resolved.pathname.endsWith(":generateContent");
   const gcpSaKey = Deno.env.get("GCP_SA_KEY");
-  const gcpProjectId = Deno.env.get("GCP_PROJECT_ID");
+  // The project id is inside the service-account JSON — GCP_PROJECT_ID is
+  // only needed to point a key at a different project than its own.
+  let gcpProjectId = Deno.env.get("GCP_PROJECT_ID");
+  if (!gcpProjectId && gcpSaKey) {
+    try {
+      gcpProjectId = parseServiceAccount(gcpSaKey).project_id;
+    } catch  {
+    /* reported when the token is minted */ }
+  }
   let gcpRegion = Deno.env.get("GCP_REGION") ?? DEFAULT_VERTEX_REGION;
   // Extract the model name from the path so we can route it correctly.
   // Path shape: /v1beta/models/{model}:{action}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Gamepad2 } from 'lucide-react';
+import { Check, ChevronDown, Gamepad2, ListTree } from 'lucide-react';
 import { GenerationStatus } from '../types';
 import { getScrollParent } from '../utils/editorUtils';
 import { GameDock } from './GameDock';
@@ -13,6 +13,12 @@ const LABELS: Record<string, string> = {
 
 interface LoadingOverlayProps {
   status: GenerationStatus;
+  // Live pipeline progress ("Writing detailed notes (section 3/10)"). On a
+  // phone the sidebar that shows it is closed while generating, so without
+  // it here the only feedback was a generic "Writing content…".
+  progress?: { current: number; total: number; label: string } | null;
+  // Present while the deep-notes plan sheet is hidden — reopens it.
+  onShowPlan?: () => void;
 }
 
 const fmt = (ms: number) => {
@@ -31,7 +37,7 @@ const fmt = (ms: number) => {
 // scrolling a 200-page note by hand to reach it is its own chore.
 //
 // The small game button opens the GameDock (mini games for long waits).
-export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status }) => {
+export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status, progress, onShowPlan }) => {
   const active = status !== GenerationStatus.IDLE;
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
@@ -64,7 +70,10 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status }) => {
 
   if (!active && !done) return null;
 
-  const label = done ? 'Done — notes ready' : (LABELS[status] ?? 'Generating…');
+  const label = done ? 'Done — notes ready' : (progress?.label || LABELS[status] || 'Generating…');
+  const pct = !done && progress && progress.total > 1
+    ? Math.min(100, Math.round((progress.current / progress.total) * 100))
+    : null;
 
   const jumpToBottom = () => {
     const editor = document.querySelector('.editor-content');
@@ -83,7 +92,8 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status }) => {
     // is during a long generation.
     <div className={`nmg-wrap${open ? ' is-open' : ''}`}>
       {open && <GameDock onClose={close} done={done} />}
-      <div className={`nmg-pill nm-raised${done ? ' is-done' : ''}`}>
+      <div className={`nmg-pill nm-raised${done ? ' is-done' : ''}${pct !== null ? ' has-bar' : ''}`}>
+        {pct !== null && <span className="nmg-pill-bar" aria-hidden="true"><span style={{ width: `${Math.max(4, pct)}%` }} /></span>}
         <button
           type="button"
           onClick={jumpToBottom}
@@ -95,12 +105,22 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status }) => {
           ) : (
             <span className="nmg-ring" aria-hidden="true" />
           )}
-          <span className="nmg-pill-label">{label}</span>
+          <span className="nmg-pill-label" title={label}>{label}</span>
           {!done && startedAt !== null && (
             <span className="nmg-pill-time" aria-label="Elapsed time">{fmt(now - startedAt)}</span>
           )}
           <ChevronDown className="nmg-pill-chev w-3.5 h-3.5" />
         </button>
+        {onShowPlan && !done && (
+          <button
+            type="button"
+            onClick={onShowPlan}
+            className="nmg-pill-game"
+            aria-label="Show the notes plan"
+            title="Show the plan and section progress">
+            <ListTree className="w-4 h-4" />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setOpen(o => !o)}

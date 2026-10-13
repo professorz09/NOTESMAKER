@@ -634,6 +634,13 @@ const App: React.FC = () => {
     };
   }, [staleBuild]);
 
+  // The deep-notes plan sheet covers the page the notes are being written
+  // into; it can be hidden to read along. It comes back by itself whenever
+  // it needs the student: a failed section, the finish, or a new plan.
+  const [planHidden, setPlanHidden] = useState(false);
+  const mindmapNeedsYou = !mindmap || mindmap.awaitingApproval || !!mindmap.errorNodeId || mindmap.complete;
+  useEffect(() => { if (mindmapNeedsYou) setPlanHidden(false); }, [mindmapNeedsYou]);
+
   // --- CLEAR CANVAS ---
   const onClearCanvas = () => {
     setShowClearConfirm(true);
@@ -1015,9 +1022,12 @@ const App: React.FC = () => {
       />
 
       <main className="nm-canvas flex-1 min-w-0 flex flex-col h-full overflow-hidden relative transition-all duration-300">
-        {!mindmap && <LoadingOverlay status={status} />}
-        {mindmap && (
+        {(!mindmap || planHidden) && (
+          <LoadingOverlay status={status} progress={notesProgress} onShowPlan={mindmap ? () => setPlanHidden(false) : undefined} />
+        )}
+        {mindmap && !planHidden && (
           <MindmapOverlay
+            onMinimize={() => setPlanHidden(true)}
             mindmap={mindmap}
             onRetry={() => resolveMindmapAction('retry')}
             onSkip={() => resolveMindmapAction('skip')}
