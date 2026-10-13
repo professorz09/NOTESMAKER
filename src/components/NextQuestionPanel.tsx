@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Bot, Trophy, List, Brain, Type, ChevronUp, GraduationCap, BookText, Loader2, Sparkles, ListPlus } from 'lucide-react';
 import type { UPSCAnswerStyle, UPSCSubject } from '../services/ai/index';
+import '../liquid-panels.css';
 
 interface NextQuestionPanelProps {
   defaultStyle: UPSCAnswerStyle;
@@ -51,8 +52,7 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
       <div className="flex flex-col items-center gap-2 mt-6 mb-2 px-4">
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2.5 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all duration-200 active:scale-[0.97] hover:shadow-xl hover:brightness-110"
-          style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
+          className="nm-btn-primary px-6 min-h-[48px] text-sm"
         >
           <ArrowRight className="w-4 h-4" />
           Next Question{queuedCount > 0 ? ` (${queuedCount} queued)` : ''}
@@ -63,15 +63,15 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
 
   return (
     <div className="mt-6 mb-2 mx-auto max-w-2xl px-4">
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-4 sm:p-5 space-y-4">
+      <div className="nm-panel nm-pop rounded-[24px] p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <ArrowRight className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+          <h4 className="nm-head text-sm font-bold flex items-center gap-2.5">
+            <span className="nm-ico-badge !w-8 !h-8 !rounded-[10px]"><ArrowRight className="w-4 h-4" /></span>
             Next Question Settings
           </h4>
           <button
             onClick={() => setOpen(false)}
-            className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1"
+            className="nm-chip min-h-[36px]"
           >
             <ChevronUp className="w-3.5 h-3.5" /> Hide
           </button>
@@ -79,72 +79,63 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
 
         {/* Subject Selector */}
         <div className="space-y-2">
-          <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
+          <label className="nm-label block">
             Subject
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="nm-seg">
             <button
               type="button"
+              aria-pressed={subject === 'gs'}
               onClick={() => setSubject('gs')}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
-                subject === 'gs'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
+              className="nm-focus !min-h-[40px] !text-xs"
             >
               <GraduationCap className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>General Studies (GS)</span>
+              <span className="truncate">General Studies (GS)</span>
             </button>
             <button
               type="button"
+              aria-pressed={subject === 'hindi_literature'}
               onClick={() => setSubject('hindi_literature')}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
-                subject === 'hindi_literature'
-                  ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
+              className="nm-focus !min-h-[40px] !text-xs"
             >
               <BookText className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>Hindi Literature</span>
+              <span className="truncate">Hindi Literature</span>
             </button>
           </div>
         </div>
 
         {/* Custom Question */}
         <div className="space-y-2">
-          <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
-            Question <span className="text-slate-400 dark:text-slate-500 normal-case font-medium">(leave empty = AI will create one)</span>
+          <label className="nm-label block">
+            Question <span className="normal-case tracking-normal font-medium">(leave empty = AI will create one)</span>
           </label>
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             rows={2}
             placeholder="Type the next question here… (AI will refine it into proper Hindi)"
-            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none resize-none"
+            className="nm-input resize-none"
           />
         </div>
 
         {/* Marks */}
         <div className="space-y-2">
-          <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5">
+          <label className="nm-label flex items-center gap-1.5">
             <Type className="w-3 h-3" /> Marks
           </label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="nm-seg">
             {MARKS_OPTIONS.map(({ marks: m, words }) => {
               const active = marks === m;
               return (
                 <button
                   key={m}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => setMarks(m)}
-                  className={`flex flex-col items-center gap-0.5 py-2 rounded-xl transition-all ${
-                    active
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
+                  className="nm-focus !flex-col !gap-0.5 !min-h-[44px] !px-1"
                 >
                   <span className="text-xs font-bold leading-none">{m}</span>
-                  <span className={`text-[8px] leading-none ${active ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>{words}</span>
+                  <span className={`text-[9px] font-semibold leading-none ${active ? 'opacity-75' : 'opacity-70'}`}>{words}</span>
                 </button>
               );
             })}
@@ -153,10 +144,10 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
 
         {/* Answer Style */}
         <div className="space-y-2">
-          <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
+          <label className="nm-label block">
             Answer Style
           </label>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
             {STYLES.map(({ id, icon: Icon, label }) => {
               const active = style === id;
               return (
@@ -164,29 +155,25 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
                   key={id}
                   type="button"
                   onClick={() => setStyle(id)}
-                  className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border transition-all ${
-                    active
-                      ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-500/30'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
+                  aria-pressed={active}
+                  className={`nm-tile !px-0 !py-2 !rounded-2xl min-w-0 ${active ? 'on' : ''}`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold leading-none">{label}</span>
+                  <span className="nm-tile-ico !w-7 !h-7 !rounded-[9px]"><Icon className="w-3.5 h-3.5" /></span>
+                  <span className="text-[9.5px] sm:text-[10.5px] font-bold leading-none truncate max-w-full">{label}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2">
           <button
             disabled={isGenerating}
             onClick={() => {
               onGenerate(style, marks, question.trim(), subject);
               setQuestion('');
             }}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
-            style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)' }}
+            className="nm-btn-primary px-3 min-h-[48px] text-sm whitespace-nowrap"
           >
             {isGenerating ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Writing…</>
@@ -201,14 +188,13 @@ export const NextQuestionPanel: React.FC<NextQuestionPanelProps> = ({
               onAddToQueue(style, marks, question.trim(), subject);
               setQuestion('');
             }}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-            style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 50%, #155e75 100%)' }}
+            className="nm-btn px-3 min-h-[48px] text-sm whitespace-nowrap"
           >
             <ListPlus className="w-4 h-4" /> Add to Queue{queuedCount > 0 ? ` (${queuedCount})` : ''}
           </button>
         </div>
         {!question.trim() && (
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center -mt-1">
+          <p className="nm-muted text-[11px] leading-snug text-center -mt-1">
             Type a question above, then "Add to Queue" to line up several without waiting for each one.
           </p>
         )}

@@ -1,0 +1,119 @@
+/* Modals, popups and panels — extras on top of liquid.css */
+
+/* Sheet: bottom sheet on phones, centred card from sm (640px) up */
+.nm-sheet-wrap {
+  position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: center;
+}
+.nm-sheet.nm-sheet-b {
+  width: 100%;
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  max-height: 92vh; max-height: 92dvh;
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: nm-sheet-up 0.34s var(--nm-spring) both;
+}
+.nm-sheet-grab {
+  width: 40px; height: 5px; border-radius: 999px; margin: 8px auto 0; flex-shrink: 0;
+  background: var(--nm-soft-2);
+}
+@media (min-width: 640px) {
+  .nm-sheet-wrap { align-items: center; padding: 1rem; }
+  .nm-sheet.nm-sheet-b {
+    border-radius: 28px; padding-bottom: 0;
+    animation: nm-pop 0.28s var(--nm-spring) both;
+  }
+  .nm-sheet-grab { display: none; }
+}
+@keyframes nm-sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Hairline divider inside sheets / panels */
+.nm-divide { border-color: var(--nm-line); }
+
+/* Soft inset well (context preview, list rows) */
+.nm-well { background: var(--nm-soft); border: 1px solid var(--nm-line); }
+
+/* Icon-badge squircle with mint tint */
+.nm-ico-badge {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0;
+  color: var(--ac); background: rgba(var(--ac-rgb), 0.12);
+}
+:root:not(.dark) .nm-ico-badge { color: #0d9488; }
+.nm-ico-badge.danger { color: #fb7185; background: rgba(244, 63, 94, 0.14); }
+:root:not(.dark) .nm-ico-badge.danger { color: #e11d48; }
+
+/* Solid red button for destructive confirmation */
+.nm-btn-danger-solid {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+  border-radius: 999px; font-weight: 800; cursor: pointer; color: #fff;
+  background: linear-gradient(180deg, #fb7185 0%, #f43f5e 50%, #e11d48 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 12px 26px -14px rgba(244, 63, 94, 0.9);
+  transition: filter 0.15s, transform 0.2s var(--nm-spring);
+}
+.nm-btn-danger-solid:hover { filter: brightness(1.07); }
+.nm-btn-danger-solid:active { transform: scale(0.97); }
+.nm-btn-danger-solid:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* Selectable row (PYQ question list) */
+.nm-row {
+  border-radius: 16px; border: 1px solid var(--nm-line); background: var(--nm-soft);
+  transition: background 0.15s, border-color 0.15s, transform 0.2s var(--nm-spring);
+}
+.nm-row:hover:not(:disabled) { background: var(--nm-soft-2); }
+.nm-row.on {
+  border-color: rgba(var(--ac-rgb), 0.55);
+  background: radial-gradient(120% 120% at 0% 0%, rgba(var(--ac-rgb), 0.16), rgba(var(--ac-rgb), 0.05) 70%);
+}
+
+/* Compact select styled as a pill */
+.nm-select {
+  appearance: none; -webkit-appearance: none;
+  border-radius: 999px; padding: 0 1.9rem 0 0.85rem; min-height: 36px; font-size: 0.78rem; font-weight: 700;
+  color: var(--nm-head); background-color: var(--nm-soft); border: 1px solid var(--nm-line); outline: none; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--nm-muted) 50%), linear-gradient(135deg, var(--nm-muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+.nm-select:focus-visible { border-color: rgba(var(--ac-rgb), 0.6); box-shadow: 0 0 0 4px rgba(var(--ac-rgb), 0.14); }
+.nm-select option { color: initial; background: initial; }
+
+/* Mint progress bar */
+.nm-progress { height: 6px; border-radius: 999px; background: var(--nm-soft-2); overflow: hidden; }
+.nm-progress > span {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--ac-lo), var(--ac), var(--ac-hi));
+  box-shadow: 0 0 12px rgba(var(--ac-rgb), 0.6);
+  transition: width 0.5s ease;
+}
+
+/* Toast pill */
+.nm-toast { border-radius: 22px; }
+.nm-toast-dot {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; flex-shrink: 0;
+}
+.nm-toast-dot.success { color: #34d399; background: rgba(52, 211, 153, 0.15); }
+.nm-toast-dot.error   { color: #fb7185; background: rgba(251, 113, 133, 0.15); }
+.nm-toast-dot.warning { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
+.nm-toast-dot.info    { color: var(--ac); background: rgba(var(--ac-rgb), 0.14); }
+:root:not(.dark) .nm-toast-dot.success { color: #059669; }
+:root:not(.dark) .nm-toast-dot.error   { color: #e11d48; }
+:root:not(.dark) .nm-toast-dot.warning { color: #d97706; }
+:root:not(.dark) .nm-toast-dot.info    { color: #0d9488; }
+
+/* Shared focus ring for the chrome in this area */
+.nm-focus:focus-visible,
+.nm-btn:focus-visible, .nm-btn-primary:focus-visible, .nm-btn-danger-solid:focus-visible,
+.nm-icon-btn:focus-visible, .nm-chip:focus-visible, .nm-tile:focus-visible, .nm-row:focus-visible {
+  outline: 2px solid var(--ac); outline-offset: 2px;
+}
+
+/* Spinner ring in mint */
+.nm-spinner {
+  width: 16px; height: 16px; border-radius: 999px; flex-shrink: 0;
+  border: 2px solid rgba(var(--ac-rgb), 0.25); border-top-color: var(--ac);
+  animation: nm-spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nm-sheet.nm-sheet-b { animation: none; }
+}

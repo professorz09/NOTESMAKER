@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ListPlus, ChevronUp, X, Clock, Loader2, AlertTriangle, ListRestart, Play, Square, PauseCircle } from 'lucide-react';
 import type { BatchQueueItem, BatchOutputStyle } from '../hooks/useBatchQueue';
+import '../liquid-panels.css';
 
 interface BatchQueuePanelProps {
   items: BatchQueueItem[];
@@ -72,8 +73,7 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
       <div className="flex flex-col items-center gap-2 mt-6 mb-2 px-4">
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2.5 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all duration-200 active:scale-[0.97] hover:shadow-xl hover:brightness-110"
-          style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 50%, #155e75 100%)' }}
+          className="nm-btn px-6 min-h-[48px] text-sm"
         >
           <ListPlus className="w-4 h-4" />
           Batch Queue{items.length > 0 ? ` (${items.length})` : ''}
@@ -84,37 +84,36 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
 
   return (
     <div className="mt-6 mb-2 mx-auto max-w-2xl px-4">
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-4 sm:p-5 space-y-4">
+      <div className="nm-panel nm-pop rounded-[24px] p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <ListPlus className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+          <h4 className="nm-head text-sm font-bold flex items-center gap-2.5">
+            <span className="nm-ico-badge !w-8 !h-8 !rounded-[10px]"><ListPlus className="w-4 h-4" /></span>
             Batch Queue
           </h4>
           <button
             onClick={() => setOpen(false)}
-            className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1"
+            className="nm-chip min-h-[36px]"
           >
             <ChevronUp className="w-3.5 h-3.5" /> Hide
           </button>
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
-            Add {STYLE_LABEL[outputStyle]} items <span className="text-slate-400 dark:text-slate-500 normal-case font-medium">(one per line)</span>
+          <label className="nm-label block">
+            Add {STYLE_LABEL[outputStyle]} items <span className="normal-case tracking-normal font-medium">(one per line)</span>
           </label>
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={3}
             placeholder={STYLE_PLACEHOLDER[outputStyle]}
-            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 outline-none resize-none"
+            className="nm-input resize-none"
           />
           <button
             type="button"
             onClick={handleAdd}
             disabled={!draft.trim()}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 50%, #155e75 100%)' }}
+            className="nm-btn-primary w-full px-4 min-h-[46px] text-sm"
           >
             <ListPlus className="w-4 h-4" /> Add to Queue
           </button>
@@ -123,10 +122,10 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
         {items.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between px-0.5">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="nm-muted text-[11.5px] font-semibold">
                 {isPaused && <span className="text-amber-600 dark:text-amber-400 font-semibold">Paused · </span>}
                 {!isPaused && (activeCount > 0 || workerActive) && (
-                  <span className="text-cyan-600 dark:text-cyan-400 font-semibold">
+                  <span className="nm-accent-text font-semibold">
                     {activeCount > 0 ? 'Writing… ' : 'Writing in the background… '}
                   </span>
                 )}
@@ -134,30 +133,30 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
                 {failedCount > 0 ? `, ${failedCount} failed` : ''}
               </span>
             </div>
-            <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
+            <div className="nm-scroll space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
               {items.map((it) => (
                 <div
                   key={it.id}
-                  className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border text-[13px] leading-snug ${
+                  className={`flex items-start gap-2.5 px-3 py-2.5 rounded-2xl border text-[13px] leading-snug ${
                     it.status === 'failed'
                       ? 'bg-red-500/5 border-red-500/30'
                       : it.status === 'active'
-                        ? 'bg-cyan-500/10 border-cyan-500/40'
+                        ? 'nm-row on'
                         : it.status === 'paused'
                           ? 'bg-amber-500/5 border-amber-500/25'
-                          : 'bg-slate-50 dark:bg-slate-800 border-transparent'
+                          : 'nm-well'
                   }`}
                 >
-                  {it.status === 'active' && <Loader2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 flex-shrink-0 mt-0.5 animate-spin" />}
-                  {it.status === 'pending' && <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />}
+                  {it.status === 'active' && <Loader2 className="nm-accent-text w-3.5 h-3.5 flex-shrink-0 mt-0.5 animate-spin" />}
+                  {it.status === 'pending' && <Clock className="nm-muted w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
                   {it.status === 'paused' && <PauseCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />}
                   {it.status === 'failed' && <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />}
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[9px] font-bold tracking-wide uppercase text-slate-400 dark:text-slate-500 mb-0.5">
+                    <span className="nm-muted block text-[9.5px] font-extrabold tracking-[0.1em] uppercase mb-0.5">
                       {STYLE_LABEL[it.outputStyle]}
                       {it.attempt > 1 && it.status !== 'done' ? ` · attempt ${it.attempt}/3` : ''}
                     </span>
-                    <span className="block text-slate-700 dark:text-slate-200">{it.question}</span>
+                    <span className="block">{it.question}</span>
                     {it.status === 'failed' && it.error && (
                       <span className="block text-[11px] text-red-500 mt-0.5">{it.error}</span>
                     )}
@@ -166,7 +165,7 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onRemove(it.id)}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0"
+                      className="nm-icon-btn !w-8 !h-8 !rounded-full -my-1 -mr-1.5 flex-shrink-0"
                       aria-label="Remove from queue"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -176,7 +175,7 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onRetry(it.id)}
-                      className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 flex-shrink-0"
+                      className="nm-icon-btn !w-8 !h-8 !rounded-full -my-1 -mr-1.5 flex-shrink-0"
                       title="Re-queue"
                       aria-label="Re-queue"
                     >
@@ -197,8 +196,7 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
               <button
                 type="button"
                 onClick={onStop}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-[0.98] hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, #e11d48 0%, #be123c 50%, #9f1239 100%)' }}
+                className="nm-btn danger w-full px-4 min-h-[46px] text-sm"
               >
                 <Square className="w-3.5 h-3.5 fill-current" />
                 Stop{pendingCount > 0 ? ` (${pendingCount} left)` : ''}
@@ -208,8 +206,7 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
               <button
                 type="button"
                 onClick={onResume}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-[0.98] hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%)' }}
+                className="nm-btn-primary w-full px-4 min-h-[46px] text-sm"
               >
                 <Play className="w-4 h-4" />
                 Resume ({pausedCount} paused)
@@ -219,14 +216,13 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
               <button
                 type="button"
                 onClick={onContinue}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-[0.98] hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%)' }}
+                className="nm-btn-primary w-full px-4 min-h-[46px] text-sm"
               >
                 <Play className="w-4 h-4" />
                 Continue ({pendingCount} left)
               </button>
             )}
-            <p className="text-[10.5px] leading-snug text-slate-500 dark:text-slate-400 px-0.5">
+            <p className="nm-muted text-[11px] leading-snug px-0.5">
               {isPaused
                 ? 'Paused — nothing will be generated, here or in the background, until you press Resume.'
                 : isMoving

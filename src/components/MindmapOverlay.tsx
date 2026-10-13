@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Check, RotateCw, SkipForward, FastForward, Loader2, AlertTriangle, Circle, Minus, Sparkles, Plus, PartyPopper, Wand2, X, Shuffle } from 'lucide-react';
 import type { MindmapState, MindmapNode, MindmapNodeStatus } from '../types';
+import '../liquid-panels.css';
 
 interface MindmapOverlayProps {
   mindmap: MindmapState;
@@ -231,29 +232,32 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto p-3 sm:p-6 pt-[4.75rem] sm:pt-24 pb-8 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-sm">
-      <div className="w-full max-w-[640px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+    <div
+      className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto nm-scroll p-3 sm:p-6 pt-[4.75rem] sm:pt-24 pb-8 backdrop-blur-md"
+      style={{ background: 'color-mix(in srgb, var(--nm-bg) 78%, transparent)' }}
+    >
+      <div className="nm-sheet nm-pop w-full max-w-[640px] !rounded-[26px] overflow-hidden">
         {/* header */}
-        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-600 to-violet-600">
+        <div className="px-4 sm:px-5 pt-4 pb-3.5 border-b" style={{ borderColor: 'var(--nm-line)' }}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-200">{mindmap.subtitle}</p>
-              <h3 className="text-white font-bold text-sm sm:text-base truncate">{mindmap.title}</h3>
+              <p className="nm-label nm-accent-text !text-[10px]">{mindmap.subtitle}</p>
+              <h3 className="nm-head font-bold text-[15px] sm:text-base truncate mt-0.5">{mindmap.title}</h3>
             </div>
             <div className="text-right flex-shrink-0">
               {awaiting
-                ? <div className="text-white font-bold text-[11px] leading-tight">Review<br/>the plan</div>
-                : <><div className="text-white font-black text-lg leading-none tabular-nums">{pct}%</div>
-                    <div className="text-[10px] text-indigo-200">{settled}/{total}</div></>}
+                ? <div className="nm-badge !text-[11px] !py-1 !px-2.5 leading-tight">Review the plan</div>
+                : <><div className="nm-head font-black text-lg leading-none tabular-nums">{pct}%</div>
+                    <div className="nm-muted text-[10.5px] mt-0.5 tabular-nums">{settled}/{total}</div></>}
             </div>
           </div>
           {!awaiting && (
-            <div className="mt-2.5 w-full bg-white/25 rounded-full h-1.5 overflow-hidden">
-              <div className="h-1.5 rounded-full bg-white transition-all duration-500" style={{ width: `${Math.max(4, pct)}%` }} />
+            <div className="nm-progress mt-3 w-full">
+              <span style={{ width: `${Math.max(4, pct)}%` }} />
             </div>
           )}
           {awaiting && (
-            <p className="mt-2 text-[10.5px] text-indigo-100 leading-snug">
+            <p className="nm-muted mt-2 text-[11.5px] leading-snug">
               {mindmap.compareOutline
                 ? 'Pick which outline to proceed with below.'
                 : <>Tap any topic to add an instruction for it (optional), add points below, then {mindmap.canRestructure ? <>either <strong>Restructure</strong> the outline (better headings — no point is dropped) or </> : <></>}press <strong>Approve &amp; Generate</strong>.</>}
@@ -263,9 +267,9 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
 
         {/* central topic node */}
         <div className="px-4 sm:px-5 pt-4">
-          <div className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border border-indigo-300/50 dark:border-indigo-700/50 px-3 py-2">
-            <span className={`w-2 h-2 rounded-full bg-indigo-500 ${mindmap.complete ? '' : 'animate-pulse'}`} />
-            <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">{mindmap.title}</span>
+          <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2" style={{ background: 'rgba(var(--ac-rgb), 0.10)', border: '1px solid rgba(var(--ac-rgb), 0.35)' }}>
+            <span className={`w-2 h-2 rounded-full ${mindmap.complete ? '' : 'animate-pulse'}`} style={{ background: 'var(--ac)', boxShadow: '0 0 8px rgba(var(--ac-rgb), 0.8)' }} />
+            <span className="nm-head text-[13px] font-black">{mindmap.title}</span>
           </div>
         </div>
 
@@ -273,29 +277,29 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
             anything else in the review step is usable again. */}
         {mindmap.compareOutline ? (
           <div className="px-4 sm:px-5 py-3 max-h-[60vh] overflow-y-auto scrollbar-thin space-y-3">
-            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 leading-snug">
+            <p className="nm-muted text-[11px] leading-snug">
               Compare the original outline with the restructured one, then pick which to proceed with.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Original</p>
+                <p className="nm-label mb-1.5">Original</p>
                 <OutlineList sections={mindmap.compareOutline.before} />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-1.5">Restructured</p>
+                <p className="nm-label nm-accent-text mb-1.5">Restructured</p>
                 <OutlineList sections={mindmap.compareOutline.after} />
               </div>
             </div>
             <div className="flex gap-2 pt-1">
               <button
                 onClick={onCompareDiscard}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 active:scale-[0.98] transition-all"
+                className="nm-btn flex-1 min-h-[44px] text-xs"
               >
                 Keep Original
               </button>
               <button
                 onClick={onCompareApply}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all"
+                className="nm-btn-primary flex-1 min-h-[44px] text-xs"
               >
                 <Shuffle className="w-3.5 h-3.5" /> Use Restructured
               </button>
@@ -347,7 +351,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                   <button
                     onClick={submitAdd}
                     disabled={mindmap.addBusy || !addText.trim()}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 min-h-[36px] rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all flex-shrink-0"
+                    className="nm-btn-primary px-3 min-h-[38px] min-w-[38px] text-xs flex-shrink-0"
                   >
                     {mindmap.addBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                     <span className="hidden xs:inline">Add</span>
@@ -367,7 +371,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                 <button
                   onClick={onRestructure}
                   disabled={!!mindmap.restructuring}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/25 border border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="nm-btn w-full min-h-[44px] px-3 text-xs"
                 >
                   {mindmap.restructuring
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Restructuring the outline… (no point is dropped)</>
@@ -377,7 +381,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                 <button
                   onClick={onApprove}
                   disabled={!!mindmap.restructuring}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-900/25 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="nm-btn-primary w-full min-h-[48px] text-sm"
                 >
                   <Sparkles className="w-4 h-4" /> Approve &amp; Generate
                 </button>
@@ -388,16 +392,16 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
         )}
 
         {!awaiting && (
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700">
+        <div className="px-4 sm:px-5 py-3 border-t" style={{ borderColor: 'var(--nm-line)' }}>
           {mindmap.complete ? (
             <button
               onClick={onDone}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/20"
+              className="nm-btn-primary w-full min-h-[48px] text-sm"
             >
               <PartyPopper className="w-4 h-4" /> Done — View Notes
             </button>
           ) : (
-            <p className="text-center text-[10px] text-slate-400">
+            <p className="nm-muted text-center text-[11px] leading-snug">
               {mindmap.errorNodeId
                 ? '⚠️ A section ran into a problem — choose Retry, Skip or Finish'
                 : 'Notes are being written live below • the Done button appears once generation finishes'}
