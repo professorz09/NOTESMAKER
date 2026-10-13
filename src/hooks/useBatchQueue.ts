@@ -204,6 +204,20 @@ export function useBatchQueue() {
     }
   }, [setAndSync]);
 
+  // Refreshes an in-progress row's updated_at so it never looks abandoned
+  // while this tab is still working on it. Retries with their delays can
+  // outlast STALE_ACTIVE_MS, after which the background worker resets the
+  // row to pending and answers the same question into the note again.
+  const touchItem = useCallback(async (id: string) => {
+    if (!usingServerRef.current) return;
+    try {
+      const sb = getSupabaseClient();
+      await sb.from('pending_questions').update({ updated_at: new Date().toISOString() }).eq('id', id).eq('status', 'active');
+    } catch {
+      // Best-effort — the next beat tries again.
+    }
+  }, []);
+
   // How long an 'active' row is believed to be genuinely in progress. Past
   // this it's treated as abandoned (a killed tab, a restarted worker) and
   // no longer blocks anything. Matches the worker's own threshold.
@@ -315,5 +329,5 @@ export function useBatchQueue() {
     }
   }, [setAndSync]);
 
-  return { items, itemsRef, loadQueue, addItems, updateItem, claimItem, bulkSetStatus, removeItem };
+  return { items, itemsRef, loadQueue, addItems, updateItem, touchItem, claimItem, bulkSetStatus, removeItem };
 }

@@ -2849,8 +2849,13 @@ export function useGeneration({
     setBatchTabRunning(true);
     const myRun = runSeqRef.current;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
+    // Heartbeat for the row being processed (see batchQueue.touchItem);
+    // cleared at the top of every iteration and when the run ends.
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    const stopHeartbeat = () => { if (heartbeat) { clearInterval(heartbeat); heartbeat = null; } };
     try {
       while (true) {
+        stopHeartbeat();
         if (isStaleRun(myRun) || batchStopRef.current) return;
         const next = batchQueue.itemsRef.current.find(it => it.status === 'pending');
         if (!next) break;
@@ -2875,6 +2880,8 @@ export function useGeneration({
           await batchQueue.loadQueue(activeProjectIdRef.current);
           continue;
         }
+        const claimedId = next.id;
+        heartbeat = setInterval(() => { batchQueue.touchItem(claimedId); }, 2 * 60_000);
 
         // Optimistic placeholder, same as the Next Question flow: drop the
         // question into the document right away with a live "writing…" line
@@ -2980,6 +2987,7 @@ export function useGeneration({
         }
       }
     } finally {
+      stopHeartbeat();
       batchRunningRef.current = false;
       setBatchTabRunning(false);
       if (!isStaleRun(myRun)) {
