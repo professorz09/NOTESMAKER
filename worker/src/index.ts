@@ -219,26 +219,64 @@ async function appendToProject(projectId: string, block: string): Promise<void> 
   throw new Error('Could not append: the note kept changing under us');
 }
 
+// Takes a finished item off the queue. If the delete keeps failing the row
+// is parked as 'done' instead — a status nothing ever reclaims or shows —
+// because a row left 'active' is reset to 'pending' after STALE_ACTIVE_MS
+// and its answer would be generated and appended to the note a second time.
+async function dequeue(rowId: string): Promise<void> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await admin.from('pending_questions').delete().eq('id', rowId);
+    if (!error) return;
+    console.error(`[worker] failed to dequeue ${rowId} (${attempt}/3):`, error.message);
+    await sleep(1000 * attempt);
+  }
+  const { error } = await admin.from('pending_questions').update({ status: 'done', updated_at: new Date().toISOString() }).eq('id', rowId);
+  if (error) console.error(`[worker] could not park ${rowId} as done either:`, error.message);
+}
+
+// Keeps a claimed row's updated_at fresh while it is being worked on. Retries
+// with their delays can run past STALE_ACTIVE_MS, and a row that looks stale
+// is reset to 'pending' (here) or reclaimed by an open browser tab — either
+// way the same question would be answered twice into the note.
+const HEARTBEAT_MS = 2 * 60_000;
+function startHeartbeat(rowId: string): () => void {
+  const timer = setInterval(() => {
+    admin.from('pending_questions')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', rowId)
+      .eq('status', 'active')
+      .then(({ error }) => { if (error) console.error(`[worker] heartbeat failed for ${rowId}:`, error.message); });
+  }, HEARTBEAT_MS);
+  return () => clearInterval(timer);
+}
+
 async function processItem(row: PendingRow): Promise<void> {
   let lastErr: any = null;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const block = await generateForItem(row);
-      // project_id is guaranteed non-null here — claimNextItem only ever
-      // selects rows where it's set.
-      await appendToProject(row.project_id as string, block);
-      const { error: delErr } = await admin.from('pending_questions').delete().eq('id', row.id);
-      if (delErr) console.error(`[worker] generated but failed to dequeue ${row.id}:`, delErr.message);
-      stats.processed++;
-      stats.lastDoneAt = new Date().toISOString();
-      console.log(`[worker] done: "${row.question.slice(0, 60)}" (project ${row.project_id})`);
-      return;
-    } catch (err: any) {
-      lastErr = err;
-      stats.lastError = `${new Date().toISOString()} — ${String(err?.message || err)}`;
-      console.error(`[worker] attempt ${attempt}/${MAX_ATTEMPTS} failed for "${row.question.slice(0, 60)}":`, err?.message || err);
-      if (attempt < MAX_ATTEMPTS) await sleep(RETRY_DELAY_MS);
+  // Generated once and kept: if only the append failed, the next attempt
+  // retries the append instead of paying to generate the answer again.
+  let block: string | null = null;
+  const stopHeartbeat = startHeartbeat(row.id);
+  try {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        if (block === null) block = await generateForItem(row);
+        // project_id is guaranteed non-null here — claimNextItem only ever
+        // selects rows where it's set.
+        await appendToProject(row.project_id as string, block);
+        await dequeue(row.id);
+        stats.processed++;
+        stats.lastDoneAt = new Date().toISOString();
+        console.log(`[worker] done: "${row.question.slice(0, 60)}" (project ${row.project_id})`);
+        return;
+      } catch (err: any) {
+        lastErr = err;
+        stats.lastError = `${new Date().toISOString()} — ${String(err?.message || err)}`;
+        console.error(`[worker] attempt ${attempt}/${MAX_ATTEMPTS} failed for "${row.question.slice(0, 60)}":`, err?.message || err);
+        if (attempt < MAX_ATTEMPTS) await sleep(RETRY_DELAY_MS);
+      }
     }
+  } finally {
+    stopHeartbeat();
   }
   stats.failed++;
   const { error: failErr } = await admin
