@@ -60,7 +60,7 @@ export const generateSectionImage = async (
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-image-preview',
+    model: 'gemini-3-pro-image', // the -preview id was shut down 2026-06-25
     contents: { parts: [{ text: prompt }] },
     config: { imageConfig: { imageSize: '1K', aspectRatio: '16:9' } }
   });
