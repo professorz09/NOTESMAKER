@@ -20,14 +20,15 @@
 //   entirely (a missing secret never matches, so worker calls just 401).
 //
 // Routing:
-//   When GCP_SA_KEY + GCP_PROJECT_ID env vars are set, generateContent
-//   calls go to Vertex AI — billed against the GCP project's billing
-//   account (where the $300 free trial credit applies). If those env
-//   vars are missing AND GEMINI_API_KEY is set, calls fall back to the
+//   When GCP_SA_KEY is set — the whole service-account .json pasted as one
+//   value; the project id is read from it (GCP_PROJECT_ID only overrides
+//   it) — generateContent calls go to Vertex AI, billed against the GCP
+//   project's billing account (where the $300 free trial credit applies).
+//   If it is missing AND GEMINI_API_KEY is set, calls fall back to the
 //   AI Studio direct endpoint so the app keeps working during the switch.
 //
 // Local dev:
-//   1. supabase secrets set GCP_SA_KEY="$(cat sa.json)" GCP_PROJECT_ID=...
+//   1. supabase secrets set GCP_SA_KEY="$(cat sa.json)"
 //   2. supabase functions serve gemini-proxy
 //   3. Client calls POST /functions/v1/gemini-proxy/v1beta/models/...
 //      with `Authorization: Bearer <supabase-jwt>`.
@@ -472,7 +473,7 @@ Deno.serve(async (req)=>{
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
       return json({
-        error: "Server has no AI backend configured (set GCP_SA_KEY+GCP_PROJECT_ID or GEMINI_API_KEY)"
+        error: "Server has no AI backend configured (set GCP_SA_KEY or GEMINI_API_KEY)"
       }, 500);
     }
     const upstream = `${GEMINI_BASE}${resolved.pathname}?key=${encodeURIComponent(apiKey)}`;
