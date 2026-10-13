@@ -1,86 +1,49 @@
 import React from 'react';
 import { Sparkles, SlidersHorizontal, Wand2, ArrowRight, ArrowLeft } from 'lucide-react';
+import '../liquid-top.css';
 
 interface EmptyStateProps {
   onGetStarted?: () => void;
 }
 
 const steps = [
-  {
-    icon: Sparkles,
-    color: 'text-violet-500',
-    bg: 'bg-violet-50 dark:bg-violet-900/20',
-    border: 'border-violet-100 dark:border-violet-800/40',
-    title: 'Choose input',
-    desc: 'Topic · Text · File · Transcript',
-  },
-  {
-    icon: SlidersHorizontal,
-    color: 'text-blue-500',
-    bg: 'bg-blue-50 dark:bg-blue-900/20',
-    border: 'border-blue-100 dark:border-blue-800/40',
-    title: 'Style & depth',
-    desc: 'Notes · UPSC · Normal→Deep',
-  },
-  {
-    icon: Wand2,
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
-    border: 'border-emerald-100 dark:border-emerald-800/40',
-    title: 'Generate',
-    desc: 'AI writes it for you',
-  },
+  { icon: Sparkles, title: 'Input', desc: 'Topic · Text · File' },
+  { icon: SlidersHorizontal, title: 'Style', desc: 'Notes · UPSC · Depth' },
+  { icon: Wand2, title: 'Generate', desc: 'AI writes it' },
 ];
+
+// The app mark (open book + cap), drawn in ink on the mint tile.
+const AppMark: React.FC<{ size?: number }> = ({ size = 40 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></svg>
+);
 
 export const EmptyState: React.FC<EmptyStateProps> = ({ onGetStarted }) => (
   <div
-    className="flex flex-col items-center justify-center text-center px-4 py-10 sm:py-16 select-none"
-    style={{ minHeight: '250mm' }}
+    className="nm-empty flex flex-col items-center justify-center text-center px-2 py-10 sm:py-16 select-none min-h-[72vh] md:min-h-[250mm]"
   >
-    {/* Logo mark */}
-    <div className="relative mb-6 sm:mb-9">
-      <div
-        className="w-20 h-20 sm:w-24 sm:h-24 rounded-[22px] sm:rounded-[28px] flex items-center justify-center shadow-2xl"
-        style={{
-          background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #6d28d9 100%)',
-          boxShadow: '0 0 0 1px rgba(99,102,241,0.3), 0 12px 40px rgba(29,78,216,0.35)',
-        }}
-      >
-        <svg width="44" height="44" viewBox="0 0 26 26" fill="none">
-          <path d="M13 7 C10 6 7 6.5 5 7.5 L5 20 C7 19 10 18.5 13 19.5 Z" fill="white" opacity="0.55"/>
-          <path d="M13 7 C16 6 19 6.5 21 7.5 L21 20 C19 19 16 18.5 13 19.5 Z" fill="white" opacity="0.75"/>
-          <line x1="13" y1="7" x2="13" y2="19.5" stroke="white" strokeWidth="1.2" opacity="0.9"/>
-          <path d="M13 3.5 L4.5 7 L13 10.5 L21.5 7 Z" fill="white" opacity="0.9"/>
-          <circle cx="21.5" cy="7" r="1.3" fill="#a78bfa"/>
-          <path d="M20 2.5 L20.5 4 L22 4.5 L20.5 5 L20 6.5 L19.5 5 L18 4.5 L19.5 4 Z" fill="#c4b5fd" opacity="0.9"/>
-        </svg>
-      </div>
-      <div className="absolute inset-0 rounded-[22px] sm:rounded-[28px] border-2 border-blue-400/20 animate-ping" style={{ animationDuration: '2.5s' }} />
+    {/* Glossy mint app tile */}
+    <div className="nm-appicon w-[76px] h-[76px] sm:w-[88px] sm:h-[88px] rounded-[24px] sm:rounded-[28px] mb-6 sm:mb-7">
+      <AppMark size={36} />
     </div>
 
-    {/* Heading */}
-    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2 sm:mb-3"
-      style={{ background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
-    >
+    <h2 className="nm-head font-extrabold tracking-tight">
       UPSC Notes Maker
     </h2>
-    <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 max-w-sm sm:max-w-md mb-7 sm:mb-10 leading-relaxed px-2">
-      Turn any topic, pasted text, file, class transcript or <strong className="font-semibold text-slate-600 dark:text-slate-300">YouTube link</strong> into detailed, structured study notes — with tables & diagrams.
+    <p className="nm-muted max-w-[19rem] sm:max-w-sm">
+      Any topic, text, file or video — into clean study notes.
     </p>
 
     {/* 3-step guide */}
-    <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-xs sm:max-w-lg">
-      {steps.map(({ icon: Icon, color, bg, border, title, desc }) => (
-        <div
-          key={title}
-          className={`flex flex-col items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-2xl border ${bg} ${border} transition-transform hover:-translate-y-0.5`}
-        >
-          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${bg} ${border} border flex items-center justify-center flex-shrink-0`}>
-            <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${color}`} />
+    <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full max-w-[20rem] sm:max-w-md">
+      {steps.map(({ icon: Icon, title, desc }, i) => (
+        <div key={title} className="nm-step">
+          <div className="nm-step-ico">
+            <Icon className="w-4 h-4" />
           </div>
           <div className="flex flex-col items-center gap-0.5">
-            <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 leading-tight">{title}</p>
-            <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 leading-tight">{desc}</p>
+            <span className="nm-step-num">0{i + 1}</span>
+            <span className="nm-head text-[13px] sm:text-sm font-bold leading-tight">{title}</span>
+            <span className="nm-muted text-[10.5px] sm:text-xs leading-snug">{desc}</span>
           </div>
         </div>
       ))}
@@ -91,13 +54,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onGetStarted }) => (
     <button
       type="button"
       onClick={onGetStarted}
-      className="lg:hidden mt-7 inline-flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg shadow-blue-900/30 active:scale-[0.97] transition-transform"
-      style={{ background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%)' }}
+      className="nm-btn-primary nm-focus lg:hidden mt-8 h-12 px-7 text-sm"
     >
       Get Started
       <ArrowRight className="w-4 h-4" />
     </button>
-    <p className="hidden lg:flex items-center gap-2 mt-7 text-xs text-slate-400 dark:text-slate-600 font-medium tracking-wide">
+    <p className="nm-hint nm-muted hidden lg:flex items-center gap-2 font-semibold tracking-wide">
       <ArrowLeft className="w-3.5 h-3.5" /> Use the sidebar to get started
     </p>
   </div>

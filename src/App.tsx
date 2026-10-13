@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { RewriteModal } from './components/RewriteModal';
-import { Button } from './components/Button';
+import './liquid-top.css';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { ClearConfirmModal } from './components/ClearConfirmModal';
 import { EditorCanvas } from './components/EditorCanvas';
@@ -83,7 +83,8 @@ const App: React.FC = () => {
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
   );
   const [isDarkMode, setIsDarkMode] = useState(() =>
-    typeof window !== 'undefined' && localStorage.getItem('ai_book_writer_dark') === 'true'
+    // Dark glass by default; light only when the user picked it
+    typeof window === 'undefined' || localStorage.getItem('ai_book_writer_dark') !== 'false'
   );
   // Confirm-clear modal state
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -696,64 +697,37 @@ const App: React.FC = () => {
   // the session in localStorage; getSession() resolves instantly).
   if (bootChecking) {
     return (
-      <div className={`flex h-screen items-center justify-center px-6 bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 ${isDarkMode ? 'dark' : ''}`}>
-        <div className="flex flex-col items-center gap-5">
-          <div
-            className="w-[68px] h-[68px] rounded-[20px] flex items-center justify-center shadow-xl animate-pulse"
-            style={{
-              background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #6d28d9 100%)',
-              boxShadow: '0 0 0 1px rgba(99,102,241,0.3), 0 10px 30px rgba(29,78,216,0.45)',
-            }}
-          >
-            <svg width="40" height="40" viewBox="0 0 26 26" fill="none">
-              <path d="M13 7 C10 6 7 6.5 5 7.5 L5 20 C7 19 10 18.5 13 19.5 Z" fill="white" opacity="0.55" />
-              <path d="M13 7 C16 6 19 6.5 21 7.5 L21 20 C19 19 16 18.5 13 19.5 Z" fill="white" opacity="0.78" />
-              <line x1="13" y1="7" x2="13" y2="19.5" stroke="white" strokeWidth="1.2" opacity="0.9" />
-              <path d="M13 3.5 L4.5 7 L13 10.5 L21.5 7 Z" fill="white" opacity="0.92" />
-              <path d="M20 2.5 L20.5 4 L22 4.5 L20.5 5 L20 6.5 L19.5 5 L18 4.5 L19.5 4 Z" fill="#c4b5fd" opacity="0.9" />
-            </svg>
+      <div className={`nm-app flex h-screen items-center justify-center px-6 ${isDarkMode ? 'dark' : ''}`}>
+        <div className="nm-sheet nm-auth nm-pop flex flex-col items-center gap-5 px-10 py-9">
+          <div className="nm-appicon w-[68px] h-[68px] rounded-[22px]">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></svg>
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-black tracking-tight leading-none">
-              <span className="bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">UPSC </span>
-              <span className="bg-gradient-to-r from-indigo-500 to-violet-500 bg-clip-text text-transparent">Notes Maker</span>
-            </h1>
-            <p className="text-[11px] font-semibold tracking-[0.22em] text-slate-400 dark:text-slate-500 uppercase mt-2">AI Study Notes</p>
+            <h1 className="nm-head text-xl font-extrabold tracking-tight leading-none">UPSC Notes Maker</h1>
+            <p className="nm-label mt-2.5">AI Study Notes</p>
           </div>
-          <div className="w-40 h-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden mt-1">
-            <div
-              className="h-full w-1/2 rounded-full"
-              style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', animation: 'nm-boot-slide 1.1s ease-in-out infinite' }}
-            />
+          <div className="nm-boot-track w-36 h-1 rounded-full overflow-hidden" role="progressbar" aria-label="Loading">
+            <div className="nm-boot-bar h-full w-1/2 rounded-full" />
           </div>
         </div>
-        <style>{`@keyframes nm-boot-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(280%); } }`}</style>
       </div>
     );
   }
 
   if (!authReady) {
     return (
-      <div className={`flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 px-4 py-8 ${isDarkMode ? 'dark' : ''}`}>
+      <div className={`nm-app flex min-h-screen items-center justify-center px-4 py-8 ${isDarkMode ? 'dark' : ''}`}>
         <form
           onSubmit={handleLogin}
           autoComplete="off"
-          className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-7 sm:p-9 w-full max-w-sm border border-slate-200/70 dark:border-slate-700/70"
+          className="nm-sheet nm-auth nm-pop relative p-7 sm:p-8 w-full max-w-sm"
         >
           <div className="flex flex-col items-center text-center mb-7">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30"
-              style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #6d28d9 100%)' }}
-            >
-              <svg width="36" height="36" viewBox="0 0 26 26" fill="none">
-                <path d="M13 7 C10 6 7 6.5 5 7.5 L5 20 C7 19 10 18.5 13 19.5 Z" fill="white" opacity="0.55" />
-                <path d="M13 7 C16 6 19 6.5 21 7.5 L21 20 C19 19 16 18.5 13 19.5 Z" fill="white" opacity="0.78" />
-                <line x1="13" y1="7" x2="13" y2="19.5" stroke="white" strokeWidth="1.2" opacity="0.9" />
-                <path d="M13 3.5 L4.5 7 L13 10.5 L21.5 7 Z" fill="white" opacity="0.92" />
-              </svg>
+            <div className="nm-appicon w-16 h-16 rounded-[20px] mb-4">
+              <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></svg>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">UPSC Notes Maker</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Sign in to continue</p>
+            <h2 className="nm-head text-2xl font-extrabold tracking-tight">UPSC Notes Maker</h2>
+            <p className="nm-muted text-sm mt-1.5">Sign in to continue</p>
           </div>
 
           {/* Off-screen (not display:none — browsers skip hidden fields for
@@ -764,7 +738,7 @@ const App: React.FC = () => {
             <input type="password" name="password" autoComplete="current-password" tabIndex={-1} />
           </div>
 
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5" htmlFor="login-email">Email</label>
+          <label className="nm-label block mb-2 ml-1" htmlFor="login-email">Email</label>
           <input
             id="login-email"
             name="nm-login-email"
@@ -778,10 +752,10 @@ const App: React.FC = () => {
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
             disabled={loginInFlight}
-            className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            className="nm-input mb-4 h-12 !text-base sm:!text-[0.92rem]"
           />
 
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5" htmlFor="login-password">Password</label>
+          <label className="nm-label block mb-2 ml-1" htmlFor="login-password">Password</label>
           <input
             id="login-password"
             name="nm-login-password"
@@ -792,37 +766,37 @@ const App: React.FC = () => {
             value={loginPassword}
             onChange={(e) => setLoginPassword(e.target.value)}
             disabled={loginInFlight}
-            className="w-full mb-5 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            className="nm-input mb-6 h-12 !text-base sm:!text-[0.92rem]"
           />
 
           {loginError && (
-            <div className="mb-4 px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40" role="alert">
-              <p className="text-sm text-red-700 dark:text-red-300">{loginError}</p>
+            <div className="mb-4 px-4 py-2.5 rounded-2xl bg-red-500/10 border border-red-500/30" role="alert">
+              <p className="text-sm text-red-600 dark:text-red-300">{loginError}</p>
             </div>
           )}
 
-          <Button type="submit" disabled={loginInFlight} className="w-full py-3 text-lg" variant="primary">
+          <button type="submit" disabled={loginInFlight} className="nm-btn-primary nm-focus w-full h-12 text-base">
             {loginInFlight ? 'Signing in…' : 'Sign In'}
-          </Button>
+          </button>
         </form>
       </div>
     );
   }
 
   return (
-    <div className={`flex h-screen w-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden dot-pattern ${isDarkMode ? 'dark' : ''}`}>
+    <div className={`nm-app flex h-screen w-full font-sans overflow-hidden ${isDarkMode ? 'dark' : ''}`}>
       <style>{`@media print { @page { size: A4 portrait; margin: 5mm; } }`}</style>
 
       {/* Saving is switched off in this tab until it reloads (see staleBuild),
           so this has to be impossible to miss — a note that silently stops
           saving is worse than one that says why. */}
       {staleBuild && (
-        <div className="fixed top-0 inset-x-0 z-[60] bg-amber-500 text-amber-950 px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13px] font-semibold shadow-lg no-print">
+        <div className="fixed top-2 inset-x-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-max sm:max-w-[calc(100%-1rem)] z-[60] rounded-2xl bg-amber-400 text-amber-950 border border-amber-200/60 px-4 py-2.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[13px] font-semibold shadow-[0_18px_40px_-16px_rgba(0,0,0,0.6)] no-print">
           <span>This tab is running an old version — saving is paused here so it can't overwrite newer answers.</span>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="px-3 py-1 rounded-lg bg-amber-950 text-amber-50 font-bold hover:brightness-125 transition"
+            className="h-9 px-4 rounded-full bg-amber-950 text-amber-50 font-bold hover:brightness-125 transition"
           >
             Reload
           </button>
@@ -919,7 +893,7 @@ const App: React.FC = () => {
         onReadDateRange={handleReadDateRange}
       />
 
-      <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative transition-all duration-300">
+      <main className="nm-canvas flex-1 min-w-0 flex flex-col h-full overflow-hidden relative transition-all duration-300">
         {!mindmap && <LoadingOverlay status={status} />}
         {mindmap && (
           <MindmapOverlay
@@ -960,7 +934,7 @@ const App: React.FC = () => {
           toggleDarkMode={() => setIsDarkMode(d => !d)}
         />
 
-        <div className="flex-1 overflow-auto pt-14 sm:pt-16 md:pt-20 lg:pt-20 pb-12 px-2 sm:px-4 md:px-6 lg:px-10 xl:px-16 relative scrollbar-thin scrollbar-track-transparent">
+        <div className="nm-scroll flex-1 overflow-auto pt-[76px] md:pt-[86px] pb-12 px-2 sm:px-4 md:px-6 lg:px-10 xl:px-16 relative">
           <EditorCanvas
             generatedHtml={generatedHtml}
             status={status}

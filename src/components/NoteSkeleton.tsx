@@ -1,4 +1,5 @@
 import React from 'react';
+import '../liquid-top.css';
 
 // Shown on the canvas while a saved note is being fetched. A long note (the
 // batch queue can grow one into hundreds of KB) takes a visible moment to
@@ -9,7 +10,7 @@ import React from 'react';
 // Deliberately shaped like the notes themselves — a title, a couple of
 // paragraphs, a heading, more paragraphs — so the wait looks like the page
 // filling in rather than a generic spinner.
-const BAR = 'rounded bg-slate-200/80 dark:bg-slate-700/60';
+const BAR = 'nm-skel';
 
 export const NoteSkeleton: React.FC = () => (
   <div className="animate-pulse space-y-6 py-2" aria-label="Loading note" role="status">

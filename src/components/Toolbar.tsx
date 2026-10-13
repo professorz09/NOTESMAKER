@@ -20,7 +20,7 @@ import {
   Italic,
   Underline,
 } from 'lucide-react';
-import { Button } from './Button';
+import '../liquid-top.css';
 
 interface ToolbarProps {
   sidebarOpen: boolean;
@@ -59,16 +59,15 @@ const IconBtn: React.FC<{
   children: React.ReactNode;
 }> = ({ onClick, onMouseDown, disabled, title, className = '', children }) => (
   <button
+    type="button"
     onClick={onClick}
     onMouseDown={onMouseDown}
     disabled={disabled}
     title={title}
     aria-label={title}
-    // 40px on mobile (comfortable thumb target without crowding the
-    // toolbar), 36px on lg+ where the cursor is precise and density
-    // matters more. focus-visible ring gives keyboard users a clear
-    // affordance the pre-existing styling lacked.
-    className={`min-w-[40px] min-h-[40px] lg:min-w-[36px] lg:min-h-[36px] flex-shrink-0 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${className}`}
+    // 40px on touch screens, 36px on lg+ (sized in liquid-top.css);
+    // focus-visible draws a mint outline for keyboard users.
+    className={`nm-icon-btn ${className}`}
   >
     {children}
   </button>
@@ -80,8 +79,16 @@ const IconBtn: React.FC<{
 // the click.
 const keepSelection = (e: React.MouseEvent<HTMLButtonElement>) => e.preventDefault();
 
-const Divider = () => (
-  <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5 flex-shrink-0" />
+// Thin rule between groups — desktop only; phones rely on spacing.
+const Divider: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`nm-tb-div hidden md:block ${className}`} aria-hidden="true" />
+);
+
+const Spinner = () => (
+  <svg className="animate-spin h-3.5 w-3.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
 );
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -96,27 +103,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   handleAddTableOfContents,
   isDarkMode, toggleDarkMode,
 }) => {
+  // One flat row. DOM order is the desktop layout (tools left, actions
+  // right); on phones `order-*` pulls the most used actions to the front
+  // and the row scrolls sideways instead of wrapping. md:order-none
+  // restores DOM order from tablet up.
   return (
     <div
-      className="absolute top-0 left-0 right-0 sm:top-2.5 sm:left-3 sm:right-3 md:top-3.5 md:left-5 md:right-5 lg:top-4 lg:left-7 lg:right-7
-        bg-white/98 dark:bg-slate-900/98 backdrop-blur-xl
-        border-b sm:border border-slate-200/70 dark:border-slate-700/70
-        sm:rounded-2xl
-        flex items-center justify-between gap-1
-        px-2 sm:px-3
-        overflow-x-auto scrollbar-none
-        shadow-[0_1px_3px_rgb(0,0,0,0.06)] sm:shadow-[0_4px_24px_rgb(0,0,0,0.07)]
-        z-30 transition-all duration-300"
-      style={{ height: '3.25rem', paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      className="nm-tb absolute left-2 right-2 sm:left-3 sm:right-3 md:left-5 md:right-5 lg:left-7 lg:right-7 z-30 no-print"
     >
-      {/* ── LEFT ── */}
-      <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+      <div className="nm-tb-row flex items-center gap-1.5 md:gap-1 p-[5px] overflow-x-auto">
 
         {/* Sidebar toggle */}
         <IconBtn
           onClick={() => setSidebarOpen(!sidebarOpen)}
           title={sidebarOpen ? 'Close Sidebar (⌘B)' : 'Open Sidebar (⌘B)'}
-          className={`${sidebarOpen ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : ''}`}
+          className={`order-1 md:order-none ${sidebarOpen ? 'on' : ''}`}
         >
           <PanelLeft className="w-[18px] h-[18px]" />
         </IconBtn>
@@ -124,12 +125,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <Divider />
 
         {/* Undo / Redo */}
-        <div className="flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-0.5 border border-slate-200/60 dark:border-slate-700/60">
+        <div className="nm-tb-group order-4 md:order-none">
           <IconBtn onClick={handleUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
-            <Undo className="w-3.5 h-3.5" />
+            <Undo className="w-4 h-4" />
           </IconBtn>
           <IconBtn onClick={handleRedo} disabled={!canRedo} title="Redo (Ctrl+Y)">
-            <Redo className="w-3.5 h-3.5" />
+            <Redo className="w-4 h-4" />
           </IconBtn>
         </div>
 
@@ -137,56 +138,59 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             only takes up space then. Mirrors Ctrl+B/I/U for touch users who
             have no keyboard shortcut. */}
         {isEditing && (
-          <div className="flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-0.5 border border-slate-200/60 dark:border-slate-700/60">
+          <div className="nm-tb-group order-3 md:order-none">
             <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('bold')} title="Bold (Ctrl+B)">
-              <Bold className="w-3.5 h-3.5" />
+              <Bold className="w-4 h-4" />
             </IconBtn>
             <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('italic')} title="Italic (Ctrl+I)">
-              <Italic className="w-3.5 h-3.5" />
+              <Italic className="w-4 h-4" />
             </IconBtn>
             <IconBtn onMouseDown={keepSelection} onClick={() => execFormat('underline')} title="Underline (Ctrl+U)">
-              <Underline className="w-3.5 h-3.5" />
+              <Underline className="w-4 h-4" />
             </IconBtn>
           </div>
         )}
 
-        {/* Font size — visible on sm+, compact on mobile */}
-        <div className="hidden xs:flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-0.5 border border-slate-200/60 dark:border-slate-700/60">
+        {/* Font size */}
+        <div className="nm-tb-group order-9 md:order-none">
           <IconBtn onClick={handleZoomOut} title="Decrease Font (A-)">
-            <Minus className="w-3 h-3" />
+            <Minus className="w-3.5 h-3.5" />
           </IconBtn>
-          <span className="flex items-center gap-0.5 px-0.5 select-none">
-            <Type className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-            <span className="text-xs font-semibold w-4 text-center text-slate-600 dark:text-slate-300 tabular-nums">{fontSize}</span>
+          <span className="nm-tb-val">
+            <Type className="w-3 h-3 md:hidden 2xl:block" />
+            <span className="w-4 text-center">{fontSize}</span>
           </span>
           <IconBtn onClick={handleZoomIn} title="Increase Font (A+)">
-            <Plus className="w-3 h-3" />
+            <Plus className="w-3.5 h-3.5" />
           </IconBtn>
         </div>
 
-        {/* Line height — md+ */}
-        <div className="hidden md:flex items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-0.5 border border-slate-200/60 dark:border-slate-700/60">
+        {/* Line height */}
+        <div className="nm-tb-group order-10 md:order-none">
           <IconBtn onClick={handleLineHeightDecrease} title="Tighter Spacing">
-            <Minus className="w-3 h-3" />
+            <Minus className="w-3.5 h-3.5" />
           </IconBtn>
-          <span className="flex items-center gap-0.5 px-0.5 select-none">
-            <AlignJustify className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-            <span className="text-xs font-semibold w-6 text-center text-slate-600 dark:text-slate-300 tabular-nums">{lineHeight.toFixed(1)}</span>
+          <span className="nm-tb-val">
+            <AlignJustify className="w-3 h-3 md:hidden 2xl:block" />
+            <span className="w-6 text-center">{lineHeight.toFixed(1)}</span>
           </span>
           <IconBtn onClick={handleLineHeightIncrease} title="Looser Spacing">
-            <Plus className="w-3 h-3" />
+            <Plus className="w-3.5 h-3.5" />
           </IconBtn>
         </div>
-      </div>
 
-      {/* ── RIGHT ── */}
-      <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+        {/* Pushes the actions to the right edge when there is room */}
+        <div className="hidden md:block flex-1 min-w-2" aria-hidden="true" />
 
         {/* Dark mode */}
-        <IconBtn onClick={toggleDarkMode} title={isDarkMode ? 'Light Mode' : 'Dark Mode'}>
+        <IconBtn
+          onClick={toggleDarkMode}
+          title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
+          className="order-8 md:order-none"
+        >
           {isDarkMode
-            ? <Sun className="w-4 h-4" />
-            : <Moon className="w-4 h-4" />
+            ? <Sun className="w-[18px] h-[18px]" />
+            : <Moon className="w-[18px] h-[18px]" />
           }
         </IconBtn>
 
@@ -194,87 +198,92 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         {/* Edit / Done / Rewrite */}
         {isEditing ? (
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
+          <div className="flex gap-1.5 md:gap-1 flex-shrink-0 order-2 md:order-none">
+            <button
+              type="button"
               onClick={openSelectionRewriteModal}
-              className="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/50 shadow-sm rounded-xl !px-2 sm:!px-2.5 !py-1.5 text-xs gap-1"
+              className="nm-btn nm-tb-pill accent"
               title="Rewrite selected text"
+              aria-label="Rewrite selected text"
             >
-              <Wand2 className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline font-semibold">Rewrite</span>
-            </Button>
-            <Button
-              variant="primary"
+              <Wand2 className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline md:hidden 2xl:inline">Rewrite</span>
+            </button>
+            <button
+              type="button"
               onClick={() => { setIsEditing(false); saveToStorage(); }}
-              className="bg-emerald-500 hover:bg-emerald-600 border-emerald-400 shadow-emerald-500/25 rounded-xl !px-2 sm:!px-3 !py-1.5 text-xs gap-1"
+              className="nm-chip on nm-tb-pill !px-3.5 justify-center"
               title="Done editing (Ctrl+E)"
+              aria-label="Done editing (Ctrl+E)"
             >
-              <Check className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline font-semibold">Done</span>
-            </Button>
+              <Check className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline md:hidden 2xl:inline">Done</span>
+            </button>
           </div>
         ) : (
-          <Button
-            variant="secondary"
+          <button
+            type="button"
             onClick={() => setIsEditing(true)}
-            className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-300 dark:hover:border-blue-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl text-slate-600 dark:text-slate-300 !px-2 sm:!px-2.5 !py-1.5 text-xs gap-1 transition-colors"
+            className="nm-btn nm-tb-pill order-2 md:order-none"
             title="Edit document (Ctrl+E)"
+            aria-label="Edit document (Ctrl+E)"
           >
-            <PenTool className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="hidden sm:inline font-semibold">Edit</span>
-          </Button>
+            <PenTool className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline md:hidden 2xl:inline">Edit</span>
+          </button>
         )}
 
         <Divider />
 
-        {/* Index — sm+ */}
-        <Button
-          variant="secondary"
+        {/* Index */}
+        <button
+          type="button"
           onClick={handleAddTableOfContents}
-          className="hidden sm:flex bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:border-slate-300 dark:hover:border-slate-600 rounded-xl text-slate-600 dark:text-slate-200 !px-2 md:!px-2.5 !py-1.5 text-xs gap-1"
+          className="nm-btn nm-tb-pill order-11 md:order-none"
           title="Toggle table of contents"
+          aria-label="Toggle table of contents"
         >
-          <ListOrdered className="w-3.5 h-3.5 flex-shrink-0 text-slate-500 dark:text-slate-400" />
-          <span className="hidden md:inline font-semibold">Index</span>
-        </Button>
+          <ListOrdered className="w-4 h-4 flex-shrink-0" />
+          <span className="hidden 2xl:inline">Index</span>
+        </button>
 
         {/* Export via browser print dialog (fine control, needs pop-ups allowed) */}
-        <Button
-          variant="secondary"
+        <button
+          type="button"
           onClick={handleExportPDF}
-          className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-300 dark:hover:border-blue-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl text-slate-600 dark:text-slate-300 !px-2 sm:!px-2.5 !py-1.5 text-xs gap-1"
+          className="nm-btn nm-tb-pill order-7 md:order-none"
           title="Print / Export via browser (opens print dialog)"
+          aria-label="Print / Export via browser (opens print dialog)"
         >
-          <Printer className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="hidden sm:inline font-semibold">Print</span>
-        </Button>
-
-        {/* Direct PDF download — no print dialog, saves straight to Downloads */}
-        <Button
-          variant="primary"
-          onClick={handleDownloadPdfDirect}
-          disabled={isDownloadingPdf}
-          isLoading={isDownloadingPdf}
-          className="rounded-xl bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 shadow-md !px-2.5 sm:!px-3.5 !py-1.5 text-xs gap-1.5"
-          title="Download as PDF (direct, no print dialog)"
-        >
-          {!isDownloadingPdf && <Download className="w-3.5 h-3.5 flex-shrink-0" />}
-          <span className="hidden sm:inline font-semibold">{isDownloadingPdf ? 'Preparing…' : 'Download'}</span>
-        </Button>
+          <Printer className="w-4 h-4 flex-shrink-0" />
+          <span className="hidden 2xl:inline">Print</span>
+        </button>
 
         {/* Direct DOCX download — a real, editable Word document */}
-        <Button
-          variant="secondary"
+        <button
+          type="button"
           onClick={handleDownloadDocx}
           disabled={isDownloadingDocx}
-          isLoading={isDownloadingDocx}
-          className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl text-slate-600 dark:text-slate-300 !px-2 sm:!px-2.5 !py-1.5 text-xs gap-1"
+          className="nm-btn nm-tb-pill order-6 md:order-none"
           title="Download as Word document (.docx)"
+          aria-label="Download as Word document (.docx)"
         >
-          {!isDownloadingDocx && <FileText className="w-3.5 h-3.5 flex-shrink-0" />}
-          <span className="hidden sm:inline font-semibold">{isDownloadingDocx ? 'Preparing…' : 'DOCX'}</span>
-        </Button>
+          {isDownloadingDocx ? <Spinner /> : <FileText className="w-4 h-4 flex-shrink-0" />}
+          <span className="hidden sm:inline md:hidden 2xl:inline">{isDownloadingDocx ? 'Preparing…' : 'DOCX'}</span>
+        </button>
+
+        {/* Direct PDF download — no print dialog, saves straight to Downloads */}
+        <button
+          type="button"
+          onClick={handleDownloadPdfDirect}
+          disabled={isDownloadingPdf}
+          className="nm-btn-primary nm-tb-pill order-3 md:order-none"
+          title="Download as PDF (direct, no print dialog)"
+          aria-label="Download as PDF (direct, no print dialog)"
+        >
+          {isDownloadingPdf ? <Spinner /> : <Download className="w-4 h-4 flex-shrink-0" />}
+          <span className="hidden sm:inline">{isDownloadingPdf ? 'Preparing…' : 'Download'}</span>
+        </button>
       </div>
     </div>
   );
