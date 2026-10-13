@@ -109,7 +109,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   // restores DOM order from tablet up.
   return (
     <div
-      className="nm-tb absolute left-2 right-2 sm:left-3 sm:right-3 md:left-5 md:right-5 lg:left-7 lg:right-7 z-30 no-print"
+      className="nm-tb absolute left-2 right-2 sm:left-3 sm:right-3 md:left-4 md:right-4 xl:left-7 xl:right-7 z-30 no-print"
     >
       <div className="nm-tb-row flex items-center gap-1.5 md:gap-1 p-[5px] overflow-x-auto">
 
@@ -166,7 +166,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
 
         {/* Line height */}
-        <div className="nm-tb-group order-10 md:order-none">
+        <div className={`nm-tb-group order-10 md:order-none ${sidebarOpen ? 'md:max-xl:hidden' : ''}`}>
           <IconBtn onClick={handleLineHeightDecrease} title="Tighter Spacing">
             <Minus className="w-3.5 h-3.5" />
           </IconBtn>
@@ -282,7 +282,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           aria-label="Download as PDF (direct, no print dialog)"
         >
           {isDownloadingPdf ? <Spinner /> : <Download className="w-4 h-4 flex-shrink-0" />}
-          <span className="hidden sm:inline">{isDownloadingPdf ? 'Preparing…' : 'Download'}</span>
+          <span className="hidden sm:inline md:hidden xl:inline">{isDownloadingPdf ? 'Preparing…' : 'Download'}</span>
         </button>
       </div>
     </div>

@@ -159,3 +159,9 @@ html .editor-content .nm-empty p.nm-hint { margin: 2rem 0 0; font-size: 0.75rem;
 
 /* Boot / login card: the stock sheet shadow is tuned for black; soften it on light */
 :root:not(.dark) .nm-auth { box-shadow: 0 30px 70px -36px rgba(15, 23, 42, 0.45), inset 0 1px 0 #fff; }
+
+/* The A4 page never runs wider than the space next to the sidebar
+   (tablets / small laptops); print keeps its own fixed size. */
+@media screen and (min-width: 768px) {
+  .page-container.size-a4 { width: min(210mm, 100%); }
+}

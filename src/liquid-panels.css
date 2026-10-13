@@ -117,3 +117,8 @@
 @media (prefers-reduced-motion: reduce) {
   .nm-sheet.nm-sheet-b { animation: none; }
 }
+
+/* Toast stack: top on phones (bottom sheets and the sidebar footer live at
+   the bottom), bottom centre from 640px up */
+.nm-toast-stack { top: calc(env(safe-area-inset-top, 0px) + 12px); }
+@media (min-width: 640px) { .nm-toast-stack { top: auto; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); } }

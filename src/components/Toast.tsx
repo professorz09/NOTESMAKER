@@ -98,8 +98,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <>
       {children}
       <div
-        className="fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none"
-        style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))', width: 'min(calc(100vw - 32px), 384px)' }}
+        // Phones: at the top, clear of the sidebar footer and bottom sheets.
+        // Wider screens: bottom centre.
+        className="nm-toast-stack fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none"
+        style={{ width: 'min(calc(100vw - 32px), 384px)' }}
       >
         {toasts.map(t => (
           <ToastCard key={t.id} toast={t} onRemove={removeToast} />
