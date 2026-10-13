@@ -97,7 +97,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   return (
     <div className="w-full max-w-[900px] mx-auto">
       <div
-        className={`editor-container page-container size-a4 editor-content nm-paper relative bg-white dark:bg-slate-900 ${isEditing ? 'is-editing' : ''}`}
+        className={`editor-container page-container size-a4 editor-content nm-paper relative bg-white dark:bg-[#141417] ${isEditing ? 'is-editing' : ''}`}
         style={{ fontSize: `${fontSize}pt`, '--editor-lh': lineHeight } as React.CSSProperties}
       >
         {/* Overlaid, NOT swapped in place of the editor. Unmounting the
@@ -107,7 +107,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             already loaded would have remounted an empty editor and left the
             page blank. Covering it sidesteps that entirely. */}
         {isOpeningProject && (
-          <div className="absolute inset-0 z-10 bg-white dark:bg-slate-900 rounded-[inherit] p-[12mm] overflow-hidden">
+          <div className="absolute inset-0 z-10 bg-white dark:bg-[#141417] rounded-[inherit] p-[12mm] overflow-hidden">
             <NoteSkeleton />
           </div>
         )}

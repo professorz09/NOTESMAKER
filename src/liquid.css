@@ -209,3 +209,6 @@
 @keyframes nm-pop { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
 .nm-pop { animation: nm-pop 0.28s var(--nm-spring) both; }
 @media (prefers-reduced-motion: reduce) { .nm-pop { animation: none; } }
+
+/* Sidebar help text: three lines at most — the controls say the rest */
+.nms-help { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
