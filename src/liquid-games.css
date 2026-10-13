@@ -1,0 +1,201 @@
+/* ============================================================
+   Generation progress pill + "Play while you wait" game dock
+   Builds on liquid.css variables (--nm-*, --ac*).
+   ============================================================ */
+
+/* ── Wrapper: bottom-right, never blocks the page ─────────── */
+.nmg-wrap {
+  position: fixed; z-index: 40; right: 12px; bottom: 16px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  pointer-events: none;
+}
+.nmg-wrap > * { pointer-events: auto; }
+@media (min-width: 640px) { .nmg-wrap { right: 20px; bottom: 20px; } }
+
+/* ── Progress pill ────────────────────────────────────────── */
+.nmg-pill {
+  display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+.nmg-pill-main {
+  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px 0 10px;
+  border-radius: 999px; cursor: pointer; color: var(--nm-text); background: transparent; border: 0;
+  transition: background 0.15s, transform 0.2s var(--nm-spring);
+}
+.nmg-pill-main:hover { background: var(--nm-soft); }
+.nmg-pill-main:active { transform: scale(0.97); }
+.nmg-pill-label { font-size: 0.78rem; font-weight: 700; color: var(--nm-head); white-space: nowrap; }
+.nmg-pill-time {
+  font: 700 0.72rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
+  color: var(--nm-muted); padding: 4px 7px; border-radius: 999px; background: var(--nm-soft);
+}
+.nmg-pill-chev { color: var(--nm-muted); }
+.nmg-pill-game {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; flex-shrink: 0;
+  cursor: pointer; color: var(--nm-text); background: var(--nm-soft); border: 1px solid var(--nm-line);
+  transition: background 0.15s, color 0.15s, transform 0.2s var(--nm-spring);
+}
+.nmg-pill-game:hover { background: var(--nm-soft-2); color: var(--nm-head); }
+.nmg-pill-game:active { transform: scale(0.92); }
+.nmg-pill-game.on {
+  color: var(--ac-ink); border-color: transparent;
+  background: linear-gradient(180deg, var(--ac-hi), var(--ac) 55%, var(--ac-lo));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 8px 18px -12px rgba(var(--ac-rgb), 0.9);
+}
+.nmg-pill-main:focus-visible, .nmg-pill-game:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.nmg-area:focus-visible { outline: 1.5px solid rgba(var(--ac-rgb), 0.5); outline-offset: 0; }
+
+/* Mint spinner ring */
+.nmg-ring {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  background: conic-gradient(from 0deg, rgba(var(--ac-rgb), 0) 0deg, rgba(var(--ac-rgb), 0.35) 120deg, var(--ac) 330deg, var(--ac-hi) 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  filter: drop-shadow(0 0 4px rgba(var(--ac-rgb), 0.55));
+  animation: nm-spin 0.9s linear infinite;
+}
+.nmg-ring-done {
+  display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  color: var(--ac-ink); background: linear-gradient(180deg, var(--ac-hi), var(--ac) 60%, var(--ac-lo));
+}
+@media (prefers-reduced-motion: reduce) { .nmg-ring { animation-duration: 2.4s; } }
+
+/* ── Dock ─────────────────────────────────────────────────── */
+.nmg-dock {
+  width: 340px; max-width: calc(100vw - 24px); border-radius: 24px; padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+  /* opaque underlay so page text never shows through the glass */
+  background: var(--nm-surface) padding-box, linear-gradient(var(--nm-bg), var(--nm-bg)) padding-box, var(--nm-rim) border-box;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+.nmg-dock * { -webkit-tap-highlight-color: transparent; }
+.nmg-dock-head { display: flex; align-items: center; justify-content: space-between; padding-left: 6px; }
+.nmg-dock-head h2 { font-size: 0.95rem; font-weight: 800; letter-spacing: -0.01em; }
+.nmg-dock-head .nm-icon-btn { width: 40px; height: 40px; border-radius: 999px; }
+.nmg-stage { position: relative; min-height: 0; }
+
+/* Phones: full-width bottom sheet, pill sits just above it */
+@media (max-width: 639px) {
+  .nmg-wrap.is-open { left: 0; right: 0; bottom: 0; }
+  .nmg-wrap.is-open .nmg-pill { order: -1; margin-right: 12px; }
+  .nmg-wrap.is-open .nmg-dock {
+    width: 100%; max-width: none; max-height: 46vh; overflow-y: auto; overscroll-behavior: contain;
+    border-radius: 24px 24px 0 0; border-bottom-width: 0;
+    padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+}
+
+.nmg-area { touch-action: none; outline: none; border-radius: 18px; }
+
+/* "Done — notes ready" veil over the game */
+.nmg-done {
+  position: absolute; inset: 0; z-index: 2; border-radius: 18px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: color-mix(in srgb, var(--nm-bg) 78%, transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  animation: nm-pop 0.28s var(--nm-spring) both;
+}
+.nmg-done-ico {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  color: var(--ac-ink); background: linear-gradient(180deg, var(--ac-hi), var(--ac) 55%, var(--ac-lo));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 10px 24px -10px rgba(var(--ac-rgb), 0.9);
+}
+
+/* ── Catch ────────────────────────────────────────────────── */
+.nmg-catch { overflow: hidden; border: 1px solid var(--nm-line); }
+.nmg-canvas { display: block; width: 100%; height: auto; aspect-ratio: 320 / 200; touch-action: none; cursor: pointer; }
+@media (max-width: 639px) { .nmg-canvas { max-height: calc(46vh - 130px); object-fit: contain; } }
+
+/* ── Shared score bar ─────────────────────────────────────── */
+.nmg-scorebar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.nmg-stat {
+  display: flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  background: var(--nm-soft); border: 1px solid var(--nm-line);
+}
+.nmg-stat .nm-label { font-size: 0.6rem; }
+.nmg-stat b { font: 800 0.85rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--nm-head); font-variant-numeric: tabular-nums; }
+.nmg-restart { margin-left: auto; width: 40px !important; height: 40px !important; border-radius: 999px !important; }
+
+/* ── 2048 ─────────────────────────────────────────────────── */
+.nmg-2048 { display: flex; flex-direction: column; align-items: stretch; }
+.nmg-board {
+  position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; padding: 7px;
+  width: min(100%, 300px); aspect-ratio: 1; margin: 0 auto;
+  background: var(--nm-soft); border: 1px solid var(--nm-line);
+}
+@media (max-width: 639px) { .nmg-board { width: min(100%, calc(46vh - 184px)); min-width: 176px; gap: 5px; padding: 5px; } }
+.nmg-cell { position: relative; border-radius: 12px; background: var(--nm-soft-2); }
+.nmg-tile {
+  position: absolute; inset: 0; display: grid; place-items: center; border-radius: 12px;
+  font-weight: 900; font-size: clamp(0.9rem, 4.4vw, 1.35rem); letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  color: var(--nm-head);
+  border: 1px solid transparent;
+  background: linear-gradient(180deg, rgba(var(--ac-rgb), var(--tA, 0.12)), rgba(var(--ac-rgb), calc(var(--tA, 0.12) * 0.6))) padding-box, var(--nm-rim) border-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.nmg-t2 { --tA: 0.08; } .nmg-t4 { --tA: 0.16; } .nmg-t8 { --tA: 0.26; } .nmg-t16 { --tA: 0.36; }
+.nmg-t32 { --tA: 0.48; } .nmg-t64 { --tA: 0.6; }
+.nmg-t128, .nmg-t256, .nmg-t512, .nmg-t1024, .nmg-t2048, .nmg-tmax {
+  color: var(--ac-ink);
+  background: linear-gradient(180deg, var(--ac-hi), var(--ac) 50%, var(--ac-lo)) padding-box, linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,.1)) border-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 8px 18px -10px rgba(var(--ac-rgb), 0.9);
+}
+.nmg-t1024, .nmg-t2048 { font-size: clamp(0.75rem, 3.6vw, 1.05rem); }
+.nmg-t2048, .nmg-tmax {
+  background: linear-gradient(180deg, #fff4b0, #facc15 50%, #d29a06) padding-box, linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.1)) border-box;
+  color: #3a2a00; box-shadow: 0 0 22px -4px rgba(250, 204, 21, 0.75);
+}
+.nmg-tmax { font-size: clamp(0.65rem, 3vw, 0.9rem); }
+:root:not(.dark) .nmg-t2, :root:not(.dark) .nmg-t4 { color: #0f172a; }
+:root:not(.dark) .nmg-tile { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 6px -3px rgba(15, 23, 42, 0.25); }
+@keyframes nmg-in { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes nmg-bump { 50% { transform: scale(1.12); } }
+.nmg-new { animation: nmg-in 0.16s ease-out both; }
+.nmg-merged { animation: nmg-bump 0.18s ease-out; }
+.nmg-board-over {
+  position: absolute; inset: 0; border-radius: 18px; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: color-mix(in srgb, var(--nm-bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+
+/* ── Quiz flash ───────────────────────────────────────────── */
+.nmg-quiz { display: flex; flex-direction: column; gap: 10px; }
+.nmg-quiz .nmg-scorebar { margin-bottom: 0; justify-content: space-between; }
+.nmg-streak { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 800; color: #f59e0b; }
+.nmg-streak .nm-muted { font-weight: 700; margin-left: 2px; }
+.nmg-card {
+  touch-action: manipulation; min-height: 132px; padding: 16px; display: flex; flex-direction: column; justify-content: center; gap: 10px;
+  border: 1px solid var(--nm-line);
+  background: radial-gradient(120% 100% at 0% 0%, rgba(var(--ac-rgb), 0.10), transparent 60%), var(--nm-soft);
+  animation: nm-pop 0.28s var(--nm-spring) both;
+  transition: border-color 0.2s, background 0.2s;
+}
+.nmg-card.is-right { border-color: rgba(34, 197, 94, 0.55); background: radial-gradient(120% 100% at 0% 0%, rgba(34, 197, 94, 0.16), transparent 65%), var(--nm-soft); }
+.nmg-card.is-wrong { border-color: rgba(244, 63, 94, 0.55); background: radial-gradient(120% 100% at 0% 0%, rgba(244, 63, 94, 0.14), transparent 65%), var(--nm-soft); }
+.nmg-q { font-size: 0.98rem; font-weight: 700; line-height: 1.4; }
+.nmg-explain { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; line-height: 1.4; }
+.nmg-explain b { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; }
+.nmg-ok { color: #22c55e; } .nmg-bad { color: #fb7185; }
+:root:not(.dark) .nmg-ok { color: #15803d; } :root:not(.dark) .nmg-bad { color: #e11d48; }
+.nmg-tf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.nmg-tf .nm-btn, .nmg-wide { min-height: 44px; font-size: 0.88rem; }
+.nmg-wide { width: 100%; }
+.nmg-true { color: #22c55e; } .nmg-false { color: #fb7185; }
+:root:not(.dark) .nmg-true { color: #15803d; } :root:not(.dark) .nmg-false { color: #e11d48; }
+
+@media (max-width: 639px) {
+  .nmg-card { min-height: 108px; padding: 12px 14px; }
+  .nmg-q { font-size: 0.92rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nmg-new, .nmg-merged, .nmg-card, .nmg-done { animation: none; }
+}
+
+@media (max-width: 639px) {
+  .nmg-scorebar { margin-bottom: 6px; }
+  .nmg-stat { padding: 4px 10px; }
+  .nmg-restart { width: 40px !important; height: 40px !important; }
+}
