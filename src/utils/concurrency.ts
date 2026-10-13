@@ -18,10 +18,13 @@ export async function mapWithConcurrency(
   worker: (index: number) => Promise<void>,
 ): Promise<void> {
   let next = 0;
+  // Once one task fails the whole call rejects — stop starting new ones, or
+  // they keep running (and costing) after the caller has given up/retried.
+  let failed = false;
   const runners = Array.from({ length: Math.max(1, Math.min(limit, count)) }, async () => {
-    while (next < count) {
+    while (next < count && !failed) {
       const i = next++;
-      await worker(i);
+      try { await worker(i); } catch (e) { failed = true; throw e; }
     }
   });
   await Promise.all(runners);

@@ -68,7 +68,10 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status, progress
 
   const close = useCallback(() => setOpen(false), []);
 
-  if (!active && !done) return null;
+  // Stay mounted while the dock is open: on the render where status turns
+  // IDLE `done` is not set yet, and unmounting here reset the game in play
+  // (and the remount pulled focus out of the editor).
+  if (!active && !done && !open) return null;
 
   const label = done ? 'Done — notes ready' : (progress?.label || LABELS[status] || 'Generating…');
   const pct = !done && progress && progress.total > 1

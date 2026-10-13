@@ -62,5 +62,7 @@ export const generateEssay = async (
     config: withGoogleSearch(ESSAY_CONFIG, grounded),
   });
 
-  return cleanHtmlOutput(response.text || '');
+  const html = cleanHtmlOutput(response.text || '');
+  if (!html.replace(/<[^>]*>/g, '').trim()) throw new Error('The AI returned an empty essay — please try again.');
+  return html;
 };

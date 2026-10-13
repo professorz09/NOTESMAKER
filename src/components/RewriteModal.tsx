@@ -359,6 +359,7 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                     <button
                       type="button"
                       onClick={handleSectionRemove}
+                      disabled={isRewriting}
                       className="nm-btn-danger-solid px-3.5 min-h-[40px] text-xs"
                     >
                       Yes, remove

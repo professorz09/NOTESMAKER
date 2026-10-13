@@ -344,6 +344,7 @@ export function useGeneration({
   // the queue. The AI call already in flight can't be recalled — its result
   // is simply discarded.
   const batchStopRef = useRef(false);
+  const generateLockRef = useRef(false);
   // Whether something outside this tab is visibly working this note's queue.
   // Derived from the queue SHRINKING (see the refresh effect below), not
   // from a row being 'active' — that is true for only ~30s of every ~95s.
@@ -1087,6 +1088,7 @@ export function useGeneration({
         mindmapControllerRef.current = null;
         activePipelineIdRef.current = null;
       }
+      generateLockRef.current = false;
       // Picks up this run's own snapshot if it got interrupted (e.g. an
       // uncaught error) without needing a page reload first.
       setResumeSnapshots(loadResumeSnapshots());
@@ -2535,6 +2537,10 @@ export function useGeneration({
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Enter in a sidebar field submits the form even while a run is going;
+    // a second run would fight the first over the mind map and, when it
+    // ends, cancel it. The ref also stops two submits in the same frame.
+    if (status !== GenerationStatus.IDLE || generateLockRef.current) return;
     if (mode === 'topic' && !topicInput.trim()) {
       toast.warning('Please enter a topic first.');
       return;
@@ -2545,6 +2551,7 @@ export function useGeneration({
     }
 
     const myRun = runSeqRef.current;
+    generateLockRef.current = true;
     setStatus(GenerationStatus.GENERATING_CHAPTER);
     try {
       let result = '';
@@ -2776,7 +2783,7 @@ export function useGeneration({
         const answer = await generateUPSCAnswer(question, language, aiModel, upscMarks, upscAnswerStyle, upscSubject, upscGroundingEnabled, upscMultiVariant);
         if (isStaleRun(myRun)) return;
         const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
-        existing = existing + divider + wrapUPSCBlock(question, answer, upscSubject);
+        existing = existing + divider + wrapUPSCBlock(question, sanitizeHtml(answer), upscSubject);
         setGeneratedHtml(existing);
         scrollToLatestAnswer();
       }
@@ -2916,6 +2923,10 @@ export function useGeneration({
           }
         }
         if (isStaleRun(myRun)) return;
+        // Stopped while this answer was being written: Stop already took its
+        // placeholder out and paused the queue — don't append it anyway.
+        if (batchStopRef.current) return;
+        if (html) html = sanitizeHtml(html);
 
         if (html) {
           if (!next.projectId || next.projectId === activeProjectIdRef.current) {

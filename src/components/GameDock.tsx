@@ -37,7 +37,13 @@ export const GameDock: React.FC<GameDockProps> = ({ onClose, done = false }) => 
   };
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // Only when the games have focus — an Escape meant for a modal (the AI
+    // editor, the clear dialog) must not close the dock too.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const t = e.target as Node | null;
+      if (t && (t as HTMLElement).closest?.('.nmg-dock')) onClose();
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);

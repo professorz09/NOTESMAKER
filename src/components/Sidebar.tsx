@@ -170,6 +170,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     handleGenerate(e as unknown as React.FormEvent);
   };
 
+  // Enter inside a sidebar field: same as pressing Generate (each mode has
+  // its own pipeline), and nothing at all while a run is going.
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isGenerating) return;
+    handleMainClick(e as unknown as React.MouseEvent<HTMLButtonElement>);
+  };
+
   return (
     <>
       {sidebarOpen && (
@@ -236,7 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               files={files}
               handleFileUpload={handleFileUpload}
               removeFile={removeFile}
-              handleGenerate={handleGenerate}
+              handleGenerate={handleFormSubmit}
               transcriptInput={transcriptInput}
               setTranscriptInput={setTranscriptInput}
               handleTranscriptFileUpload={handleTranscriptFileUpload}

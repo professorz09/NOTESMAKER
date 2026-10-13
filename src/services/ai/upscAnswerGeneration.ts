@@ -406,7 +406,11 @@ export const generateUPSCAnswer = async (
     contents: prompt,
     config: withGoogleSearch(UPSC_ANSWER_CONFIG, grounded),
   });
-  return cleanHtmlOutput(response.text || "");
+  const html = cleanHtmlOutput(response.text || "");
+  // All tokens spent on thinking, or a safety block: an empty answer must be
+  // a failure (retried / kept in the queue), never "done".
+  if (!html.replace(/<[^>]*>/g, '').trim()) throw new Error('The AI returned an empty answer — please try again.');
+  return html;
 };
 
 export const generateNextUPSCQuestion = async (

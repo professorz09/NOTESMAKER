@@ -71,11 +71,23 @@ export async function fetchVideoTranscript(url: string, opts: FetchTranscriptOpt
   // Clear to abort (the signal check below sees it immediately).
   const MAX_POLLS = 400;
   const INTERVAL_MS = 3000;
+  let pollErrors = 0;
   for (let i = 0; i < MAX_POLLS; i++) {
     if (signal?.aborted) throw new Error('Cancelled.');
     await new Promise((r) => setTimeout(r, INTERVAL_MS));
     onStatus?.(`Preparing transcript… (${i + 1})`);
-    const polled = await callProxy({ action: 'poll', jobId });
+    let polled: any;
+    try {
+      polled = await callProxy({ action: 'poll', jobId });
+      pollErrors = 0;
+    } catch (err) {
+      // A network blip shouldn't throw away a 20-minute wait — the job keeps
+      // running on Supadata's side. Give up only after several in a row.
+      if (signal?.aborted) throw new Error('Cancelled.');
+      if (++pollErrors >= 5) throw err;
+      await new Promise((r) => setTimeout(r, INTERVAL_MS * pollErrors));
+      continue;
+    }
     if (polled.status === 'completed') {
       if (!polled.content) throw new Error('Transcript came back empty.');
       return String(polled.content);

@@ -69,11 +69,14 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            // One cached copy of the page, whatever its query string — the
+            // build-version check fetches /index.html?_=<time> every few
+            // minutes, and each of those used to be stored as a new entry.
+            caches.open(CACHE_NAME).then((cache) => cache.put(url.pathname === '/' ? '/' : '/index.html', clone));
           }
           return response;
         })
-        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))
+        .catch(() => caches.match(event.request, { ignoreSearch: true }).then((cached) => cached || caches.match('/index.html')))
     );
     return;
   }
