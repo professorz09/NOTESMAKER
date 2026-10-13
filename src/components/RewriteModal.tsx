@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, Wand2, TableProperties, ImagePlus, X, Trash2, AlertTriangle, Minimize2, Maximize2, Globe2 } from 'lucide-react';
 import { Button } from './Button';
+import '../liquid-panels.css';
 
 interface RewriteModalProps {
   isOpen: boolean;
@@ -101,100 +102,115 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
   if (minimized && isRewriting) {
     const chipLabel = isExtendTable ? 'Extending table…' : 'Rewriting…';
     return (
-      <div className="fixed bottom-5 right-5 z-[70] flex items-center gap-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl px-4 py-3 animate-in slide-in-from-bottom-2 duration-200">
-        <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">{chipLabel}</span>
+      <div
+        className="nm-raised nm-pop fixed right-4 z-[70] flex items-center gap-2.5 rounded-full pl-4 pr-1.5 py-1.5"
+        style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="nm-spinner" />
+        <span className="nm-head text-sm font-semibold whitespace-nowrap">{chipLabel}</span>
         <button
           onClick={() => setMinimized(false)}
-          className="ml-1 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+          className="nm-icon-btn !rounded-full"
           title="Restore"
         >
-          <Maximize2 className="w-3.5 h-3.5" />
+          <Maximize2 className="w-4 h-4" />
         </button>
       </div>
     );
   }
 
+  const modelSelect = (
+    <select
+      value={rewriteModel}
+      onChange={(e) => setRewriteModel(e.target.value)}
+      className="nm-select min-w-0 max-w-[8.25rem] sm:max-w-[9.5rem]"
+      disabled={isExtendTable ? undefined : isRewriting}
+    >
+      <option value="gemini-3.1-flash-lite">Flash Lite (Fast)</option>
+      <option value="gemini-3.8-flash">Flash 3.8</option>
+      <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
+    </select>
+  );
+
+  const headerActions = (
+    <>
+      {isRewriting && (
+        <button
+          onClick={() => setMinimized(true)}
+          className="nm-icon-btn !rounded-full"
+          title="Minimize — scroll document while waiting"
+        >
+          <Minimize2 className="w-4 h-4" />
+        </button>
+      )}
+      <button
+        onClick={onClose}
+        disabled={isRewriting}
+        className="nm-icon-btn !rounded-full"
+        aria-label="Close"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </>
+  );
+
   // ── Extend Table Mode ──
   if (isExtendTable) {
     return (
       <div
-        className="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/80 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm"
+        className="nm-sheet-wrap nm-backdrop z-[60]"
         onClick={!isRewriting ? onClose : undefined}
         role="dialog"
         aria-modal="true"
         aria-label="Extend Table"
       >
         <div
-          className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-md p-0 overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 ring-1 ring-slate-200/50 dark:ring-slate-700/50"
+          className="nm-sheet nm-sheet-b sm:max-w-md"
           onClick={e => e.stopPropagation()}
         >
-          <div className="bg-teal-50/80 dark:bg-teal-900/30 px-5 py-4 border-b border-teal-100 dark:border-teal-800/40 flex items-center justify-between">
-            <h3 className="text-base font-bold flex items-center gap-2.5 text-slate-800 dark:text-slate-100">
-              <div className="p-1.5 bg-teal-100 dark:bg-teal-900/60 rounded-xl">
-                <TableProperties className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              </div>
-              Extend Table
+          <div className="nm-sheet-grab" />
+          <div className="px-4 sm:px-5 pt-3 sm:pt-4 pb-3 flex items-center justify-between gap-2">
+            <h3 className="nm-head text-base font-bold flex items-center gap-2.5 min-w-0">
+              <span className="nm-ico-badge">
+                <TableProperties className="w-[18px] h-[18px]" />
+              </span>
+              <span className="truncate">Extend Table</span>
             </h3>
-            <div className="flex items-center gap-2">
-              <select
-                value={rewriteModel}
-                onChange={(e) => setRewriteModel(e.target.value)}
-                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg focus:ring-teal-500 focus:border-teal-500 block p-1.5 font-medium shadow-sm"
-              >
-                <option value="gemini-3.1-flash-lite">Flash Lite (Fast)</option>
-                <option value="gemini-3.8-flash">Flash 3.8</option>
-                <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
-              </select>
-              {isRewriting && (
-                <button
-                  onClick={() => setMinimized(true)}
-                  className="p-1.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                  title="Minimize — scroll document while waiting"
-                >
-                  <Minimize2 className="w-4 h-4" />
-                </button>
-              )}
-              <button
-                onClick={onClose}
-                disabled={isRewriting}
-                className="p-1.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all disabled:opacity-30"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {modelSelect}
+              {headerActions}
             </div>
           </div>
 
-          <div className="p-5">
+          <div className="px-4 sm:px-5 pb-5 pt-1 overflow-y-auto nm-scroll flex-1 min-h-0">
             <div className="mb-5">
-              <span className="text-[10px] font-bold text-teal-500 dark:text-teal-400 uppercase tracking-widest">Table Columns</span>
-              <div className="mt-1.5 text-sm text-slate-600 dark:text-slate-400 bg-teal-50/60 dark:bg-teal-900/20 p-3 rounded-2xl border border-teal-100 dark:border-teal-800/40 font-medium leading-relaxed truncate">
+              <span className="nm-label">Table Columns</span>
+              <div className="nm-well mt-1.5 text-sm p-3 rounded-2xl font-medium leading-relaxed truncate">
                 {extendHeadersPreview || 'Table context captured'}
               </div>
             </div>
 
             <form onSubmit={handleRewriteSubmit}>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Instruction <span className="text-slate-400 font-normal">(optional)</span>
+              <label className="nm-head block text-sm font-semibold mb-2">
+                Instruction <span className="nm-muted font-normal">(optional)</span>
               </label>
               <input
                 type="text"
                 value={rewriteInstruction}
                 onChange={(e) => setRewriteInstruction(e.target.value)}
                 placeholder="e.g. Add more state examples, focus on economy…"
-                className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 mb-5 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 transition-shadow text-sm"
+                className="nm-input mb-5 min-h-[46px]"
                 autoFocus
                 disabled={isRewriting}
               />
-              <div className="flex justify-end gap-3">
-                <Button type="button" variant="secondary" onClick={onClose} disabled={isRewriting} className="border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 text-sm">
+              <div className="flex justify-end gap-2.5">
+                <Button type="button" variant="secondary" onClick={onClose} disabled={isRewriting} className="flex-1 sm:flex-none min-h-[44px]">
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   isLoading={isRewriting}
-                  className="bg-teal-600 hover:bg-teal-700 shadow-teal-500/20 text-white shadow-md rounded-xl text-sm"
+                  className="flex-1 sm:flex-none min-h-[44px] !px-5"
                 >
                   Add Rows
                 </Button>
@@ -209,83 +225,54 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
   // ── Main AI Editor Modal ──
   return (
     <div
-      className="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/80 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm"
+      className="nm-sheet-wrap nm-backdrop z-[60]"
       onClick={!isRewriting ? onClose : undefined}
       role="dialog"
       aria-modal="true"
       aria-label="AI Editor"
     >
       <div
-        className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-lg p-0 overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 ring-1 ring-slate-200/50 dark:ring-slate-700/50"
+        className="nm-sheet nm-sheet-b sm:max-w-lg"
         onClick={e => e.stopPropagation()}
       >
+        <div className="nm-sheet-grab" />
         {/* Header */}
-        <div className="bg-slate-50/80 dark:bg-slate-800/80 px-5 py-3.5 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-          <h3 className="text-base font-bold flex items-center gap-2.5 text-slate-800 dark:text-slate-100">
+        <div className="px-4 sm:px-5 pt-3 sm:pt-4 pb-3 flex items-center justify-between gap-2">
+          <h3 className="nm-head text-base font-bold flex items-center gap-2.5 min-w-0">
             {rewriteType === 'section'
-              ? <><div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-xl"><Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" /></div>Magic AI Editor</>
-              : <><div className="p-1.5 bg-purple-100 dark:bg-purple-900/50 rounded-xl"><Wand2 className="w-4 h-4 text-purple-600 dark:text-purple-400" /></div>Rewrite Selection</>
+              ? <><span className="nm-ico-badge max-[400px]:!hidden"><Sparkles className="w-[18px] h-[18px]" /></span><span className="truncate">Magic AI Editor</span></>
+              : <><span className="nm-ico-badge max-[400px]:!hidden"><Wand2 className="w-[18px] h-[18px]" /></span><span className="truncate">Rewrite Selection</span></>
             }
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {editTab !== 'image' && editTab !== 'diagram' && (
               <button
                 type="button"
                 onClick={() => setRewriteGrounded(!rewriteGrounded)}
                 disabled={isRewriting}
+                aria-pressed={rewriteGrounded}
                 title={rewriteGrounded ? 'Google Grounding on — this edit uses live search' : 'Google Grounding off — turn on for live current facts'}
-                className={`p-1.5 rounded-lg border transition-all disabled:opacity-50 ${
-                  rewriteGrounded
-                    ? 'bg-sky-500/10 border-sky-500/40 text-sky-500 dark:text-sky-400'
-                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
-                }`}
+                className={`nm-icon-btn !rounded-full ${rewriteGrounded ? 'on' : ''}`}
               >
-                <Globe2 className="w-3.5 h-3.5" />
+                <Globe2 className="w-4 h-4" />
               </button>
             )}
-            <select
-              value={rewriteModel}
-              onChange={(e) => setRewriteModel(e.target.value)}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-medium shadow-sm"
-              disabled={isRewriting}
-            >
-              <option value="gemini-3.1-flash-lite">Flash Lite (Fast)</option>
-              <option value="gemini-3.8-flash">Flash 3.8</option>
-              <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
-            </select>
-            {isRewriting && (
-              <button
-                onClick={() => setMinimized(true)}
-                className="p-1.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                title="Minimize — scroll document while waiting"
-              >
-                <Minimize2 className="w-4 h-4" />
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              disabled={isRewriting}
-              className="p-1.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all disabled:opacity-30"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            {modelSelect}
+            {headerActions}
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 overflow-y-auto" style={{ maxHeight: '80vh' }}>
+        <div className="px-4 sm:px-5 pb-5 pt-1 overflow-y-auto nm-scroll flex-1 min-h-0" style={{ maxHeight: '80vh' }}>
           {/* Edit tabs */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-1 bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl mb-5 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+          <div className="nm-seg !grid-flow-row grid-cols-3 sm:grid-cols-6 !rounded-[22px] sm:!rounded-full mb-5">
             {(['rewrite', 'expand', 'continue', 'next_topic', 'image', 'diagram'] as const).map(tab => (
               <button
                 key={tab}
+                type="button"
                 onClick={() => setEditTab(tab)}
                 disabled={isRewriting}
-                className={`py-2 px-1 text-[10px] sm:text-[11px] font-bold rounded-xl capitalize transition-all duration-200 ${
-                  editTab === tab
-                    ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 ring-1 ring-slate-200/50 dark:ring-slate-600/50'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50'
-                }`}
+                aria-pressed={editTab === tab}
+                className="nm-focus !px-1 !text-[12px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {tab === 'expand' ? 'Deep Dive' : tab === 'continue' ? 'Continue' : tab === 'next_topic' ? 'Notes' : tab === 'image' ? 'Image' : tab === 'diagram' ? 'Diagram' : 'Refine'}
               </button>
@@ -295,10 +282,10 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
           {/* Context preview */}
           <div className="mb-5">
             <div className="flex justify-between items-center mb-1.5">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Context</span>
-              <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-medium">Preview</span>
+              <span className="nm-label">Context</span>
+              <span className="nm-badge">Preview</span>
             </div>
-            <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-700/50 max-h-24 overflow-y-auto italic leading-relaxed">
+            <div className="nm-well nm-scroll text-xs p-3 rounded-2xl max-h-24 overflow-y-auto italic leading-relaxed">
               "{rewriteType === 'section' ? 'Selected section…' : selectionText}"
             </div>
           </div>
@@ -306,10 +293,10 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
           <form onSubmit={handleRewriteSubmit}>
             {/* Instruction label + image attach */}
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Instructions</label>
+              <label className="nm-head text-sm font-semibold">Instructions</label>
               <div className="flex items-center gap-1.5">
                 {modalImages.length > 0 && (
-                  <span className="text-[10px] text-blue-500 dark:text-blue-400 font-medium">{modalImages.length} image{modalImages.length > 1 ? 's' : ''}</span>
+                  <span className="nm-badge">{modalImages.length} image{modalImages.length > 1 ? 's' : ''}</span>
                 )}
                 <input ref={imgInputRef} type="file" accept="image/*" multiple onChange={handleImageAttach} className="hidden" />
                 <button
@@ -317,13 +304,9 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                   onClick={() => imgInputRef.current?.click()}
                   title="Attach image for AI reference"
                   disabled={isRewriting}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                    modalImages.length > 0
-                      ? 'bg-blue-500 text-white shadow-md shadow-blue-500/30'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-500 dark:hover:text-blue-400'
-                  }`}
+                  className={`nm-icon-btn !rounded-full ${modalImages.length > 0 ? 'on' : ''}`}
                 >
-                  <ImagePlus className="w-3.5 h-3.5" />
+                  <ImagePlus className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -332,12 +315,12 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
             {modalImages.length > 0 && (
               <div className="flex gap-2 flex-wrap mb-3">
                 {modalImages.map((img, idx) => (
-                  <div key={idx} className="relative group w-14 h-14 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 flex-shrink-0">
+                  <div key={idx} className="relative group w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0" style={{ border: '1px solid var(--nm-line)' }}>
                     <img src={img.dataUrl} alt="" className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={() => removeImage(idx)}
-                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center"
                       aria-label="Remove image"
                     >
                       <X className="w-3.5 h-3.5 text-white" />
@@ -359,31 +342,31 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                 editTab === 'continue'   ? 'e.g. Continue with the next sub-point…' :
                 'e.g. Make it more concise and professional…'
               }
-              className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-5 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 transition-shadow text-sm shadow-sm"
+              className="nm-input mb-5 min-h-[46px]"
               autoFocus
               disabled={isRewriting}
             />
 
             {/* Footer */}
-            <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex flex-wrap justify-between items-center gap-2.5 pt-4 border-t" style={{ borderColor: 'var(--nm-line)' }}>
               {/* Section remove */}
               {rewriteType === 'section' && handleSectionRemove ? (
                 confirmRemove ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-red-500 dark:text-red-400 font-medium flex items-center gap-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-rose-500 dark:text-rose-400 font-semibold flex items-center gap-1">
                       <AlertTriangle className="w-3.5 h-3.5" /> Remove section?
                     </span>
                     <button
                       type="button"
                       onClick={handleSectionRemove}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                      className="nm-btn-danger-solid px-3.5 min-h-[40px] text-xs"
                     >
                       Yes, remove
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmRemove(false)}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                      className="nm-btn px-3.5 min-h-[40px] text-xs"
                     >
                       Cancel
                     </button>
@@ -393,7 +376,7 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                     type="button"
                     onClick={() => setConfirmRemove(true)}
                     disabled={isRewriting}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors disabled:opacity-40"
+                    className="nm-btn danger px-3.5 min-h-[44px] text-xs"
                     title="Remove selected section"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Remove
@@ -401,27 +384,20 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
                 )
               ) : <span />}
 
-              <div className="flex gap-2.5">
+              <div className="flex gap-2.5 ml-auto">
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={onClose}
                   disabled={isRewriting}
-                  className="border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 text-sm"
+                  className="min-h-[44px]"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   isLoading={isRewriting}
-                  className={`text-white shadow-lg rounded-xl text-sm ${
-                    editTab === 'expand'     ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20' :
-                    editTab === 'continue'   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20' :
-                    editTab === 'next_topic' ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20' :
-                    editTab === 'image'      ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20' :
-                    editTab === 'diagram'    ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/20' :
-                    'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
-                  }`}
+                  className="min-h-[44px] !px-5"
                 >
                   {editTab === 'expand'     ? 'Expand' :
                    editTab === 'continue'   ? 'Generate Next' :

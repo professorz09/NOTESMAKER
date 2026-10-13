@@ -1,0 +1,154 @@
+/* Sidebar + History panel helpers on top of liquid.css (nm-*). */
+
+/* Panel shell */
+.nms-aside {
+  background: var(--nm-surface), var(--nm-bg);
+  color: var(--nm-text);
+}
+@media (min-width: 1024px) {
+  .nms-aside.nms-open { border-right: 1px solid var(--nm-line); }
+}
+@media (max-width: 1023.98px) {
+  .nms-aside {
+    border-radius: 0 28px 28px 0;
+    border: 1px solid transparent;
+    border-left: 0;
+    background: var(--nm-surface) padding-box, var(--nm-rim) border-box, var(--nm-bg) padding-box;
+    box-shadow: 30px 0 80px -30px rgba(0, 0, 0, 0.85);
+  }
+}
+
+.nms-divider { border-color: var(--nm-line); }
+
+/* Section title row */
+.nms-title { display: flex; align-items: center; gap: 0.4rem; padding: 0 0.15rem; }
+.nms-title svg { width: 12px; height: 12px; }
+
+/* Help / meta copy */
+.nms-help { font-size: 11px; line-height: 1.45; color: var(--nm-muted); padding: 0 0.15rem; }
+
+/* Soft card (tools, popovers, status) */
+.nms-card {
+  border-radius: 18px; background: var(--nm-soft); border: 1px solid var(--nm-line);
+}
+
+/* Logo tile */
+.nms-logo {
+  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 13px; flex-shrink: 0;
+  color: var(--ac-ink);
+  background: linear-gradient(180deg, var(--ac-hi), var(--ac) 55%, var(--ac-lo));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 8px 18px -10px rgba(var(--ac-rgb), 0.9);
+}
+
+/* Mode tabs: icon over short label, four across */
+.nm-seg.nms-modes { border-radius: 22px; gap: 3px; }
+.nm-seg.nms-modes > button {
+  flex-direction: column; gap: 3px; min-height: 54px; padding: 0 2px;
+  border-radius: 18px; font-size: 11px; line-height: 1.1;
+}
+
+/* Generic seg tweaks */
+.nm-seg.nms-tight > button { padding: 0 0.3rem; font-size: 0.78rem; }
+.nm-seg.nms-two > button { flex-direction: column; gap: 1px; min-height: 46px; padding: 0 4px; text-align: center; line-height: 1.1; border-radius: 16px; }
+.nm-seg.nms-two { border-radius: 20px; }
+.nms-sub { font-size: 9.5px; font-weight: 600; opacity: 0.75; }
+
+/* Compact tile */
+.nm-tile.nms-tile { padding: 0.65rem 0.35rem; gap: 0.35rem; font-size: 0.78rem; font-weight: 700; min-height: 76px; }
+.nm-tile.nms-tile .nm-tile-ico { width: 30px; height: 30px; border-radius: 10px; }
+.nm-tile.nms-tile .nm-tile-ico svg { width: 15px; height: 15px; }
+.nm-tile.on { color: var(--nm-head); }
+
+/* Upload drop zone */
+.nms-drop {
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: 18px; border: 1.5px dashed var(--nm-line); color: var(--nm-muted);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.nms-drop-wrap:hover .nms-drop, .nms-drop-wrap:focus-within .nms-drop {
+  border-color: rgba(var(--ac-rgb), 0.55); background: rgba(var(--ac-rgb), 0.06); color: var(--nm-head);
+}
+
+/* File row */
+.nms-file {
+  display: flex; align-items: center; gap: 0.6rem; min-width: 0;
+  border-radius: 14px; padding: 0.4rem 0.4rem 0.4rem 0.75rem;
+  background: var(--nm-soft); border: 1px solid var(--nm-line);
+  font-size: 12px; color: var(--nm-text);
+}
+.nms-x {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
+  color: var(--nm-muted); transition: background 0.15s, color 0.15s;
+}
+.nms-x:hover { background: rgba(244, 63, 94, 0.12); color: #fb7185; }
+.nms-x:disabled { opacity: 0.4; cursor: not-allowed; background: transparent; }
+
+/* Input with a leading icon */
+.nms-field { display: flex; align-items: center; gap: 0.55rem; padding-top: 0.35rem; padding-bottom: 0.35rem; }
+.nms-field:focus-within { border-color: rgba(var(--ac-rgb), 0.6); box-shadow: 0 0 0 4px rgba(var(--ac-rgb), 0.14); }
+.nms-field > svg { color: var(--nm-muted); flex-shrink: 0; }
+.nms-field > input { flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--nm-head); font-size: 0.92rem; padding: 0.35rem 0; }
+.nms-field > input::placeholder { color: var(--nm-muted); opacity: 0.85; }
+.dark .nms-date { color-scheme: dark; }
+
+/* "and / or" divider */
+.nms-or { display: flex; align-items: center; gap: 0.6rem; }
+.nms-or::before, .nms-or::after { content: ""; flex: 1; height: 1px; background: var(--nm-line); }
+
+/* Progress */
+.nms-bar { height: 6px; border-radius: 999px; overflow: hidden; background: var(--nm-soft-2); }
+.nms-bar > div {
+  height: 100%; border-radius: 999px; transition: width 0.5s;
+  background: linear-gradient(90deg, var(--ac-lo), var(--ac), var(--ac-hi));
+}
+
+/* Collapsible header button */
+.nms-disclosure {
+  width: 100%; display: flex; align-items: center; gap: 0.6rem; min-height: 44px;
+  padding: 0 0.75rem; border-radius: 18px; transition: background 0.15s;
+}
+.nms-disclosure:hover { background: var(--nm-soft); }
+
+/* Toggle row */
+.nms-toggle {
+  width: 100%; display: flex; align-items: center; gap: 0.75rem; text-align: left;
+  padding: 0.65rem 0.75rem; border-radius: 18px; min-height: 52px;
+  background: var(--nm-soft); border: 1px solid var(--nm-line); transition: background 0.15s, border-color 0.15s;
+}
+.nms-toggle:hover { background: var(--nm-soft-2); }
+.nms-toggle.on { border-color: rgba(var(--ac-rgb), 0.35); }
+
+/* History rows */
+.nms-row { border-radius: 14px; border: 1px solid transparent; transition: background 0.15s, border-color 0.15s; }
+.nms-row:hover { background: var(--nm-soft); }
+.nms-row.active {
+  background: rgba(var(--ac-rgb), 0.11);
+  border-color: rgba(var(--ac-rgb), 0.35);
+}
+.nms-row.active .nms-row-title { color: var(--ac); }
+:root:not(.dark) .nms-row.active .nms-row-title { color: #0f766e; }
+.nms-row-act {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  color: var(--nm-muted); transition: background 0.15s, color 0.15s;
+}
+@media (min-width: 1024px) { .nms-row-act { width: 32px; height: 32px; border-radius: 10px; } }
+.nms-row-act:hover { background: var(--nm-soft-2); color: var(--nm-head); }
+.nms-row-act.danger:hover { background: rgba(244, 63, 94, 0.12); color: #fb7185; }
+
+/* Visible keyboard focus inside the sidebar */
+.nms-aside :is(button, input, textarea, label, [tabindex]):focus-visible {
+  outline: 2px solid rgba(var(--ac-rgb), 0.85); outline-offset: 2px;
+}
+.nms-aside .nm-input:focus-visible { outline: none; }
+.nms-aside .nms-drop-wrap:focus-within { outline: none; }
+
+.nms-scroll { scrollbar-width: thin; scrollbar-color: var(--nm-soft-2) transparent; }
+
+/* Meaning colours that read in both themes */
+.nms-warn { color: #b45309; }
+.dark .nms-warn { color: #fbbf24; }
+.nms-ok { color: #059669; }
+.dark .nms-ok { color: #34d399; }
+.nms-err { color: #e11d48; }
+.dark .nms-err { color: #fb7185; }
+.nms-card.plain { background: transparent; }

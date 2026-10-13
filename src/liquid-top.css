@@ -1,0 +1,167 @@
+/* ============================================================
+   Liquid glass — top toolbar, canvas paper, empty state, boot/login
+   Builds on liquid.css variables (--nm-*, --ac*).
+   ============================================================ */
+
+/* ── Floating toolbar ─────────────────────────────────────── */
+.nm-tb {
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  border-radius: 20px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(color-mix(in srgb, var(--nm-bg) 70%, transparent), color-mix(in srgb, var(--nm-bg) 70%, transparent)) padding-box,
+    var(--nm-rim) border-box;
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow: var(--nm-lift), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+:root:not(.dark) .nm-tb {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.78)) padding-box,
+    var(--nm-rim) border-box;
+  box-shadow: 0 14px 34px -20px rgba(15, 23, 42, 0.35), inset 0 1px 0 #fff;
+}
+@media (min-width: 768px) {
+  .nm-tb { top: 14px; border-radius: 999px; }
+}
+
+.nm-tb-row { scrollbar-width: none; -ms-overflow-style: none; }
+.nm-tb-row::-webkit-scrollbar { display: none; }
+
+/* Icon buttons: 40px on touch screens, 36px with a precise pointer on lg+ */
+.nm-tb .nm-icon-btn { width: 40px; height: 40px; border-radius: 999px; flex-shrink: 0; }
+@media (min-width: 1024px) {
+  .nm-tb .nm-icon-btn { width: 36px; height: 36px; }
+  .nm-tb .nm-tb-group .nm-icon-btn { width: 32px; height: 32px; }
+}
+
+/* Grouped icon buttons sit in a soft inset pill */
+.nm-tb-group {
+  display: flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; flex-shrink: 0;
+  background: var(--nm-soft); border: 1px solid var(--nm-line);
+}
+.nm-tb-val {
+  display: inline-flex; align-items: center; gap: 3px; padding: 0 2px; user-select: none;
+  font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--nm-head);
+}
+.nm-tb-val svg { color: var(--nm-muted); }
+
+.nm-tb-div { width: 1px; height: 20px; flex-shrink: 0; background: var(--nm-line); }
+
+/* Pill buttons in the bar */
+.nm-tb .nm-tb-pill {
+  height: 40px; padding: 0 0.8rem; font-size: 0.78rem; flex-shrink: 0; white-space: nowrap; min-width: 40px;
+}
+@media (min-width: 1024px) {
+  .nm-tb .nm-tb-pill { height: 36px; }
+}
+.nm-tb .nm-tb-pill.accent { color: var(--ac); }
+:root:not(.dark) .nm-tb .nm-tb-pill.accent { color: #0d9488; }
+
+.nm-tb button:focus-visible,
+.nm-focus:focus-visible {
+  outline: 2px solid var(--ac);
+  outline-offset: 2px;
+}
+
+/* ── Paper on the canvas ──────────────────────────────────── */
+@media screen {
+  html .nm-paper.page-container {
+    border-radius: 18px !important;
+    border: 1px solid rgba(15, 23, 42, 0.07);
+    box-shadow:
+      inset 0 1px 0 #ffffff,
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 28px 60px -34px rgba(15, 23, 42, 0.38);
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  html.dark .nm-paper.page-container {
+    border-color: rgba(255, 255, 255, 0.09);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 34px 80px -30px rgba(0, 0, 0, 1);
+  }
+  html .nm-paper.page-container.is-editing {
+    border-color: rgba(var(--ac-rgb), 0.55);
+    box-shadow:
+      0 0 0 4px rgba(var(--ac-rgb), 0.18),
+      0 28px 60px -34px rgba(var(--ac-deep-rgb), 0.55);
+  }
+  html.dark .nm-paper.page-container.is-editing {
+    border-color: rgba(var(--ac-rgb), 0.5);
+    box-shadow:
+      0 0 0 4px rgba(var(--ac-rgb), 0.16),
+      0 34px 80px -30px rgba(0, 0, 0, 1);
+  }
+  @media (max-width: 640px) {
+    html .nm-paper.page-container { border-radius: 16px !important; }
+  }
+}
+
+/* ── Glossy mint app icon ─────────────────────────────────── */
+.nm-appicon {
+  display: grid; place-items: center; color: var(--ac-ink);
+  background: linear-gradient(160deg, var(--ac-hi) 0%, var(--ac) 46%, var(--ac-lo) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -6px 14px rgba(var(--ac-deep-rgb), 0.3),
+    0 18px 40px -16px rgba(var(--ac-rgb), 0.8);
+  position: relative; overflow: hidden;
+}
+.nm-appicon::before {
+  content: ""; position: absolute; inset: 0 0 52% 0; border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+.nm-appicon svg { position: relative; }
+
+/* ── Empty-state step cards (glass, on either paper) ──────── */
+.nm-step {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center;
+  padding: 0.85rem 0.5rem; border-radius: 18px;
+  background: var(--nm-soft); border: 1px solid var(--nm-line);
+}
+.nm-step-ico {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 12px;
+  color: var(--ac); background: rgba(var(--ac-rgb), 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--ac-rgb), 0.22);
+}
+:root:not(.dark) .nm-step-ico { color: #0d9488; }
+.nm-step-num {
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em; color: var(--nm-muted);
+}
+
+/* ── Boot progress ────────────────────────────────────────── */
+@keyframes nm-boot-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(280%); } }
+.nm-boot-track { background: var(--nm-soft-2); }
+.nm-boot-bar {
+  background: linear-gradient(90deg, var(--ac-lo), var(--ac-hi));
+  box-shadow: 0 0 12px rgba(var(--ac-rgb), 0.7);
+  animation: nm-boot-slide 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .nm-boot-bar { animation: none; } }
+
+/* Skeleton bars that read on white or dark paper */
+.nm-skel { background: var(--nm-soft-2); border-radius: 8px; }
+
+/* The empty state lives inside .editor-content — shield it from the note
+   heading/paragraph styles (blue underlined h2, justified slate p). */
+html .editor-content .nm-empty h2 {
+  color: var(--nm-head); border: 0; padding: 0; margin: 0 0 0.5rem; font-size: 1.6rem; line-height: 1.15;
+}
+@media (min-width: 640px) { html .editor-content .nm-empty h2 { font-size: 1.75rem; } }
+html .editor-content .nm-empty p {
+  margin: 0 0 2rem; text-align: center; line-height: 1.55; font-size: 0.92rem; color: var(--nm-muted);
+}
+html .editor-content .nm-empty p.nm-hint { margin: 2rem 0 0; font-size: 0.75rem; }
+
+/* Boot / login card: the stock sheet shadow is tuned for black; soften it on light */
+:root:not(.dark) .nm-auth { box-shadow: 0 30px 70px -36px rgba(15, 23, 42, 0.45), inset 0 1px 0 #fff; }
+
+/* The A4 page never runs wider than the space next to the sidebar
+   (tablets / small laptops); print keeps its own fixed size. */
+@media screen and (min-width: 768px) {
+  .page-container.size-a4 { width: min(210mm, 100%); }
+}

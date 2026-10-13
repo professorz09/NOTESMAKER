@@ -147,43 +147,40 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
   void now;
 
   return (
-    <div className="mt-2">
-      {/* Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-1 mb-3" />
-
+    <div className="pt-1">
       {/* ── HEADER ROW ── */}
-      <div className="flex items-center gap-2 px-1 mb-2">
+      <div className="flex items-center gap-1 mb-2">
         <button
           onClick={() => setIsOpen(o => !o)}
-          className="flex items-center gap-2 flex-1 min-w-0 group py-1"
+          aria-expanded={isOpen}
+          className="nms-disclosure flex-1 min-w-0 !px-2"
         >
-          <div className="w-5 h-5 rounded-md bg-indigo-500/15 flex items-center justify-center flex-shrink-0">
-            <History className="w-3 h-3 text-indigo-400" />
-          </div>
-          <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase group-hover:text-slate-200 transition-colors flex-1 text-left">
+          <History className="w-4 h-4 nm-muted flex-shrink-0" />
+          <span className="nm-label flex-1 text-left">
             History
           </span>
           {totalCount > 0 && (
-            <span className="text-[10px] font-bold text-indigo-400/80 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-1.5 py-0.5 leading-none">
+            <span className="nm-badge">
               {totalCount}
             </span>
           )}
           {isOpen
-            ? <ChevronUp className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors flex-shrink-0" />
-            : <ChevronDown className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors flex-shrink-0" />
+            ? <ChevronUp className="w-4 h-4 nm-muted flex-shrink-0" />
+            : <ChevronDown className="w-4 h-4 nm-muted flex-shrink-0" />
           }
         </button>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {/* Sync / Cloud indicator */}
           <button
             onClick={(e) => { e.stopPropagation(); handleSync(); }}
             title={isSupabaseConfigured ? 'Sync with cloud' : 'Refresh local'}
-            className="p-1 rounded-md hover:bg-white/8 transition-colors"
+            aria-label={isSupabaseConfigured ? 'Sync with cloud' : 'Refresh local'}
+            className={`nm-icon-btn ${syncing ? 'on' : ''}`}
           >
             {isSupabaseConfigured
-              ? <Cloud className={`w-3.5 h-3.5 transition-colors ${syncing ? 'text-blue-400 animate-pulse' : 'text-blue-500/50 hover:text-blue-400'}`} />
-              : <HardDrive className="w-3.5 h-3.5 text-slate-600 hover:text-slate-400 transition-colors" />
+              ? <Cloud className={`w-4 h-4 ${syncing ? 'animate-pulse' : ''}`} />
+              : <HardDrive className="w-4 h-4" />
             }
           </button>
 
@@ -194,9 +191,11 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
             <button
               onClick={(e) => { e.stopPropagation(); setIsOpen(true); setShowRangePicker(s => !s); }}
               title="Read current affairs by date range"
-              className={`p-1 rounded-md transition-colors ${showRangePicker ? 'bg-amber-500/20' : 'hover:bg-white/8'}`}
+              aria-label="Read current affairs by date range"
+              aria-pressed={showRangePicker}
+              className={`nm-icon-btn ${showRangePicker ? 'on' : ''}`}
             >
-              <CalendarRange className={`w-3.5 h-3.5 transition-colors ${showRangePicker ? 'text-amber-300' : 'text-amber-500/60 hover:text-amber-400'}`} />
+              <CalendarRange className="w-4 h-4" />
             </button>
           )}
 
@@ -205,9 +204,9 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
             <button
               onClick={onCreateProject}
               title="Save as new project"
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/25 hover:text-indigo-200 transition-all text-[10px] font-bold"
+              className="nm-chip !py-1.5 !px-3 ml-0.5"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
               New
             </button>
           )}
@@ -216,22 +215,22 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
 
       {/* ── ACTIVE PROJECT STATUS BAR ── */}
       {activeProjectId && (
-        <div className="flex items-center gap-2 mx-1 mb-2 px-2.5 py-1.5 rounded-lg bg-white/3 border border-white/6">
+        <div className="nms-card flex items-center gap-2 mb-2 pl-3 pr-1.5 py-1.5">
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
-            <FileText className="w-3 h-3 text-slate-500 flex-shrink-0" />
-            <span className="text-[10px] text-slate-400 truncate">{activeProject?.name ?? 'Untitled'}</span>
+            <FileText className="w-3.5 h-3.5 nm-accent-text flex-shrink-0" />
+            <span className="text-[12px] font-semibold nm-head truncate">{activeProject?.name ?? 'Untitled'}</span>
           </div>
           {lastSavedAt && (
             <div className="flex items-center gap-1 flex-shrink-0">
-              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
-              <span className="text-[9px] text-slate-500">{timeAgo(lastSavedAt)}</span>
+              <CheckCircle2 className="w-3 h-3 nms-ok" />
+              <span className="text-[11px] nm-muted">{timeAgo(lastSavedAt)}</span>
             </div>
           )}
           <button
             onClick={onSaveNow}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 transition-all text-[9px] font-bold flex-shrink-0"
+            className="nm-btn !text-[12px] min-h-[34px] px-3 flex-shrink-0"
           >
-            <Save className="w-2.5 h-2.5" />
+            <Save className="w-3.5 h-3.5" />
             Save
           </button>
         </div>
@@ -241,36 +240,38 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
           start/end date and every Current Affairs note in between is
           merged into one combined read on the canvas. */}
       {showRangePicker && (
-        <div className="mx-1 mb-2 p-2.5 rounded-xl bg-amber-500/6 border border-amber-500/20 space-y-2">
-          <p className="text-[10px] font-bold text-amber-300 flex items-center gap-1.5">
-            <CalendarRange className="w-3 h-3" /> Read Current Affairs by date range
+        <div className="nms-card mb-2 p-3 space-y-2.5 nm-pop">
+          <p className="text-[12px] font-bold nm-head flex items-center gap-1.5">
+            <CalendarRange className="w-3.5 h-3.5 nm-accent-text" /> Read Current Affairs by date range
           </p>
           <div className="flex items-center gap-1.5">
             <input
               type="date"
               value={rangeStart}
               onChange={e => setRangeStart(e.target.value)}
-              className="flex-1 min-w-0 bg-white/6 border border-white/12 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-amber-500/50 [color-scheme:dark]"
+              aria-label="Start date"
+              className="nm-input nms-date flex-1 min-w-0 !px-2.5 !py-2 !text-[12px] !rounded-[12px]"
             />
-            <span className="text-[10px] text-slate-500">to</span>
+            <span className="text-[11px] nm-muted">to</span>
             <input
               type="date"
               value={rangeEnd}
               onChange={e => setRangeEnd(e.target.value)}
-              className="flex-1 min-w-0 bg-white/6 border border-white/12 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-amber-500/50 [color-scheme:dark]"
+              aria-label="End date"
+              className="nm-input nms-date flex-1 min-w-0 !px-2.5 !py-2 !text-[12px] !rounded-[12px]"
             />
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={handleReadRange}
               disabled={!rangeStart || !rangeEnd}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 transition-all text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+              className="nm-btn-primary flex-1 min-h-[40px] text-[13px]"
             >
               Combine &amp; Read
             </button>
             <button
               onClick={() => setShowRangePicker(false)}
-              className="px-2.5 py-1.5 rounded-lg bg-white/6 text-slate-400 hover:bg-white/12 hover:text-slate-200 transition-all text-[11px] font-semibold"
+              className="nm-btn min-h-[40px] px-4 text-[13px]"
             >
               Close
             </button>
@@ -280,21 +281,18 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
 
       {/* ── EXPANDED LIST ── */}
       {isOpen && (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {/* Tag filter — All vs Current Affairs only */}
           {caCount > 0 && (
-            <div className="flex items-center gap-1 px-1">
+            <div className="flex items-center gap-1.5">
               {(['all', 'ca'] as const).map(f => (
                 <button
                   key={f}
                   onClick={() => setTagFilter(f)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
-                    tagFilter === f
-                      ? f === 'ca' ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300'
-                      : 'bg-white/4 border border-white/8 text-slate-500 hover:text-slate-300'
-                  }`}
+                  aria-pressed={tagFilter === f}
+                  className={`nm-chip ${tagFilter === f ? 'on' : ''}`}
                 >
-                  {f === 'ca' && <Newspaper className="w-2.5 h-2.5" />}
+                  {f === 'ca' && <Newspaper className="w-3.5 h-3.5" />}
                   {f === 'all' ? 'All' : `Current Affairs (${caCount})`}
                 </button>
               ))}
@@ -302,71 +300,68 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
           )}
 
           {/* Search */}
-          <div className="relative px-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600 pointer-events-none" />
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 nm-muted pointer-events-none" />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search history..."
-              className="w-full bg-white/4 border border-white/8 rounded-xl pl-8 pr-7 py-2 text-[11px] text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/40 focus:bg-white/6 transition-all"
+              aria-label="Search history"
+              className="nm-input !pl-10 !pr-10 !py-2.5 !text-[13px] !rounded-full"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-400 transition-colors"
+                aria-label="Clear search"
+                className="nms-x absolute right-1.5 top-1/2 -translate-y-1/2"
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
 
           {/* Stats + refresh row */}
-          <div className="flex items-center justify-between px-2">
-            <span className="text-[9px] text-slate-600 uppercase tracking-wider">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] nm-muted">
               {filtered.length} project{filtered.length !== 1 ? 's' : ''}
             </span>
             <button
               onClick={handleSync}
-              className="flex items-center gap-1 text-[9px] text-slate-600 hover:text-slate-400 transition-colors disabled:opacity-40"
+              className="flex items-center gap-1.5 text-[11px] font-semibold nm-muted hover:underline min-h-[32px] disabled:opacity-40"
               disabled={syncing}
             >
-              <RefreshCw className={`w-2.5 h-2.5 ${syncing ? 'animate-spin text-blue-400' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin nm-accent-text' : ''}`} />
               {syncing ? 'Syncing…' : 'Refresh'}
             </button>
           </div>
 
           {error && (
-            <p className="text-[10px] text-red-400/80 px-2.5 py-1.5 bg-red-500/8 rounded-lg mx-1 border border-red-500/15">
+            <p className="text-[12px] nms-err px-3 py-2 nms-card">
               {error}
             </p>
           )}
 
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-6 text-slate-600">
+            <div className="flex items-center justify-center gap-2 py-6 nm-muted">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-[11px]">Loading…</span>
+              <span className="text-[12px]">Loading…</span>
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-6 px-4 text-center">
-              <div className="w-8 h-8 rounded-xl bg-white/4 flex items-center justify-center">
-                <History className="w-4 h-4 text-slate-700" />
-              </div>
-              <p className="text-[11px] text-slate-600">
+              <History className="w-5 h-5 nm-muted opacity-60" />
+              <p className="text-[12px] nm-muted">
                 {searchQuery ? 'No results found' : 'No saved projects yet'}
               </p>
             </div>
           ) : (
-            <div className="space-y-3 px-1">
+            <div className="space-y-3">
               {GROUP_ORDER.filter(g => grouped[g]?.length > 0).map(group => (
                 <div key={group}>
                   {/* Group label */}
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest whitespace-nowrap">{group}</span>
-                    <div className="flex-1 h-px bg-white/5" />
-                  </div>
+                  <p className="nm-label !text-[10px] px-2 mb-1">{group}</p>
 
-                  {/* Cards */}
-                  <div className="space-y-1">
+                  {/* Rows */}
+                  <div className="space-y-0.5">
                     {grouped[group].map(project => {
                       const isActive = activeProjectId === project.id;
                       const isRenaming = renamingId === project.id;
@@ -376,15 +371,11 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
                       return (
                         <div
                           key={project.id}
-                          className={`rounded-xl border transition-all duration-150 overflow-hidden ${
-                            isActive
-                              ? 'bg-indigo-600/15 border-indigo-500/30'
-                              : 'bg-white/3 border-white/6 hover:bg-white/5 hover:border-white/10'
-                          }`}
+                          className={`nms-row ${isActive ? 'active' : ''}`}
                         >
                           {isRenaming ? (
                             /* RENAME MODE */
-                            <div className="flex items-center gap-1.5 p-2">
+                            <div className="flex items-center gap-1 p-1.5">
                               <input
                                 ref={renameInputRef}
                                 value={renameValue}
@@ -393,77 +384,82 @@ export const ProjectsPanel: React.FC<ProjectsPanelProps> = ({
                                   if (e.key === 'Enter') handleRename(project.id);
                                   if (e.key === 'Escape') { setRenamingId(null); setRenameValue(''); }
                                 }}
-                                className="flex-1 bg-white/10 border border-white/20 rounded-lg px-2.5 py-1.5 text-[11px] text-white outline-none focus:border-indigo-400/50 min-w-0"
+                                aria-label="Project name"
+                                className="nm-input flex-1 min-w-0 !py-2 !px-3 !text-[13px] !rounded-[12px]"
                               />
                               <button
                                 onClick={() => handleRename(project.id)}
-                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 flex-shrink-0 transition-colors"
+                                aria-label="Save name"
+                                className="nms-row-act nms-ok"
                               >
-                                <Check className="w-3 h-3" />
+                                <Check className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => { setRenamingId(null); setRenameValue(''); }}
-                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/8 text-slate-500 hover:bg-white/15 hover:text-slate-300 flex-shrink-0 transition-colors"
+                                aria-label="Cancel rename"
+                                className="nms-row-act"
                               >
-                                <X className="w-3 h-3" />
+                                <X className="w-4 h-4" />
                               </button>
                             </div>
                           ) : isConfirming ? (
                             /* DELETE CONFIRM MODE */
-                            <div className="flex items-center gap-2 p-2">
-                              <span className="flex-1 text-[10px] text-red-300">Delete this?</span>
+                            <div className="flex items-center gap-2 p-1.5 pl-3">
+                              <span className="flex-1 text-[12px] font-semibold nms-err">Delete this?</span>
                               <button
                                 onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id); setConfirmDeleteId(null); }}
-                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition-colors text-[10px] font-bold flex-shrink-0"
+                                className="nm-btn danger min-h-[36px] px-3 text-[12px] flex-shrink-0"
                               >
-                                <Trash2 className="w-2.5 h-2.5" />
+                                <Trash2 className="w-3.5 h-3.5" />
                                 Yes
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
-                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/8 text-slate-400 hover:bg-white/15 transition-colors text-[10px] font-bold flex-shrink-0"
+                                className="nm-btn min-h-[36px] px-3 text-[12px] flex-shrink-0"
                               >
                                 No
                               </button>
                             </div>
                           ) : (
                             /* NORMAL VIEW */
-                            <div className="flex items-center gap-1.5 p-2">
+                            <div className="flex items-center gap-0.5 pr-1">
                               <button
                                 onClick={() => onSelectProject(project.id)}
                                 disabled={isOpening}
-                                className="flex-1 min-w-0 text-left disabled:cursor-wait"
+                                className="flex-1 min-w-0 text-left disabled:cursor-wait pl-3 py-2 rounded-[13px] min-h-[44px]"
                               >
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
                                   {isOpening
-                                    ? <Loader2 className="w-2.5 h-2.5 text-indigo-400 animate-spin flex-shrink-0" />
+                                    ? <Loader2 className="w-3 h-3 nm-accent-text animate-spin flex-shrink-0" />
                                     : project.tags?.includes(CURRENT_AFFAIRS_TAG) && (
-                                        <Newspaper className="w-2.5 h-2.5 text-amber-400/90 flex-shrink-0" />
+                                        <Newspaper className="w-3 h-3 nms-warn flex-shrink-0" />
                                       )}
-                                  <p className={`text-[11px] font-semibold leading-tight truncate ${isActive ? 'text-indigo-200' : 'text-slate-300'}`}>
+                                  <p className="nms-row-title nm-head text-[13px] font-semibold leading-tight truncate">
                                     {project.name}
                                   </p>
                                 </div>
-                                <p className="text-[9px] text-slate-600 mt-0.5">
+                                <p className="text-[11px] nm-muted mt-0.5">
                                   {isOpening ? 'Opening…' : project.entry_date ? fmtEntryDate(project.entry_date) : timeAgo(project.updated_at)}
                                 </p>
                               </button>
 
                               {/* Always-visible action buttons */}
-                              <div className="flex items-center gap-0.5 flex-shrink-0">
+                              <div className="flex items-center flex-shrink-0">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setRenamingId(project.id); setRenameValue(project.name); }}
                                   title="Rename"
-                                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-amber-300 hover:bg-amber-500/15 transition-all"
+                                  aria-label="Rename"
+                                  className="nms-row-act"
                                 >
-                                  <Pencil className="w-3 h-3" />
+                                  <Pencil className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }}
                                   title="Delete"
-                                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/15 transition-all"
+                                  aria-label="Delete"
+                                  className="nms-row-act danger"
                                 >
-                                  <Trash2 className="w-3 h-3" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>

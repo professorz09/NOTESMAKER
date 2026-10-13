@@ -1,6 +1,7 @@
 import React from 'react';
 import { ListChecks, CheckSquare, Square, X, Sparkles, Loader2 } from 'lucide-react';
 import type { PYQQuestionItem } from '../services/ai/index';
+import '../liquid-panels.css';
 
 interface PYQQuestionPickerProps {
   questions: PYQQuestionItem[];
@@ -31,16 +32,16 @@ export const PYQQuestionPicker: React.FC<PYQQuestionPickerProps> = ({
 
   return (
     <div className="mt-6 mb-2 mx-auto max-w-2xl px-4">
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-4 sm:p-5 space-y-4">
+      <div className="nm-panel nm-pop rounded-[24px] p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <ListChecks className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <h4 className="nm-head text-sm font-bold flex items-center gap-2.5 min-w-0">
+            <span className="nm-ico-badge !w-8 !h-8 !rounded-[10px]"><ListChecks className="w-4 h-4" /></span>
             PYQ Question Set — tick the ones to answer
           </h4>
           <button
             onClick={onDismiss}
             disabled={isGenerating}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-40"
+            className="nm-icon-btn !rounded-full flex-shrink-0 -mr-1"
             aria-label="Dismiss"
           >
             <X className="w-4 h-4" />
@@ -48,18 +49,18 @@ export const PYQQuestionPicker: React.FC<PYQQuestionPickerProps> = ({
         </div>
 
         <div className="flex items-center justify-between px-0.5">
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">{selectedCount} of {questions.length} selected</span>
+          <span className="nm-label">{selectedCount} of {questions.length} selected</span>
           <button
             type="button"
             onClick={() => onSetAllSelected(!allSelected)}
             disabled={isGenerating}
-            className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-40"
+            className="nm-chip disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {allSelected ? 'Deselect all' : 'Select all'}
           </button>
         </div>
 
-        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+        <div className="nm-scroll space-y-2 max-h-[360px] overflow-y-auto pr-1">
           {questions.map((q) => {
             const checked = selectedIds.has(q.id);
             return (
@@ -68,20 +69,16 @@ export const PYQQuestionPicker: React.FC<PYQQuestionPickerProps> = ({
                 type="button"
                 disabled={isGenerating}
                 onClick={() => onToggle(q.id)}
-                className={`w-full text-left flex items-start gap-2.5 px-3 py-2.5 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-                  checked
-                    ? 'bg-emerald-500/10 border-emerald-500/40'
-                    : 'bg-slate-50 dark:bg-slate-800 border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
-                }`}
+                className={`nm-row w-full text-left flex items-start gap-2.5 px-3 py-3 disabled:opacity-60 disabled:cursor-not-allowed ${checked ? 'on' : ''}`}
               >
                 {checked
-                  ? <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                  : <Square className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />}
+                  ? <CheckSquare className="nm-accent-text w-4 h-4 flex-shrink-0 mt-0.5" />
+                  : <Square className="nm-muted w-4 h-4 flex-shrink-0 mt-0.5" />}
                 <span className="min-w-0">
                   {q.angle && (
-                    <span className="block text-[9px] font-bold tracking-wide uppercase text-emerald-600 dark:text-emerald-400 mb-0.5">{q.angle}</span>
+                    <span className="nm-accent-text block text-[9.5px] font-extrabold tracking-[0.1em] uppercase mb-0.5">{q.angle}</span>
                   )}
-                  <span className="block text-[13px] leading-snug text-slate-700 dark:text-slate-200">{q.question}</span>
+                  <span className="block text-[13px] leading-snug">{q.question}</span>
                 </span>
               </button>
             );
@@ -91,8 +88,7 @@ export const PYQQuestionPicker: React.FC<PYQQuestionPickerProps> = ({
         <button
           disabled={isGenerating || selectedCount === 0}
           onClick={onGenerate}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
-          style={{ background: 'linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)' }}
+          className="nm-btn-primary w-full px-6 min-h-[48px] text-sm"
         >
           {isGenerating ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> Writing answers below…</>

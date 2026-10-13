@@ -47,7 +47,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
   youtubeUrl, setYoutubeUrl,
 }) => (
   <div className="space-y-2">
-    <label className="block text-[10px] font-bold tracking-widest text-slate-500 uppercase px-0.5">
+    <label className="nm-label block px-0.5">
       {LABELS[mode]}
     </label>
     <form onSubmit={handleGenerate} id="main-form">
@@ -58,7 +58,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
             onChange={(e) => setTopicInput(e.target.value)}
             placeholder={outputStyle === 'essay' ? '"The roof needs mending most when the sun is shining" — write an essay on this...' : 'Discuss the impact of climate change on Indian agriculture...'}
             rows={4}
-            className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
+            className="nm-input resize-none leading-relaxed"
           />
         ) : (
           <div className="space-y-2">
@@ -67,7 +67,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
               value={topicInput}
               onChange={(e) => setTopicInput(e.target.value)}
               placeholder="e.g. History of Mughal Empire..."
-              className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all"
+              className="nm-input"
             />
             {outputStyle === 'table' && (
               <input
@@ -75,7 +75,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
                 value={tableInstruction}
                 onChange={(e) => setTableInstruction(e.target.value)}
                 placeholder="e.g. Compare Articles 12-35 of Indian Constitution..."
-                className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-violet-500/60 focus:bg-white/6 transition-all"
+                className="nm-input"
               />
             )}
           </div>
@@ -87,35 +87,29 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
             onChange={(e) => setTextInput(e.target.value)}
             placeholder="Paste your rough notes or content here..."
             rows={5}
-            className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
+            className="nm-input resize-none leading-relaxed"
           />
 
-          <div className="flex items-center gap-2">
-            <div className="h-px flex-1 bg-white/8" />
-            <span className="text-[9px] text-slate-600 uppercase tracking-widest">and / or</span>
-            <div className="h-px flex-1 bg-white/8" />
-          </div>
+          <div className="nms-or nm-label !text-[10px]">and / or</div>
 
-          <label className="block relative cursor-pointer">
+          <label className="nms-drop-wrap block relative cursor-pointer">
             <input type="file" multiple accept=".pdf,.txt,image/*" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            <div className="flex flex-col items-center gap-2 py-6 px-4 rounded-xl border-2 border-dashed border-white/10 hover:border-blue-500/40 hover:bg-blue-500/4 transition-all">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Upload className="w-4.5 h-4.5 text-blue-400" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-slate-300">Drop files or click to upload</p>
-                <p className="text-xs text-slate-600 mt-1">PDF, TXT, Images supported</p>
+            <div className="nms-drop py-4 px-4">
+              <Upload className="w-[18px] h-[18px] flex-shrink-0" />
+              <div className="text-left">
+                <p className="text-[13px] font-semibold nm-head">Drop files or click to upload</p>
+                <p className="text-[11px] nm-muted mt-0.5">PDF, TXT, Images supported</p>
               </div>
             </div>
           </label>
           {files.length > 0 && (
             <div className="space-y-2">
               {files.map((file, i) => (
-                <div key={i} className="flex items-center gap-3 bg-white/4 rounded-xl px-3 py-2.5 border border-white/6">
-                  <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                  <span className="text-xs text-slate-300 truncate flex-1">{file.name}</span>
-                  <button type="button" onClick={() => removeFile(i)} className="text-slate-600 hover:text-red-400 transition-colors flex-shrink-0">
-                    <X className="w-3.5 h-3.5" />
+                <div key={i} className="nms-file">
+                  <FileText className="w-4 h-4 nm-accent-text flex-shrink-0" />
+                  <span className="truncate flex-1">{file.name}</span>
+                  <button type="button" onClick={() => removeFile(i)} className="nms-x" aria-label={`Remove ${file.name}`}>
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ))}
@@ -125,43 +119,38 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
       ) : (
         <div className="space-y-2.5">
           {/* YouTube / video link */}
-          <div className="flex items-center gap-2 bg-white/4 border border-white/8 rounded-xl px-3 py-2 focus-within:border-red-500/50 transition-all">
-            <Youtube className="w-4 h-4 text-red-400/90 flex-shrink-0" />
+          <div className="nm-input nms-field">
+            <Youtube className="w-4 h-4" />
             <input
               type="url"
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
               placeholder="Paste YouTube video link…"
-              className="flex-1 bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none min-w-0"
             />
             {youtubeUrl.trim() && (
-              <button type="button" onClick={() => setYoutubeUrl('')} className="text-slate-600 hover:text-red-400 flex-shrink-0">
-                <X className="w-3.5 h-3.5" />
+              <button type="button" onClick={() => setYoutubeUrl('')} className="nms-x -mr-2" aria-label="Clear link">
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-px flex-1 bg-white/8" />
-            <span className="text-[9px] text-slate-600 uppercase tracking-widest">or transcript</span>
-            <div className="h-px flex-1 bg-white/8" />
-          </div>
+          <div className="nms-or nm-label !text-[10px]">or transcript</div>
 
           <textarea
             value={transcriptInput}
             onChange={(e) => setTranscriptInput(e.target.value)}
             placeholder="Paste the full class transcript here (up to 3–4 hours)..."
             rows={6}
-            className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/6 transition-all resize-none leading-relaxed"
+            className="nm-input resize-none leading-relaxed"
           />
-          <label className="block relative cursor-pointer">
+          <label className="nms-drop-wrap block relative cursor-pointer">
             <input type="file" accept=".txt,text/plain" onChange={handleTranscriptFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-indigo-500/25 hover:border-indigo-500/50 hover:bg-indigo-500/6 transition-all">
-              <Upload className="w-3.5 h-3.5 text-indigo-400/80" />
-              <p className="text-[11px] text-slate-400">or upload a .txt transcript file</p>
+            <div className="nms-drop min-h-[44px] px-3">
+              <Upload className="w-4 h-4" />
+              <p className="text-[12px] font-semibold">or upload a .txt transcript file</p>
             </div>
           </label>
           {transcriptInput.trim() && (
-            <p className="text-[10px] text-slate-600 px-0.5">
+            <p className="nms-help">
               ~{(transcriptInput.trim().match(/\S+/g) || []).length.toLocaleString('en-IN')} words
             </p>
           )}
@@ -170,15 +159,15 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
               type="button"
               onClick={handleRestructureDraft}
               disabled={isGenerating || isRestructuringDraft}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-indigo-300 bg-indigo-500/8 border border-indigo-500/20 hover:bg-indigo-500/15 hover:border-indigo-500/35 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="nm-btn w-full min-h-[42px] text-[13px]"
             >
-              <Wand2 className="w-3.5 h-3.5" />
+              <Wand2 className="w-4 h-4 nm-accent-text" />
               {isRestructuringDraft ? 'Restructuring draft…' : 'Restructure Draft'}
             </button>
           )}
           {transcriptInput.trim() && !transcriptProgress && (
             <div className="flex items-start justify-between gap-2 px-0.5">
-              <p className="text-[9px] text-slate-600 leading-relaxed">
+              <p className="nms-help !px-0">
                 Optional — cleans up broken sentences/paragraphing in the pasted or fetched transcript (nothing is summarised or dropped) before you press "Start Notes Making".
               </p>
               {draftBackup !== null && !isRestructuringDraft && (
@@ -186,7 +175,7 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
                   type="button"
                   onClick={handleUndoRestructureDraft}
                   disabled={isGenerating}
-                  className="text-[9px] font-semibold text-amber-400/90 hover:text-amber-300 underline underline-offset-2 flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-[11px] font-bold nms-warn underline underline-offset-2 flex-shrink-0 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Undo restructure
                 </button>
@@ -195,20 +184,15 @@ export const SidebarInputSection: React.FC<SidebarInputSectionProps> = ({
           )}
           {transcriptProgress && (
             <div className="space-y-1.5 pt-0.5">
-              <div className="w-full bg-white/8 rounded-full h-1.5 overflow-hidden">
+              <div className="nms-bar">
                 <div
-                  className={`h-1.5 rounded-full transition-all duration-500 ${transcriptProgress.step === 'fetch' ? 'animate-pulse' : ''}`}
+                  className={transcriptProgress.step === 'fetch' ? 'animate-pulse' : ''}
                   style={{
                     width: `${transcriptProgress.step === 'fetch' ? 20 : transcriptProgress.step === 'structure' ? 6 : Math.round((transcriptProgress.current / transcriptProgress.total) * 100)}%`,
-                    background: transcriptProgress.step === 'fetch'
-                      ? 'linear-gradient(90deg, #ef4444, #f97316)'
-                      : transcriptProgress.step === 'restructure'
-                        ? 'linear-gradient(90deg, #6366f1, #a855f7)'
-                        : 'linear-gradient(90deg, #4f46e5, #7c3aed)',
                   }}
                 />
               </div>
-              <p className="text-[10px] text-indigo-300/90">
+              <p className="nms-help">
                 {transcriptProgress.step === 'fetch'
                   ? (transcriptProgress.note || 'Fetching transcript from YouTube…')
                   : transcriptProgress.step === 'restructure'

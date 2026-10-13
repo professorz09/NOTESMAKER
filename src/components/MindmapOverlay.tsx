@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Check, RotateCw, SkipForward, FastForward, Loader2, AlertTriangle, Circle, Minus, Sparkles, Plus, PartyPopper, Wand2, X, Shuffle } from 'lucide-react';
 import type { MindmapState, MindmapNode, MindmapNodeStatus } from '../types';
+import '../liquid-panels.css';
 
 interface MindmapOverlayProps {
   mindmap: MindmapState;
@@ -18,15 +19,15 @@ interface MindmapOverlayProps {
 }
 
 const STATUS_META: Record<MindmapNodeStatus, { ring: string; dot: string }> = {
-  pending: { ring: 'border-slate-300 dark:border-slate-600', dot: 'text-slate-400' },
-  active:  { ring: 'border-indigo-400 shadow-[0_0_0_3px_rgba(99,102,241,0.18)]', dot: 'text-indigo-500' },
+  pending: { ring: 'border-slate-300 dark:border-white/15', dot: 'text-slate-400' },
+  active:  { ring: 'border-teal-400 shadow-[0_0_0_3px_rgba(46,230,182,0.22)]', dot: 'text-teal-500' },
   done:    { ring: 'border-emerald-400', dot: 'text-emerald-500' },
   error:   { ring: 'border-red-400 shadow-[0_0_0_3px_rgba(239,68,68,0.18)]', dot: 'text-red-500' },
-  skipped: { ring: 'border-slate-300 dark:border-slate-700 opacity-60', dot: 'text-slate-400' },
+  skipped: { ring: 'border-slate-300 dark:border-white/10 opacity-60', dot: 'text-slate-400' },
 };
 
 const StatusIcon: React.FC<{ status: MindmapNodeStatus }> = ({ status }) => {
-  if (status === 'active') return <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" />;
+  if (status === 'active') return <Loader2 className="w-4 h-4 text-teal-500 animate-spin" />;
   if (status === 'done') return <Check className="w-4 h-4 text-emerald-500" />;
   if (status === 'error') return <AlertTriangle className="w-4 h-4 text-red-500" />;
   if (status === 'skipped') return <Minus className="w-4 h-4 text-slate-400" />;
@@ -71,8 +72,8 @@ const NodeRow: React.FC<{
   return (
     <div ref={innerRef} className="relative pl-6 scroll-mt-2">
       {/* connector from the spine to this node */}
-      <span className="absolute left-0 top-[18px] w-6 h-px bg-slate-200 dark:bg-slate-700" />
-      <span className={`absolute left-[-4px] top-[13px] w-2.5 h-2.5 rounded-full border-2 bg-white dark:bg-slate-900 ${meta.dot} ${node.status === 'active' ? 'border-indigo-400' : node.status === 'done' ? 'border-emerald-400' : node.status === 'error' ? 'border-red-400' : 'border-slate-300 dark:border-slate-600'}`} />
+      <span className="absolute left-0 top-[18px] w-6 h-px bg-slate-200 dark:bg-white/10" />
+      <span className={`absolute left-[-4px] top-[13px] w-2.5 h-2.5 rounded-full border-2 bg-white dark:bg-[#141417] ${meta.dot} ${node.status === 'active' ? 'border-teal-400' : node.status === 'done' ? 'border-emerald-400' : node.status === 'error' ? 'border-red-400' : 'border-slate-300 dark:border-white/15'}`} />
 
       <div
         onClick={openPanel}
@@ -80,7 +81,7 @@ const NodeRow: React.FC<{
         tabIndex={openPanel ? 0 : undefined}
         onKeyDown={openPanel ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(); } } : undefined}
         title={hint}
-        className={`rounded-xl border bg-white dark:bg-slate-800/80 px-3 py-2 transition-all ${meta.ring} ${node.status === 'active' ? 'scale-[1.01]' : ''} ${clickable && !panelOpen ? 'cursor-pointer hover:border-indigo-400 hover:shadow-[0_0_0_3px_rgba(99,102,241,0.12)] active:scale-[0.99] focus-visible:outline-none focus-visible:border-indigo-400 focus-visible:shadow-[0_0_0_3px_rgba(99,102,241,0.25)]' : ''}`}
+        className={`rounded-xl border bg-white dark:bg-white/[0.05] px-3 py-2 transition-all ${meta.ring} ${node.status === 'active' ? 'scale-[1.01]' : ''} ${clickable && !panelOpen ? 'cursor-pointer hover:border-teal-400 hover:shadow-[0_0_0_3px_rgba(99,102,241,0.12)] active:scale-[0.99] focus-visible:outline-none focus-visible:border-teal-400 focus-visible:shadow-[0_0_0_3px_rgba(99,102,241,0.25)]' : ''}`}
       >
         <div className="flex items-center gap-2">
           <StatusIcon status={node.status} />
@@ -88,8 +89,8 @@ const NodeRow: React.FC<{
             {node.label}
           </span>
           {instructionMode
-            ? <Wand2 className={`w-3.5 h-3.5 flex-shrink-0 ${node.instruction ? 'text-indigo-500' : 'text-slate-400'}`} />
-            : clickable && <Sparkles className="w-3 h-3 text-indigo-400/70 flex-shrink-0" />}
+            ? <Wand2 className={`w-3.5 h-3.5 flex-shrink-0 ${node.instruction ? 'text-teal-500' : 'text-slate-400'}`} />
+            : clickable && <Sparkles className="w-3 h-3 text-teal-400/70 flex-shrink-0" />}
         </div>
 
         {node.children.length > 0 && (
@@ -101,8 +102,8 @@ const NodeRow: React.FC<{
                   node.status === 'done'
                     ? 'border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20'
                     : node.status === 'active'
-                      ? 'border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                      ? 'border-teal-200 dark:border-teal-800/50 text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20'
+                      : 'border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400'
                 }`}
               >
                 {c.label}
@@ -113,7 +114,7 @@ const NodeRow: React.FC<{
 
         {/* Saved review-instruction badge (approval step, panel closed). */}
         {instructionMode && node.instruction && !panelOpen && (
-          <div className="flex items-start gap-1.5 mt-1.5 pl-6 text-[10.5px] text-indigo-600 dark:text-indigo-300">
+          <div className="flex items-start gap-1.5 mt-1.5 pl-6 text-[10.5px] text-teal-600 dark:text-teal-300">
             <Wand2 className="w-3 h-3 mt-0.5 flex-shrink-0" />
             <span className="italic">{node.instruction}</span>
           </div>
@@ -122,8 +123,8 @@ const NodeRow: React.FC<{
         {/* Instruction / improve panel. During review it attaches a per-section
             instruction; after generation it refines the existing draft. */}
         {panelOpen && (
-          <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
-            <label className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wide mb-1.5">
+          <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-white/10" onClick={(e) => e.stopPropagation()}>
+            <label className="flex items-center gap-1.5 text-[10px] font-bold text-teal-500 dark:text-teal-400 uppercase tracking-wide mb-1.5">
               <Wand2 className="w-3 h-3" /> {instructionMode ? 'Instruction for this section (optional)' : 'Optional — how should it be improved?'}
             </label>
             <textarea
@@ -135,18 +136,18 @@ const NodeRow: React.FC<{
                 ? 'e.g. focus on current examples, keep it concise, add a comparison table…'
                 : 'e.g. add a real example, make a table, explain more simply… (leave empty to just regenerate in more depth)'}
               rows={2}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500/60 resize-none transition-all"
+              className="w-full bg-slate-50 dark:bg-[#141417] border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-teal-500/60 resize-none transition-all"
             />
             <div className="flex items-center gap-1.5 mt-2">
               <button
                 onClick={submitPanel}
-                className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[36px] flex-1 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all"
+                className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[36px] flex-1 rounded-lg text-xs font-bold nm-btn-primary !rounded-lg active:scale-95 transition-all"
               >
                 <Sparkles className="w-3.5 h-3.5" /> {instructionMode ? 'Save' : (node.status === 'skipped' ? 'Generate' : 'Regenerate')}
               </button>
               <button
                 onClick={closePanel}
-                className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[36px] rounded-lg text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 active:scale-95 transition-all"
+                className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[36px] rounded-lg text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 active:scale-95 transition-all"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -158,13 +159,13 @@ const NodeRow: React.FC<{
           <div className="flex items-center gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={onRetry}
-              className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[38px] flex-1 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all"
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[38px] flex-1 rounded-lg text-xs font-bold nm-btn-primary !rounded-lg active:scale-95 transition-all"
             >
               <RotateCw className="w-3.5 h-3.5" /> Retry
             </button>
             <button
               onClick={onSkip}
-              className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[38px] flex-1 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 active:scale-95 transition-all"
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 min-h-[38px] flex-1 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 active:scale-95 transition-all"
             >
               <SkipForward className="w-3.5 h-3.5" /> Skip
             </button>
@@ -187,12 +188,12 @@ const NodeRow: React.FC<{
 const OutlineList: React.FC<{ sections: { heading: string; subheadings: string[] }[] }> = ({ sections }) => (
   <div className="space-y-1.5">
     {sections.map((s, i) => (
-      <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 px-2.5 py-1.5">
+      <div key={i} className="rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.05] px-2.5 py-1.5">
         <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-100">{i + 1}. {s.heading}</p>
         {s.subheadings.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {s.subheadings.map((h, j) => (
-              <span key={j} className="text-[9.5px] px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+              <span key={j} className="text-[9.5px] px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400">
                 {h}
               </span>
             ))}
@@ -231,29 +232,32 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto p-3 sm:p-6 pt-[4.75rem] sm:pt-24 pb-8 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-sm">
-      <div className="w-full max-w-[640px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+    <div
+      className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto nm-scroll p-3 sm:p-6 pt-[4.75rem] sm:pt-24 pb-8 backdrop-blur-md"
+      style={{ background: 'color-mix(in srgb, var(--nm-bg) 78%, transparent)' }}
+    >
+      <div className="nm-sheet nm-pop w-full max-w-[640px] !rounded-[26px] overflow-hidden">
         {/* header */}
-        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-600 to-violet-600">
+        <div className="px-4 sm:px-5 pt-4 pb-3.5 border-b" style={{ borderColor: 'var(--nm-line)' }}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-200">{mindmap.subtitle}</p>
-              <h3 className="text-white font-bold text-sm sm:text-base truncate">{mindmap.title}</h3>
+              <p className="nm-label nm-accent-text !text-[10px]">{mindmap.subtitle}</p>
+              <h3 className="nm-head font-bold text-[15px] sm:text-base truncate mt-0.5">{mindmap.title}</h3>
             </div>
             <div className="text-right flex-shrink-0">
               {awaiting
-                ? <div className="text-white font-bold text-[11px] leading-tight">Review<br/>the plan</div>
-                : <><div className="text-white font-black text-lg leading-none tabular-nums">{pct}%</div>
-                    <div className="text-[10px] text-indigo-200">{settled}/{total}</div></>}
+                ? <div className="nm-badge !text-[11px] !py-1 !px-2.5 leading-tight">Review the plan</div>
+                : <><div className="nm-head font-black text-lg leading-none tabular-nums">{pct}%</div>
+                    <div className="nm-muted text-[10.5px] mt-0.5 tabular-nums">{settled}/{total}</div></>}
             </div>
           </div>
           {!awaiting && (
-            <div className="mt-2.5 w-full bg-white/25 rounded-full h-1.5 overflow-hidden">
-              <div className="h-1.5 rounded-full bg-white transition-all duration-500" style={{ width: `${Math.max(4, pct)}%` }} />
+            <div className="nm-progress mt-3 w-full">
+              <span style={{ width: `${Math.max(4, pct)}%` }} />
             </div>
           )}
           {awaiting && (
-            <p className="mt-2 text-[10.5px] text-indigo-100 leading-snug">
+            <p className="nm-muted mt-2 text-[11.5px] leading-snug">
               {mindmap.compareOutline
                 ? 'Pick which outline to proceed with below.'
                 : <>Tap any topic to add an instruction for it (optional), add points below, then {mindmap.canRestructure ? <>either <strong>Restructure</strong> the outline (better headings — no point is dropped) or </> : <></>}press <strong>Approve &amp; Generate</strong>.</>}
@@ -263,9 +267,9 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
 
         {/* central topic node */}
         <div className="px-4 sm:px-5 pt-4">
-          <div className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border border-indigo-300/50 dark:border-indigo-700/50 px-3 py-2">
-            <span className={`w-2 h-2 rounded-full bg-indigo-500 ${mindmap.complete ? '' : 'animate-pulse'}`} />
-            <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">{mindmap.title}</span>
+          <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2" style={{ background: 'rgba(var(--ac-rgb), 0.10)', border: '1px solid rgba(var(--ac-rgb), 0.35)' }}>
+            <span className={`w-2 h-2 rounded-full ${mindmap.complete ? '' : 'animate-pulse'}`} style={{ background: 'var(--ac)', boxShadow: '0 0 8px rgba(var(--ac-rgb), 0.8)' }} />
+            <span className="nm-head text-[13px] font-black">{mindmap.title}</span>
           </div>
         </div>
 
@@ -273,29 +277,29 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
             anything else in the review step is usable again. */}
         {mindmap.compareOutline ? (
           <div className="px-4 sm:px-5 py-3 max-h-[60vh] overflow-y-auto scrollbar-thin space-y-3">
-            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 leading-snug">
+            <p className="nm-muted text-[11px] leading-snug">
               Compare the original outline with the restructured one, then pick which to proceed with.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Original</p>
+                <p className="nm-label mb-1.5">Original</p>
                 <OutlineList sections={mindmap.compareOutline.before} />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-1.5">Restructured</p>
+                <p className="nm-label nm-accent-text mb-1.5">Restructured</p>
                 <OutlineList sections={mindmap.compareOutline.after} />
               </div>
             </div>
             <div className="flex gap-2 pt-1">
               <button
                 onClick={onCompareDiscard}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 active:scale-[0.98] transition-all"
+                className="nm-btn flex-1 min-h-[44px] text-xs"
               >
                 Keep Original
               </button>
               <button
                 onClick={onCompareApply}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all"
+                className="nm-btn-primary flex-1 min-h-[44px] text-xs"
               >
                 <Shuffle className="w-3.5 h-3.5" /> Use Restructured
               </button>
@@ -306,7 +310,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
             same spine as the last node, so it reads as part of the map
             rather than a separate bar stuck to the bottom. */
         <div className="px-4 sm:px-5 py-3 max-h-[52vh] overflow-y-auto scrollbar-thin">
-          <div className="relative ml-2 pl-0 space-y-2 border-l-2 border-slate-200 dark:border-slate-700">
+          <div className="relative ml-2 pl-0 space-y-2 border-l-2 border-slate-200 dark:border-white/10">
             {mindmap.nodes.length === 0 ? (
               <div className="pl-6 py-3 flex items-center gap-2 text-slate-500 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" /> Building the structure…
@@ -331,9 +335,9 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                 it reads as part of the map; a dashed border + dashed dot are
                 the only cue that it's an "add" affordance. */}
             <div className="relative pl-6">
-              <span className="absolute left-0 top-[22px] w-6 h-px bg-slate-200 dark:bg-slate-700" />
-              <span className="absolute left-[-5px] top-[16px] w-3 h-3 rounded-full border-2 border-dashed border-indigo-400 bg-white dark:bg-slate-900" />
-              <div className="rounded-xl border border-dashed border-indigo-300/70 dark:border-indigo-600/50 bg-white dark:bg-slate-800/80 px-2.5 py-2">
+              <span className="absolute left-0 top-[22px] w-6 h-px bg-slate-200 dark:bg-white/10" />
+              <span className="absolute left-[-5px] top-[16px] w-3 h-3 rounded-full border-2 border-dashed border-teal-400 bg-white dark:bg-[#141417]" />
+              <div className="rounded-xl border border-dashed border-teal-300/70 dark:border-teal-600/50 bg-white dark:bg-white/[0.05] px-2.5 py-2">
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -347,7 +351,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                   <button
                     onClick={submitAdd}
                     disabled={mindmap.addBusy || !addText.trim()}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 min-h-[36px] rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all flex-shrink-0"
+                    className="nm-btn-primary px-3 min-h-[38px] min-w-[38px] text-xs flex-shrink-0"
                   >
                     {mindmap.addBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                     <span className="hidden xs:inline">Add</span>
@@ -367,7 +371,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                 <button
                   onClick={onRestructure}
                   disabled={!!mindmap.restructuring}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/25 border border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="nm-btn w-full min-h-[44px] px-3 text-xs"
                 >
                   {mindmap.restructuring
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Restructuring the outline… (no point is dropped)</>
@@ -377,7 +381,7 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
                 <button
                   onClick={onApprove}
                   disabled={!!mindmap.restructuring}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-900/25 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="nm-btn-primary w-full min-h-[48px] text-sm"
                 >
                   <Sparkles className="w-4 h-4" /> Approve &amp; Generate
                 </button>
@@ -388,16 +392,16 @@ export const MindmapOverlay: React.FC<MindmapOverlayProps> = ({
         )}
 
         {!awaiting && (
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700">
+        <div className="px-4 sm:px-5 py-3 border-t" style={{ borderColor: 'var(--nm-line)' }}>
           {mindmap.complete ? (
             <button
               onClick={onDone}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/20"
+              className="nm-btn-primary w-full min-h-[48px] text-sm"
             >
               <PartyPopper className="w-4 h-4" /> Done — View Notes
             </button>
           ) : (
-            <p className="text-center text-[10px] text-slate-400">
+            <p className="nm-muted text-center text-[11px] leading-snug">
               {mindmap.errorNodeId
                 ? '⚠️ A section ran into a problem — choose Retry, Skip or Finish'
                 : 'Notes are being written live below • the Done button appears once generation finishes'}

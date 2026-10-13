@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
+import '../liquid-panels.css';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -41,25 +42,6 @@ const DURATION: Record<ToastType, number> = {
   info: 4000,
 };
 
-const STYLES: Record<ToastType, { container: string; icon: string }> = {
-  success: {
-    container: 'bg-emerald-950/95 border-emerald-500/40 text-emerald-50',
-    icon: 'text-emerald-400',
-  },
-  error: {
-    container: 'bg-red-950/95 border-red-500/40 text-red-50',
-    icon: 'text-red-400',
-  },
-  warning: {
-    container: 'bg-amber-950/95 border-amber-500/40 text-amber-50',
-    icon: 'text-amber-400',
-  },
-  info: {
-    container: 'bg-slate-900/95 border-slate-500/40 text-slate-100',
-    icon: 'text-blue-400',
-  },
-};
-
 const ICONS = {
   success: CheckCircle2,
   error: AlertCircle,
@@ -68,7 +50,6 @@ const ICONS = {
 };
 
 function ToastCard({ toast: t, onRemove }: { toast: ToastItem; onRemove: (id: string) => void }) {
-  const style = STYLES[t.type];
   const Icon = ICONS[t.type];
 
   useEffect(() => {
@@ -78,14 +59,17 @@ function ToastCard({ toast: t, onRemove }: { toast: ToastItem; onRemove: (id: st
 
   return (
     <div
-      className={`flex items-start gap-3 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-xl w-full max-w-sm pointer-events-auto ${style.container}`}
-      style={{ animation: 'slideUp 0.25s ease-out' }}
+      role={t.type === 'error' ? 'alert' : 'status'}
+      className="nm-raised nm-toast flex items-center gap-2.5 pl-2 pr-2 py-2 w-full max-w-sm pointer-events-auto"
+      style={{ animation: 'slideUp 0.28s var(--nm-spring) both' }}
     >
-      <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${style.icon}`} />
-      <p className="text-sm font-medium flex-1 leading-snug">{t.message}</p>
+      <span className={`nm-toast-dot ${t.type}`}>
+        <Icon className="w-3.5 h-3.5" />
+      </span>
+      <p className="nm-head text-[13px] font-semibold flex-1 leading-snug py-1">{t.message}</p>
       <button
         onClick={() => onRemove(t.id)}
-        className="opacity-50 hover:opacity-100 transition-opacity flex-shrink-0 ml-1"
+        className="nm-icon-btn nm-muted !w-8 !h-8 !rounded-full flex-shrink-0"
         aria-label="Dismiss"
       >
         <X className="w-3.5 h-3.5" />
@@ -114,8 +98,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <>
       {children}
       <div
-        className="fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none"
-        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))', minWidth: 'min(90vw, 360px)' }}
+        // Phones: at the top, clear of the sidebar footer and bottom sheets.
+        // Wider screens: bottom centre.
+        className="nm-toast-stack fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none"
+        style={{ width: 'min(calc(100vw - 32px), 384px)' }}
       >
         {toasts.map(t => (
           <ToastCard key={t.id} toast={t} onRemove={removeToast} />
