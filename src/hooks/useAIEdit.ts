@@ -60,6 +60,7 @@ export function useAIEdit({
   const activeTableCellRef = useRef<{ table: HTMLTableElement; cell: HTMLTableCellElement } | null>(null);
 
   const [isExtendTableOpen, setIsExtendTableOpen] = useState(false);
+  const rewriteInFlightRef = useRef(false);
   const [extendHeadersPreview, setExtendHeadersPreview] = useState('');
   const [modalImages, setModalImages] = useState<{ base64: string; mimeType: string; dataUrl: string }[]>([]);
 
@@ -407,7 +408,12 @@ export function useAIEdit({
 
   const handleRewriteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A second Enter before the first request's state update rendered sent
+    // the same edit twice (for Extend Table: the rows got appended twice).
+    if (rewriteInFlightRef.current) return;
+    rewriteInFlightRef.current = true;
     setIsRewriting(true);
+    let extendDone = false;
     try {
       const rawBefore = getCurrentHtml();
       pushToHistory(rawBefore);
@@ -421,6 +427,12 @@ export function useAIEdit({
 
         if (isResettingRef.current) return;
         if (!newRows) throw new Error('No rows generated');
+        // The canvas may have been re-rendered while the AI was working (a
+        // note switch, a background sync) — appending to the old, detached
+        // table did nothing visible and still reported success.
+        if (!tableEl.isConnected || !editorRef.current?.contains(tableEl)) {
+          throw new Error('The table is no longer on the page — open the note again and retry.');
+        }
 
         let tbody = tableEl.querySelector('tbody');
         if (!tbody) {
@@ -433,14 +445,14 @@ export function useAIEdit({
         const newTrNodes = Array.from(tempDiv.querySelectorAll('tr'));
         newTrNodes.forEach(tr => tbody!.appendChild(tr));
 
+        if (newTrNodes.length === 0) throw new Error('The AI reply had no table rows — try again.');
         const updatedHtml = editorRef.current!.innerHTML;
         setGeneratedHtml(updatedHtml);
+        pushToHistory(updatedHtml);
         safeSaveDraft(updatedHtml);
         setRewriteModalOpen(false);
         setModalImages([]);
-        isTableExtendMode.current = false;
-        extendTableRef.current = null;
-        extendContextRef.current = null;
+        extendDone = true;
         toast.success('Table extended successfully!');
         return;
       }
@@ -564,11 +576,18 @@ export function useAIEdit({
         toast.error(`AI edit failed: ${error.message || 'Unknown error. Please try again.'}`);
       }
     } finally {
+      rewriteInFlightRef.current = false;
       if (!isResettingRef.current) setIsRewriting(false);
-      isTableExtendMode.current = false;
-      extendTableRef.current = null;
-      extendContextRef.current = null;
-      setIsExtendTableOpen(false);
+      // Only leave extend mode once it succeeded (or the modal is closed).
+      // Resetting it on failure flipped the still-open modal into the
+      // section-rewrite form, whose "section" was then the table-context
+      // JSON — a retry rewrote some unrelated section with garbage.
+      if (extendDone) {
+        isTableExtendMode.current = false;
+        extendTableRef.current = null;
+        extendContextRef.current = null;
+        setIsExtendTableOpen(false);
+      }
     }
   };
 
@@ -584,6 +603,7 @@ export function useAIEdit({
     editorRef.current.querySelectorAll('.table-sparkle-bar, .table-extend-bar').forEach(bar => bar.remove());
     const raw = editorRef.current.innerHTML;
     setGeneratedHtml(raw);
+    pushToHistory(raw);
     saveToStorage();
     setRewriteModalOpen(false);
     activeEditIdRef.current = null;

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { STORAGE_KEY, getScrollParent, safeSaveDraft } from '../utils/editorUtils';
+import { STORAGE_KEY, getScrollParent, safeSaveDraft, stripEditorChrome } from '../utils/editorUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -90,6 +90,22 @@ export function useEditorContent({ pushToHistory }: UseEditorContentProps) {
     editorRef.current.innerHTML = generatedHtml || '';
     if (scrollEl) scrollEl.scrollTop = savedScroll;
   }, [generatedHtml]);
+
+  // Leaving edit mode: take the final DOM (including typing still inside the
+  // 800ms input debounce) as the canvas state, minus the edit affordances
+  // that state picked up while editing.
+  const wasEditingRef = useRef(isEditing);
+  useEffect(() => {
+    const was = wasEditingRef.current;
+    wasEditingRef.current = isEditing;
+    if (!was || isEditing || !editorRef.current || isResettingRef.current) return;
+    const clean = stripEditorChrome(editorRef.current.innerHTML);
+    setGeneratedHtml(prev => {
+      if (prev === clean) return prev;
+      pushToHistory(clean);
+      return clean;
+    });
+  }, [isEditing, pushToHistory]);
 
   // Auto-save on tab-switch, page hide, and every 5s while editing
   useEffect(() => {

@@ -46,6 +46,23 @@ export const stripPendingBlocks = (html: string): string => {
   return temp.innerHTML;
 };
 
+// Edit-mode affordances (✨ buttons, Extend Table bar, column resize
+// handles…) live inside the editor DOM while editing, so any read of its
+// innerHTML carries them into state — and from there into the saved note,
+// where they reopen as dead buttons in the text. Persisting goes through
+// this so they never reach storage, whichever read produced the HTML.
+const EDITOR_CHROME_RE = /ai-edit-trigger|table-sparkle-bar|table-extend-bar|col-resize-handle|data-table-id|table-extend-tfoot|empty-caption|data-edit-id/;
+export const stripEditorChrome = (html: string): string => {
+  if (!html || !EDITOR_CHROME_RE.test(html)) return html;
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  temp.querySelectorAll('.ai-edit-trigger, .table-sparkle-bar, .table-extend-bar, .col-resize-handle, tfoot.table-extend-tfoot, caption.empty-caption')
+    .forEach(el => el.remove());
+  temp.querySelectorAll('[data-table-id]').forEach(el => el.removeAttribute('data-table-id'));
+  temp.querySelectorAll('[data-edit-id]').forEach(el => el.removeAttribute('data-edit-id'));
+  return temp.innerHTML;
+};
+
 /** Walk up the DOM tree and return the first element that scrolls vertically. */
 export const getScrollParent = (el: Element): HTMLElement | null => {
   let node = el.parentElement;

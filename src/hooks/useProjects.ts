@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { isSupabaseConfigured, getSupabaseClient } from '../services/supabase';
 import { toast } from '../components/Toast';
-import { stripPendingBlocks } from '../utils/editorUtils';
+import { stripPendingBlocks, stripEditorChrome } from '../utils/editorUtils';
 
 const LOCAL_PROJECTS_KEY = 'ai_book_writer_projects';
 
@@ -260,7 +260,7 @@ export function useProjects() {
   const createProject = useCallback(async (name: string, rawContent: string, meta?: ProjectCreateMeta): Promise<ProjectMeta | null> => {
     // Same reason as saveProject: a live "writing…" placeholder is UI state,
     // not something a note should be created holding.
-    const content = stripPendingBlocks(rawContent);
+    const content = stripEditorChrome(stripPendingBlocks(rawContent));
     const tags = meta?.tags ?? [];
     const entryDate = meta?.entryDate ?? null;
     try {
@@ -413,7 +413,7 @@ export function useProjects() {
     // this a tab closed (or a note switched away from) mid-generation
     // persists that block into the note permanently — it reopens showing an
     // answer that is forever about to be written.
-    const content = stripPendingBlocks(rawContent);
+    const content = stripEditorChrome(stripPendingBlocks(rawContent));
     try {
       const now = new Date().toISOString();
       if (isSupabaseConfigured) {
