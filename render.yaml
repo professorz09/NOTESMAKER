@@ -17,3 +17,11 @@ services:
         sync: false
       - key: WORKER_SHARED_SECRET
         sync: false
+      # Optional — turns this server into the app's long-running AI proxy
+      # (see worker/src/aiProxy.ts). The whole service-account .json as one
+      # value; leave unset and the app keeps using the Supabase function.
+      - key: GCP_SA_KEY
+        sync: false
+      # Optional — same comma-separated allow-list as the Supabase function.
+      - key: ALLOWED_ORIGINS
+        sync: false

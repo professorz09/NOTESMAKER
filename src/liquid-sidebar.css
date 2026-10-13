@@ -153,45 +153,7 @@
 .dark .nms-err { color: #fb7185; }
 .nms-card.plain { background: transparent; }
 
-/* ── Sidebar v2: neutral controls, one accent ─────────────────
-   Selection is shown with a raised neutral surface + accent text instead
-   of a mint gradient on every control, so the only solid mint element
-   left in the panel is the Generate button. */
-.nms-aside .nm-label { font-size: 0.66rem; letter-spacing: 0.1em; }
-.nms-aside .nm-seg { border-radius: 14px; padding: 3px; gap: 2px; }
-.nms-aside .nm-seg > button, .nms-aside .nm-seg > label { border-radius: 11px; min-height: 36px; font-weight: 650; }
-.nms-aside .nm-seg > .on,
-.nms-aside .nm-seg > [aria-pressed="true"],
-.nms-aside .nm-seg > [aria-selected="true"],
-.nms-aside .nm-seg > [aria-checked="true"] {
-  color: var(--nm-head);
-  background: var(--nm-raised);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--nm-line);
-}
-:root:not(.dark) .nms-aside .nm-seg > :is(.on, [aria-pressed="true"], [aria-selected="true"], [aria-checked="true"]) {
-  background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.06);
-}
-.nms-aside .nm-seg > :is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"]) svg { color: var(--ac); }
-:root:not(.dark) .nms-aside .nm-seg > :is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"]) svg { color: #0b8a6b; }
-
-/* icon-over-label segmented rows (input mode, output style) */
-.nms-aside .nm-seg.nms-modes { border-radius: 16px; }
-.nms-aside .nm-seg.nms-modes > button { min-height: 50px; border-radius: 13px; font-size: 11px; gap: 4px; }
-.nms-aside .nm-seg.nms-modes > button svg { width: 17px; height: 17px; }
-.nms-aside .nm-seg.nms-styles > button { min-height: 48px; font-size: 10.5px; padding: 0 1px; }
-.nms-aside .nm-seg.nms-styles > button svg { width: 16px; height: 16px; }
-
-/* inputs, toggles and cards: flatter, smaller radius */
-.nms-aside .nm-input { border-radius: 12px; }
-.nms-aside .nms-card, .nms-aside .nms-toggle { border-radius: 14px; }
-.nms-aside .nm-tile { border-radius: 14px; }
-.nms-aside .nm-tile.on { background: rgba(var(--ac-rgb), 0.07); box-shadow: none; }
-.nms-aside .nm-chip.on {
-  color: var(--nm-head); background: var(--nm-raised); box-shadow: 0 0 0 1px rgba(var(--ac-rgb), 0.55);
-}
-:root:not(.dark) .nms-aside .nm-chip.on { background: #fff; }
-
-/* footer */
+/* Sidebar footer: Generate is the one solid action; Clear/Undo stay quiet. */
 .nms-aside .nms-cta { border-radius: 14px; }
 .nms-ghost {
   display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: 10px;

@@ -24,7 +24,44 @@ import { readEnv } from "../../utils/env";
 // see the `X-Worker-Secret` branch in supabase/functions/gemini-proxy.
 
 const supabaseUrl = readEnv('VITE_SUPABASE_URL');
-const PROXY_BASE_URL = supabaseUrl ? `${supabaseUrl}/functions/v1/gemini-proxy` : '';
+// The Supabase Edge Function — always the last resort.
+const EDGE_PROXY_URL = supabaseUrl ? `${supabaseUrl}/functions/v1/gemini-proxy` : '';
+
+// Optional long-running proxy hosts, tried first and in order: the
+// background worker's server on Render (or Railway, or anything running
+// worker/), which serves the very same proxy code without the Edge
+// Function's wall-clock limit — the limit long Deep-notes sections run
+// into. Comma-separated base URLs, e.g. "https://notesmaker.onrender.com".
+// Unset = everything goes to the Edge Function exactly as before.
+const SERVER_PROXY_URLS = (readEnv('VITE_AI_PROXY_URL') || '')
+  .split(',')
+  .map(u => u.trim().replace(/\/+$/, ''))
+  .filter(u => /^https?:\/\//.test(u))
+  .map(u => `${u}/gemini-proxy`);
+
+// With server proxies configured, the SDK is pointed at a placeholder base
+// and the interceptor below maps each request onto a real host (server
+// proxies first, then the Edge Function), so a fallback never needs a
+// second SDK client. Without them the base is the Edge Function itself and
+// requests go out exactly as they always have.
+const PROXY_BASE_URL = !EDGE_PROXY_URL ? '' : SERVER_PROXY_URLS.length ? 'https://ai-proxy.notesmaker.invalid' : EDGE_PROXY_URL;
+const proxyHosts = (): string[] => [...SERVER_PROXY_URLS, EDGE_PROXY_URL].filter(Boolean);
+
+// A host that just failed is skipped for a while, so every call doesn't
+// first wait out a sleeping or unreachable server before falling back.
+const HOST_COOLDOWN_MS = 2 * 60_000;
+const hostDownUntil = new Map<string, number>();
+
+// Whether a reply means "this host can't serve the call" rather than "the
+// call itself is bad" — only then is the next host tried. A reply without
+// the proxy's marker header didn't come from the proxy at all (a sleeping
+// host's gateway page, an older worker build without the route). 502/503/
+// 504 cover an unconfigured or failing server proxy and gateway timeouts.
+// Errors from the AI itself (400 bad request, 401/403 auth, 404 unknown
+// model, 429 quota) are passed back unchanged: another host would only
+// repeat them.
+const isHostFailure = (res: Response) =>
+  res.headers.get('X-NM-AI-Proxy') !== '1' || res.status === 502 || res.status === 503 || res.status === 504;
 
 // --- Global AI concurrency cap -----------------------------------------
 // The gemini-proxy edge function imposes NO rate limit of its own — the
@@ -88,7 +125,39 @@ function installProxyFetchInterceptor() {
           if (!workerSecret) throw new Error('WORKER_SHARED_SECRET is not set for the background worker.');
           headers.set('X-Worker-Secret', workerSecret);
         }
-        return await origFetch(input, { ...init, headers });
+        const suffix = url.slice(PROXY_BASE_URL.length);
+        const hosts = proxyHosts();
+        // Healthy hosts first, in configured order; cooled-down ones are
+        // still tried last rather than not at all.
+        const now = Date.now();
+        const ordered = [
+          ...hosts.filter(h => (hostDownUntil.get(h) ?? 0) <= now),
+          ...hosts.filter(h => (hostDownUntil.get(h) ?? 0) > now),
+        ];
+        // A request body the SDK hands over as a string can be replayed
+        // against the next host; anything else (a stream) can be sent once.
+        const replayable = init?.body == null || typeof init.body === 'string';
+        let lastError: unknown = null;
+        for (let i = 0; i < ordered.length; i++) {
+          const host = ordered[i];
+          const isLast = i === ordered.length - 1 || !replayable;
+          try {
+            const res = await origFetch(host + suffix, { ...init, headers });
+            if (!isLast && isHostFailure(res)) {
+              hostDownUntil.set(host, Date.now() + HOST_COOLDOWN_MS);
+              continue;
+            }
+            if (res.ok) hostDownUntil.delete(host);
+            return res;
+          } catch (err) {
+            // Aborted by the caller: stop, don't retry elsewhere.
+            if ((err as any)?.name === 'AbortError') throw err;
+            lastError = err;
+            hostDownUntil.set(host, Date.now() + HOST_COOLDOWN_MS);
+            if (isLast) throw err;
+          }
+        }
+        throw lastError ?? new Error('No AI proxy reachable.');
       } finally {
         releaseAiSlot();
       }

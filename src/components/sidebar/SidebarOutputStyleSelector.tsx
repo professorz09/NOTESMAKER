@@ -18,21 +18,21 @@ const OUTPUT_STYLES = [
 
 export const SidebarOutputStyleSelector: React.FC<SidebarOutputStyleSelectorProps> = ({ outputStyle, setOutputStyle }) => (
   <div className="space-y-2">
-    <label className="nm-label block px-0.5">Output style</label>
-    <div className="nm-seg nms-modes nms-styles" role="radiogroup" aria-label="Output style">
+    <label className="nm-label block px-0.5">Output Style</label>
+    <div className="grid grid-cols-3 gap-2">
       {OUTPUT_STYLES.map(({ id, label, icon: Icon, desc }) => {
         const isActive = outputStyle === id;
         return (
           <button
             key={id}
             type="button"
-            role="radio"
             onClick={() => setOutputStyle(id)}
             title={desc}
-            aria-checked={isActive}
+            aria-pressed={isActive}
+            className={`nm-tile nms-tile ${isActive ? 'on' : ''}`}
           >
-            <Icon className="w-4 h-4" />
-            <span>{label}</span>
+            <span className="nm-tile-ico"><Icon /></span>
+            <span className="leading-none">{label}</span>
           </button>
         );
       })}

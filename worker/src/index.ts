@@ -25,6 +25,7 @@ import { generateResearchPaper } from '../../src/services/ai/researchAndPdf';
 import { generateTopicContent } from '../../src/services/ai/topicGeneration';
 import { wrapUPSCBlock, escapeHtml } from '../../src/services/ai/htmlBlocks';
 import { sanitizeHtml } from '../../src/utils/sanitize';
+import { handleAiProxy, isAiProxyRequest, aiProxyConfigured, AI_PROXY_MOUNT } from './aiProxy';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -276,11 +277,28 @@ async function loop(): Promise<void> {
 // service's URL every ~10 minutes to keep it awake; the actual queue
 // polling above runs independently of any request arriving here. See
 // README.md for the full setup.
-const server = http.createServer((_req, res) => {
+//
+// The same server also hosts the AI proxy under /gemini-proxy (see
+// aiProxy.ts) — the route the app uses for generations too long for the
+// Supabase Edge Function's time limit.
+const server = http.createServer((req, res) => {
+  if (isAiProxyRequest(req.url)) {
+    handleAiProxy(req, res, admin).catch((err: any) => {
+      console.error('[ai-proxy] unhandled error:', err);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ error: 'AI proxy error' }));
+      } else {
+        res.end();
+      }
+    });
+    return;
+  }
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
     ok: true,
     ...stats,
+    aiProxy: aiProxyConfigured() ? `ready at ${AI_PROXY_MOUNT}` : 'not configured (set GCP_SA_KEY)',
     // How long ago the poll loop last went round. Anything much above
     // IDLE_POLL_MS while questions are queued means the loop is stuck.
     secondsSinceLastPoll: stats.lastPollAt
@@ -288,6 +306,11 @@ const server = http.createServer((_req, res) => {
       : null,
   }, null, 2));
 });
+// Node closes a request after 5 minutes by default — exactly the kind of
+// cut-off this proxy exists to avoid. A Deep section can legitimately take
+// longer, so lift the per-request limit (Vertex itself still bounds it).
+server.requestTimeout = 0;
+server.headersTimeout = 60_000;
 const port = Number(process.env.PORT) || 3000;
 server.listen(port, () => console.log(`[worker] health server listening on :${port}`));
 

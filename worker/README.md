@@ -92,3 +92,22 @@ npm start
 
 `npm run typecheck` runs `tsc --noEmit` if you want to check types without
 starting the poll loop.
+
+## Long-running AI proxy (optional)
+
+Long Deep-notes sections can outlast the Supabase Edge Function's time
+limit. This server can serve the same AI proxy without that limit, at
+`/gemini-proxy` — it runs the Edge Function's own code
+(`supabase/functions/gemini-proxy/core.ts`), with the same checks: a valid
+Supabase login (or the worker secret), the `ALLOWED_ORIGINS` list, paths
+pinned under `/v1beta/models/`, and a bounded body.
+
+1. On Render, add `GCP_SA_KEY` (the whole service-account `.json` as one
+   value) and, if the Supabase function uses it, the same `ALLOWED_ORIGINS`.
+2. On the frontend host (Vercel), add
+   `VITE_AI_PROXY_URL=https://<this-service>.onrender.com` and redeploy.
+
+The app then tries this server first and falls back to the Supabase function
+whenever this one is unset, asleep, unreachable or not configured — nothing
+breaks if it goes away. The health JSON at `/` shows `aiProxy: ready` once
+the key is set.
