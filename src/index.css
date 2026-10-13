@@ -250,7 +250,11 @@ html, body {
 
 /* ─── Mobile: prevent horizontal overflow ─── */
 @media (max-width: 767px) {
-  .editor-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* display:block lets a wide table scroll sideways, but the rows inside
+     then size to their content while the table's own border spans the
+     page — leaving an empty bordered box beside a narrow table. Shrinking
+     the box to the content (capped at the page width) keeps both cases. */
+  .editor-content table { display: block; width: max-content; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .editor-content .flowchart-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
