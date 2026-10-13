@@ -2946,12 +2946,21 @@ export function useGeneration({
             // screen right now, so a background item never lands in the
             // wrong document.
             try {
-              const existing = (await loadProjectContent(next.projectId)) || '';
-              const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
-              await saveProject(next.projectId, existing + divider + html);
+              // A save can lose a race (the worker appending to that note at
+              // the same moment) — re-read and retry instead of dropping the
+              // answer, which used to be removed from the queue regardless.
+              let saved = false;
+              for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+                const existing = (await loadProjectContent(next.projectId)) || '';
+                const divider = existing ? '\n<hr class="upsc-qa-divider" />\n' : '';
+                saved = await saveProject(next.projectId, existing + divider + html);
+              }
+              if (!saved) throw new Error('save rejected');
             } catch (err) {
               console.error(err);
-              toast.error(`Wrote an answer for a different note but could not save it there — check that note's history.`);
+              await batchQueue.updateItem(next.id, { status: 'failed', error: 'Answer generated but could not be saved into its note — retry it.' });
+              toast.error(`Wrote an answer for a different note but could not save it there — it is kept in the queue as failed so you can retry.`);
+              continue;
             }
           }
           await batchQueue.removeItem(next.id);

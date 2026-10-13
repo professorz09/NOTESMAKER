@@ -170,6 +170,24 @@ export function useProjects() {
   // oldest copy.
   const baseRef = useRef<Map<string, { content: string; updatedAt: string }>>(new Map());
 
+  // Notes whose server copy moved past what the canvas shows (a conflict
+  // was merged or refused). Until the canvas re-reads the note, every save
+  // from it is refused: the base now points at the server's revision, so a
+  // save of the old canvas would pass the revision check and overwrite the
+  // very answers the conflict was protecting.
+  const needsReloadRef = useRef<Set<string>>(new Set());
+  const [reloadRequest, setReloadRequest] = useState<{ id: string; seq: number } | null>(null);
+  const requestReload = useCallback((id: string) => {
+    needsReloadRef.current.add(id);
+    setReloadRequest(prev => ({ id, seq: (prev?.seq ?? 0) + 1 }));
+  }, []);
+
+  // One save per note at a time. Two saves in flight against the same base
+  // (autosave tick + "Save now", or save-before-switch) meant the second hit
+  // a conflict with the FIRST, and the append-merge then re-applied the
+  // same new text on top of itself — duplicated answers.
+  const saveChainRef = useRef<Map<string, Promise<unknown>>>(new Map());
+
   // Called on first panel open — only fetches once unless forced
   const onPanelOpen = useCallback(() => {
     fetchProjects(false);
@@ -201,12 +219,42 @@ export function useProjects() {
       const content = row?.content ?? null;
       // Remember exactly which revision this copy came from — saveProject
       // refuses to overwrite anything newer than it.
-      if (row) baseRef.current.set(id, { content: content ?? '', updatedAt: row.updated_at });
+      if (row) {
+        baseRef.current.set(id, { content: content ?? '', updatedAt: row.updated_at });
+        needsReloadRef.current.delete(id);
+      }
       return content;
     }
     const local = getLocalProjects();
     const p = local.find(lp => lp.id === id);
     return p?.content ?? null;
+  }, []);
+
+  // Reads a note WITHOUT adopting it as the save base. For callers that may
+  // decide not to put the result on the canvas (the background sync bails
+  // while the student is typing): adopting a revision the canvas doesn't
+  // show would let the next save of the older canvas pass the revision
+  // check and overwrite it. Call adoptRevision once it is actually shown.
+  const peekProjectContent = useCallback(async (id: string): Promise<{ content: string | null; updatedAt: string | null }> => {
+    if (isSupabaseConfigured) {
+      const sb = getSupabaseClient();
+      const { data, error: sbErr } = await sb
+        .from('projects')
+        .select('content, updated_at')
+        .eq('id', id)
+        .single();
+      if (sbErr) throw sbErr;
+      const row = data as { content: string | null; updated_at: string } | null;
+      return { content: row?.content ?? null, updatedAt: row?.updated_at ?? null };
+    }
+    const p = getLocalProjects().find(lp => lp.id === id);
+    return { content: p?.content ?? null, updatedAt: p?.updated_at ?? null };
+  }, []);
+
+  const adoptRevision = useCallback((id: string, content: string | null, updatedAt: string | null) => {
+    if (!isSupabaseConfigured || !updatedAt) return;
+    baseRef.current.set(id, { content: content ?? '', updatedAt });
+    needsReloadRef.current.delete(id);
   }, []);
 
   const createProject = useCallback(async (name: string, rawContent: string, meta?: ProjectCreateMeta): Promise<ProjectMeta | null> => {
@@ -242,6 +290,10 @@ export function useProjects() {
         }
         if (sbErr) throw sbErr;
         const proj = { ...(data as ProjectMeta), tags: (data as any)?.tags ?? [], entry_date: (data as any)?.entry_date ?? null };
+        // Without a base the first saves after creation were bare
+        // last-writer-wins updates — the worker can already be appending
+        // queued answers to a note this young.
+        baseRef.current.set(proj.id, { content, updatedAt: proj.updated_at });
         // 200-cap is enforced server-side by a trigger that deletes the
         // oldest-by-updated_at rows when count > 200. Mirror that locally
         // so the sidebar list reflects the cap without a refetch round-trip.
@@ -281,7 +333,7 @@ export function useProjects() {
       toastSaveFailure(e, content);
       return null;
     }
-  }, []);
+  }, [toastSaveFailure]);
 
   // Called when a save found the note already changed by someone else —
   // in practice the background worker, which appends answers while a tab
@@ -333,6 +385,10 @@ export function useProjects() {
       if (wErr) throw wErr;
       if (w && w.length > 0) {
         baseRef.current.set(id, { content: merged, updatedAt: stamp });
+        // The server now holds their additions too, but the canvas still
+        // doesn't — it must re-read before saving again, or the next save
+        // (passing the check against this fresh base) drops them.
+        requestReload(id);
         return true;
       }
       // Changed again mid-merge. Leave it; the next autosave tick retries
@@ -346,11 +402,12 @@ export function useProjects() {
     // is not. Adopt their revision as the new base so the canvas sync pulls
     // it in and the next save starts from something current.
     baseRef.current.set(id, { content: theirs, updatedAt: row.updated_at });
+    requestReload(id);
     toast.warning('This note was updated in the background while it was open — reloading it so nothing is lost. Re-apply your last edit if it is missing.');
     return false;
-  }, []);
+  }, [requestReload]);
 
-  const saveProject = useCallback(async (id: string, rawContent: string): Promise<boolean> => {
+  const saveProjectNow = useCallback(async (id: string, rawContent: string): Promise<boolean> => {
     // A "✍️ writing the answer…" placeholder is live UI state, never note
     // content. The 3s autosave fires while one is on the canvas, so without
     // this a tab closed (or a note switched away from) mid-generation
@@ -360,6 +417,9 @@ export function useProjects() {
     try {
       const now = new Date().toISOString();
       if (isSupabaseConfigured) {
+        // The canvas is behind the server; it is being reloaded. Saving it
+        // now would undo the conflict handling.
+        if (needsReloadRef.current.has(id)) return false;
         const sb = getSupabaseClient();
         const base = baseRef.current.get(id);
 
@@ -401,16 +461,31 @@ export function useProjects() {
       toastSaveFailure(e, content);
       return false;
     }
-  }, [reconcileConflict]);
+  }, [reconcileConflict, toastSaveFailure]);
+
+  const saveProject = useCallback((id: string, rawContent: string): Promise<boolean> => {
+    const prev = saveChainRef.current.get(id) ?? Promise.resolve();
+    const run = prev.catch(() => {}).then(() => saveProjectNow(id, rawContent));
+    saveChainRef.current.set(id, run);
+    run.finally(() => {
+      if (saveChainRef.current.get(id) === run) saveChainRef.current.delete(id);
+    }).catch(() => {});
+    return run;
+  }, [saveProjectNow]);
 
   const renameProject = useCallback(async (id: string, name: string): Promise<boolean> => {
     try {
       const now = new Date().toISOString();
       if (isSupabaseConfigured) {
         const sb = getSupabaseClient();
+        // Name only — never the revision stamp. Bumping updated_at here
+        // moved the note past the base this tab saves against, so its next
+        // save after an auto-rename always "conflicted" with itself; and if
+        // the worker had written in between, the rename's fresh stamp hid
+        // that write from the conflict check entirely.
         const { error: sbErr } = await sb
           .from('projects')
-          .update({ name, updated_at: now })
+          .update({ name })
           .eq('id', id);
         if (sbErr) throw sbErr;
       } else {
@@ -419,9 +494,10 @@ export function useProjects() {
         if (idx !== -1) { local[idx].name = name; local[idx].updated_at = now; saveLocalProjects(local); }
       }
       // Optimistic update
-      setProjects(prev => prev.map(p => p.id === id ? { ...p, name, updated_at: now } : p));
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, name, updated_at: isSupabaseConfigured ? p.updated_at : now } : p));
       return true;
-    } catch {
+    } catch (e: any) {
+      toast.error(`Could not rename the note: ${e?.message || 'please try again.'}`);
       return false;
     }
   }, []);
@@ -439,8 +515,11 @@ export function useProjects() {
       // Optimistic update
       setProjects(prev => prev.filter(p => p.id !== id));
       setActiveProjectId(prev => (prev === id ? null : prev));
+      baseRef.current.delete(id);
+      needsReloadRef.current.delete(id);
       return true;
-    } catch {
+    } catch (e: any) {
+      toast.error(`Could not delete the note: ${e?.message || 'please try again.'}`);
       return false;
     }
   }, []);
@@ -489,6 +568,9 @@ export function useProjects() {
     fetchProjectsByDateRange,
     syncProjects,
     loadProjectContent,
+    peekProjectContent,
+    adoptRevision,
+    reloadRequest,
     createProject,
     saveProject,
     renameProject,

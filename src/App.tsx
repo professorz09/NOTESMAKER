@@ -135,6 +135,9 @@ const App: React.FC = () => {
     fetchProjects,
     syncProjects,
     loadProjectContent,
+    peekProjectContent,
+    adoptRevision,
+    reloadRequest,
     createProject,
     saveProject,
     renameProject,
@@ -208,10 +211,20 @@ const App: React.FC = () => {
     handleSectionRemove,
   } = useAIEdit({ isEditing, generatedHtml, getCurrentHtml, pushToHistory, saveToStorage, editorRef, isResettingRef, setGeneratedHtml });
 
+  // Read inside callbacks (sync, shortcuts) that must not be rebuilt every
+  // time the generation status ticks.
+  const statusRef = React.useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+
   // Guards against a fast double-click / clicking a second project before
   // the first one's fetch has returned — whichever request finishes LAST
   // used to win regardless of which one the user actually clicked last.
   const projectLoadSeqRef = React.useRef(0);
+
+  // Saves the open note's latest content right now, cancelling the pending
+  // debounced autosave. Leaving a note (opening another, reading a date
+  // range) used to just drop that timer, losing up to the last 3s of edits.
+  const flushActiveNoteRef = React.useRef<() => Promise<boolean>>(async () => true);
 
   const handleSelectProject = async (id: string) => {
     // A running pipeline keeps writing to the canvas as sections land — and
@@ -225,13 +238,25 @@ const App: React.FC = () => {
     const mySeq = ++projectLoadSeqRef.current;
     setOpeningProjectId(id);
     try {
+      if (activeProjectId && activeProjectId !== id && !(await flushActiveNoteRef.current())) {
+        // Switching anyway would throw away the unsaved edits for good.
+        if (projectLoadSeqRef.current === mySeq) setOpeningProjectId(null);
+        toast.error('Could not save the open note, so it was kept open — check your connection and try again.');
+        return;
+      }
+      if (projectLoadSeqRef.current !== mySeq) return;
       const raw = await loadProjectContent(id);
       if (projectLoadSeqRef.current !== mySeq) return; // superseded by a later click
       // Re-sanitize on load: projects saved before the style-leak fix can
       // carry global <style> blocks that break the whole app UI.
       const content = sanitizeHtml(raw ?? '');
       isResettingRef.current = true;
+      cancelPendingHistoryPush();
       setGeneratedHtml(content);
+      // Fresh undo stack per note. Keeping the previous note's entries let
+      // Ctrl+Z put note A's content on screen while note B was active —
+      // and the autosave then wrote A's content into B.
+      resetHistory();
       pushToHistory(content);
       safeSaveDraft(content);
       setTimeout(() => { isResettingRef.current = false; }, 100);
@@ -272,6 +297,10 @@ const App: React.FC = () => {
       return;
     }
     try {
+      if (!(await flushActiveNoteRef.current())) {
+        toast.error('Could not save the open note — check your connection before leaving it.');
+        return;
+      }
       const items = await fetchProjectsByDateRange(CURRENT_AFFAIRS_TAG, start, end);
       if (!items.length) {
         toast.info('No current affairs notes found in that date range.');
@@ -281,7 +310,9 @@ const App: React.FC = () => {
       const header = `<h1>Current Affairs — ${fmt(start)} to ${fmt(end)}</h1><p class="ca-range-meta">${items.length} day(s) combined, oldest first</p>`;
       const combined = header + '\n' + items.map(it => sanitizeHtml(it.content)).join('\n<hr class="upsc-qa-divider" />\n');
       isResettingRef.current = true;
+      cancelPendingHistoryPush();
       setGeneratedHtml(combined);
+      resetHistory();
       pushToHistory(combined);
       safeSaveDraft(combined);
       setActiveProjectId(null);
@@ -291,7 +322,7 @@ const App: React.FC = () => {
       console.error(err);
       toast.error(`Could not load that date range: ${err?.message || 'please try again.'}`);
     }
-  }, [status, fetchProjectsByDateRange, isResettingRef, setGeneratedHtml, pushToHistory, setActiveProjectId]);
+  }, [status, fetchProjectsByDateRange, isResettingRef, setGeneratedHtml, pushToHistory, resetHistory, cancelPendingHistoryPush, setActiveProjectId]);
 
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
@@ -317,35 +348,17 @@ const App: React.FC = () => {
   const projectsRef = React.useRef(projects);
   useEffect(() => { projectsRef.current = projects; }, [projects]);
 
-  const saveToProject = useCallback(async (id: string, html: string) => {
-    const ok = await saveProject(id, html);
-    if (!ok) return;
-    setLastSavedAt(new Date());
-    // Auto-rename: when the user edits the H1/H2 heading inside the
-    // editor, the project tile in the sidebar should reflect the new
-    // title without forcing a manual rename. Re-extract from the saved
-    // content and rename only when the name actually changed — avoids
-    // a stream of no-op writes on every keystroke.
-    const proj = projectsRef.current.find(p => p.id === id);
-    if (!proj) return;
-    const nextName = extractProjectName(html);
-    if (nextName && nextName !== proj.name) {
-      await renameProject(id, nextName);
-    }
-  }, [saveProject, renameProject]);
-
   const handleSaveNow = useCallback(async () => {
     if (!activeProjectId) return;
     if (staleBuild) {
       toast.warning('This tab is running an old version of the app — reload the page before saving, or it could overwrite newer answers.');
       return;
     }
-    const html = isEditing && editorRef.current ? getCleanHtml() : (generatedHtmlRef.current || '');
-    if (html) {
-      await saveToProject(activeProjectId, html);
-      toast.success('Saved!');
-    }
-  }, [activeProjectId, isEditing, editorRef, getCleanHtml, saveToProject, staleBuild]);
+    // Only claim "Saved!" when it was — a failed save already shows its
+    // own error toast.
+    dirtyRef.current = true;
+    if (await flushActiveNoteRef.current()) toast.success('Saved!');
+  }, [activeProjectId, staleBuild]);
 
   // --- UNDO / REDO ---
   const applyHistoryIndex = useCallback((newIndex: number, historySnap: string[]) => {
@@ -370,18 +383,28 @@ const App: React.FC = () => {
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Escape closes confirm modal (it never needs a modifier — inside the
+      // Ctrl/⌘ branch below it could never fire).
+      if (e.key === 'Escape') { setShowClearConfirm(false); return; }
       const ctrl = e.ctrlKey || e.metaKey;
       if (!ctrl) return;
-      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
-      if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); handleRedo(); }
-      if (e.key === 'e' && !e.shiftKey && generatedHtml) {
-        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-        if (tag === 'input' || tag === 'textarea') return;
+      // Text fields keep their own native undo/redo — hijacking Ctrl+Z
+      // there rewound the whole note instead of the typed topic.
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' || key === 'y') {
+        e.preventDefault();
+        // Rewinding the canvas mid-generation fights the pipeline still
+        // writing to it.
+        if (statusRef.current !== GenerationStatus.IDLE) return;
+        if (key === 'z' && !e.shiftKey) handleUndo(); else handleRedo();
+        return;
+      }
+      if (key === 'e' && !e.shiftKey && generatedHtml) {
         e.preventDefault();
         if (isEditing) { setIsEditing(false); saveToStorage(); } else { setIsEditing(true); }
       }
-      // Escape closes confirm modal
-      if (e.key === 'Escape') setShowClearConfirm(false);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -417,18 +440,76 @@ const App: React.FC = () => {
 
   // Debounced auto-save every 3s
   const projectSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set while the open note has changes not yet confirmed saved — a pending
+  // timer, or a save that failed (offline). Drives the flush on leave, the
+  // retry when the connection returns, and the close-tab warning.
+  const dirtyRef = React.useRef(false);
+  const activeProjectIdRef = React.useRef(activeProjectId);
+  useEffect(() => { activeProjectIdRef.current = activeProjectId; }, [activeProjectId]);
+
+  // Resolves true when nothing is left unsaved.
+  const saveActiveNow = useCallback(async (): Promise<boolean> => {
+    const id = activeProjectIdRef.current;
+    if (projectSaveTimerRef.current) { clearTimeout(projectSaveTimerRef.current); projectSaveTimerRef.current = null; }
+    if (!id || !dirtyRef.current || staleBuild) return true;
+    // Read the editor DOM directly while editing: the canvas state lags the
+    // last keystrokes by the 800ms input debounce.
+    const html = isEditing && editorRef.current ? getCleanHtml() : (generatedHtmlRef.current || '');
+    if (!html) return true;
+    dirtyRef.current = false;
+    const ok = await saveProject(id, html);
+    if (!ok) {
+      if (activeProjectIdRef.current === id) dirtyRef.current = true;
+      return false;
+    }
+    setLastSavedAt(new Date());
+    // Auto-rename: keep the sidebar tile in step with an edited H1/H2,
+    // writing only when the name actually changed.
+    const proj = projectsRef.current.find(p => p.id === id);
+    const nextName = extractProjectName(html);
+    if (proj && nextName && nextName !== proj.name) await renameProject(id, nextName);
+    return true;
+  }, [staleBuild, isEditing, editorRef, getCleanHtml, saveProject, renameProject]);
+  flushActiveNoteRef.current = saveActiveNow;
+
   useEffect(() => {
     if (!activeProjectId || !generatedHtml || isResettingRef.current) return;
     // Outdated tab: its save would be the unguarded kind. Better to save
     // nothing than to overwrite answers written since this tab loaded.
     if (staleBuild) return;
+    dirtyRef.current = true;
     if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current);
     projectSaveTimerRef.current = setTimeout(() => {
-      const html = generatedHtmlRef.current;
-      if (activeProjectId && html) saveToProject(activeProjectId, html);
+      projectSaveTimerRef.current = null;
+      flushActiveNoteRef.current();
     }, 3000);
     return () => { if (projectSaveTimerRef.current) clearTimeout(projectSaveTimerRef.current); };
-  }, [generatedHtml, activeProjectId, saveToProject, staleBuild]);
+  }, [generatedHtml, activeProjectId, staleBuild]);
+
+  // A note switch must not carry "dirty" over to the next note.
+  useEffect(() => { dirtyRef.current = false; }, [activeProjectId]);
+
+  // Retry a failed (offline) save as soon as the connection is back, save
+  // immediately when the tab is hidden (mobile may kill it before the 3s
+  // timer fires), and warn before closing with changes still unsaved.
+  useEffect(() => {
+    const onOnline = () => { if (dirtyRef.current) flushActiveNoteRef.current(); };
+    const onHide = () => { if (document.visibilityState === 'hidden' && dirtyRef.current) flushActiveNoteRef.current(); };
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!dirtyRef.current || !activeProjectIdRef.current) return;
+      flushActiveNoteRef.current();
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, []);
 
   // While the BACKGROUND WORKER is writing this note's queued answers, keep
   // the open canvas in step with what it's saving.
@@ -447,10 +528,6 @@ const App: React.FC = () => {
   useEffect(() => {
     syncStateRef.current = { activeProjectId, batchTabRunning, isEditing, items: batchQueueItems };
   }, [activeProjectId, batchTabRunning, isEditing, batchQueueItems]);
-  // Read inside the sync callback, which must not be rebuilt (and its
-  // listeners re-registered) every time the generation status ticks.
-  const statusRef = React.useRef(status);
-  useEffect(() => { statusRef.current = status; }, [status]);
 
   const syncOpenNoteFromServer = useCallback(async (requireLiveQueue: boolean) => {
     const { activeProjectId: pid, batchTabRunning: running, isEditing: editing, items } = syncStateRef.current;
@@ -461,19 +538,55 @@ const App: React.FC = () => {
     if (!generatedHtmlRef.current) return;
     if (requireLiveQueue && !items.some(it => it.status === 'active' || it.status === 'pending')) return;
     try {
-      const saved = await loadProjectContent(pid);
+      // Peek, don't adopt: if this read is NOT put on the canvas (an edit
+      // started meanwhile), adopting it as the save base would let the
+      // next autosave of the older canvas pass the revision check and
+      // overwrite exactly what this sync came to pull in.
+      const { content: saved, updatedAt } = await peekProjectContent(pid);
       if (saved == null) return;
-      // Re-check: an edit or a note switch may have started during the fetch.
+      // Re-check: an edit, a note switch or unsaved typing may have started
+      // during the fetch.
       const now = syncStateRef.current;
-      if (now.activeProjectId !== pid || now.isEditing || now.batchTabRunning) return;
+      if (now.activeProjectId !== pid || now.isEditing || now.batchTabRunning || dirtyRef.current) return;
       const clean = sanitizeHtml(saved);
-      if (clean === (generatedHtmlRef.current || '')) return;
+      if (clean === (generatedHtmlRef.current || '')) { adoptRevision(pid, saved, updatedAt); return; }
+      adoptRevision(pid, saved, updatedAt);
       isResettingRef.current = true;
       setGeneratedHtml(clean);
       pushToHistory(clean);
       setTimeout(() => { isResettingRef.current = false; }, 100);
     } catch { /* transient — the next attempt tries again */ }
-  }, [loadProjectContent, setGeneratedHtml, pushToHistory, isResettingRef]);
+  }, [peekProjectContent, adoptRevision, setGeneratedHtml, pushToHistory, isResettingRef]);
+
+  // A save hit a conflict: the server copy now holds answers the canvas
+  // doesn't, and useProjects refuses further saves of this note until it
+  // is re-read. Re-read it now — even mid-edit, since every save from the
+  // stale canvas is blocked until this happens.
+  useEffect(() => {
+    if (!reloadRequest) return;
+    const pid = reloadRequest.id;
+    if (pid !== activeProjectIdRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await loadProjectContent(pid);
+        if (cancelled || pid !== activeProjectIdRef.current) return;
+        const clean = sanitizeHtml(saved ?? '');
+        if (projectSaveTimerRef.current) { clearTimeout(projectSaveTimerRef.current); projectSaveTimerRef.current = null; }
+        dirtyRef.current = false;
+        isResettingRef.current = true;
+        cancelPendingHistoryPush();
+        setGeneratedHtml(clean);
+        if (editorRef.current) editorRef.current.innerHTML = clean;
+        pushToHistory(clean);
+        setTimeout(() => { isResettingRef.current = false; }, 100);
+      } catch {
+        toast.error('Could not reload this note after a background update — reopen it from the sidebar before editing.');
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadRequest]);
 
   useEffect(() => {
     const timer = setInterval(() => { syncOpenNoteFromServer(true); }, 15000);
@@ -537,32 +650,40 @@ const App: React.FC = () => {
   // auto-save below would keep writing every live-generated section INTO
   // that old project (and even auto-rename it), silently replacing the
   // user's saved notes with the new generation's content.
-  const handleGenerateWithAutoSave = useCallback(async (e: React.FormEvent) => {
-    if (activeProjectId && generatedHtml) {
-      const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
-      if (html) await saveToProject(activeProjectId, html);
+  // Holds from the first press until the pipeline has taken over. The save
+  // flush awaits a network round-trip, during which status is still IDLE —
+  // a second Enter/click in that gap started a second, parallel generation.
+  const generateStartingRef = React.useRef(false);
+  const startNewDocument = useCallback(async (start: () => unknown) => {
+    if (generateStartingRef.current || statusRef.current !== GenerationStatus.IDLE) return;
+    generateStartingRef.current = true;
+    try {
+      if (!(await flushActiveNoteRef.current())) {
+        toast.error('Could not save the open note — fix the connection first, or its latest edits would be lost.');
+        return;
+      }
+      setActiveProjectId(null);
+      await Promise.resolve(start());
+    } finally {
+      generateStartingRef.current = false;
     }
-    setActiveProjectId(null);
-    handleGenerate(e);
-  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, setActiveProjectId, handleGenerate]);
+  }, [setActiveProjectId]);
 
-  const handleGenerateTableWithAutoSave = useCallback(async (e: React.MouseEvent) => {
-    if (activeProjectId && generatedHtml) {
-      const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
-      if (html) await saveToProject(activeProjectId, html);
-    }
-    setActiveProjectId(null);
-    handleGenerateTable(e);
-  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, setActiveProjectId, handleGenerateTable]);
+  const handleGenerateWithAutoSave = useCallback((e: React.FormEvent) => {
+    // Synchronously — after an await it is too late to stop the form submit.
+    e.preventDefault();
+    return startNewDocument(() => handleGenerate(e));
+  }, [startNewDocument, handleGenerate]);
 
-  const handleGenerateTranscriptWithAutoSave = useCallback(async () => {
-    if (activeProjectId && generatedHtml) {
-      const html = isEditing && editorRef.current ? getCleanHtml() : generatedHtml;
-      if (html) await saveToProject(activeProjectId, html);
-    }
-    setActiveProjectId(null);
-    handleGenerateTranscript();
-  }, [activeProjectId, generatedHtml, isEditing, editorRef, getCleanHtml, saveToProject, setActiveProjectId, handleGenerateTranscript]);
+  const handleGenerateTableWithAutoSave = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    return startNewDocument(() => handleGenerateTable(e));
+  }, [startNewDocument, handleGenerateTable]);
+
+  const handleGenerateTranscriptWithAutoSave = useCallback(
+    () => startNewDocument(() => handleGenerateTranscript()),
+    [startNewDocument, handleGenerateTranscript],
+  );
 
   // --- PDF EXPORT ---
   // Shared by both export paths: strip in-editor-only UI (edit triggers,
