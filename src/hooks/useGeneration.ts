@@ -81,6 +81,9 @@ const genPipelineId = (): string =>
 // current supported Pro model ID. (Medium's per-section automatic expand
 // still respects the user's own Sidebar model choice, `aiModel`.)
 const DEEP_PRO_MODEL = 'gemini-3.1-pro-preview';
+// Gemini 4 Argon, when picked in the Sidebar, also writes Deep notes (it is
+// the stronger model); every other choice keeps Deep on Pro as above.
+const deepModelFor = (picked: string) => (picked === 'gemini-4-argon' ? picked : DEEP_PRO_MODEL);
 // Detailed shares Deep's outline + expand PROMPTS and STRUCTURE exactly (see
 // runLeveledTopicPipeline) — the only difference between the two levels is
 // which model writes each section: Deep uses Pro throughout, Detailed uses
@@ -469,7 +472,7 @@ export function useGeneration({
         contextTitle,
         entries.map(e => ({ heading: e.heading, subheadings: e.subheadings })),
         language,
-        DEEP_PRO_MODEL,
+        deepModelFor(aiModel),
       );
       if (!additions.length || isResettingRef.current) return;
       for (const add of additions) {
@@ -1439,7 +1442,7 @@ export function useGeneration({
     // detailed version. Text keeps its level→model mapping: Medium respects
     // the user's Sidebar choice, Deep is all-Pro, Detailed is Pro+Flash
     // (same prompts as Deep — see depthDirective — just written by Flash).
-    const outlineModel = DEEP_PRO_MODEL;
+    const outlineModel = deepModelFor(aiModel);
     const expandLevel: 'medium' | 'detailed' | 'deep' = kind === 'transcript' ? 'deep' : level;
     // Grounding needs a model that reliably ACTS on the googleSearch tool
     // during a long section-writing call, not just a short outline call —
@@ -1451,7 +1454,7 @@ export function useGeneration({
     // transcript still get Pro regardless (unrelated to grounding), and an
     // explicit Pro choice is never touched.
     const expandModel = kind === 'transcript' || level === 'deep'
-      ? DEEP_PRO_MODEL
+      ? deepModelFor(aiModel)
       : groundingSafeModel(level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel, groundingEnabled);
 
     // "This run was torn down" — starts as the bare reset flag, upgraded to
@@ -1592,7 +1595,7 @@ export function useGeneration({
           const i = ci, j = cj, num = chunkStartNum[ci] + cj;
           controller.registerGroup(`c${i}s${j}`, (instruction, existingHtml) => expandChunkSection(
             kind, chunks[i], chunkSections[i][j], num, chunkSections[i].map(s => s.heading),
-            i + 1, total, language, DEEP_PRO_MODEL, 'deep',
+            i + 1, total, language, deepModelFor(aiModel), 'deep',
             { existingHtml, customInstruction: instruction }, groundingEnabled,
           ));
         }
@@ -1637,7 +1640,7 @@ export function useGeneration({
       mm.restructuring = true;
       syncMm();
       try {
-        const improved = await restructureOutlineChunks(chunkSections, mm.title, language, DEEP_PRO_MODEL);
+        const improved = await restructureOutlineChunks(chunkSections, mm.title, language, deepModelFor(aiModel));
         if (stale()) return;
         pendingRestructure = improved;
         mm.compareOutline = {
@@ -1878,14 +1881,14 @@ export function useGeneration({
     level: 'medium' | 'detailed' | 'deep',
   ): Promise<boolean> => {
     const fileParts = uploadedFiles.map(f => ({ data: f.data, mimeType: f.mimeType }));
-    const outlineModel = DEEP_PRO_MODEL;
+    const outlineModel = deepModelFor(aiModel);
     // Same prompts/structure for Detailed and Deep (see expandFilesSection's
     // depth directive) — Deep is all-Pro, Detailed is Pro outline + Flash
     // expand, Medium keeps the user's own Sidebar model choice. groundingSafeModel
     // swaps a Flash-Lite pick for the grounding-safe Flash — see
     // runLeveledChunkPipeline for why.
     const expandModel = level === 'deep'
-      ? DEEP_PRO_MODEL
+      ? deepModelFor(aiModel)
       : groundingSafeModel(level === 'detailed' ? DETAILED_FLASH_MODEL : aiModel, groundingEnabled);
 
     // See runLeveledChunkPipeline: `dead` outlives Clear Canvas's ~100ms
@@ -1958,7 +1961,7 @@ export function useGeneration({
     // never-reached nodes stay clickable-to-generate while the map is open.
     const registerSectionGroups = () => {
       sections.forEach((s, i) => controller.registerGroup(`s${i}`, (instruction, existingHtml) =>
-        expandFilesSection(fileParts, s, i + 1, allHeadings, language, DEEP_PRO_MODEL, 'deep', { existingHtml, customInstruction: instruction }, groundingEnabled)));
+        expandFilesSection(fileParts, s, i + 1, allHeadings, language, deepModelFor(aiModel), 'deep', { existingHtml, customInstruction: instruction }, groundingEnabled)));
     };
     registerSectionGroups();
 
@@ -1970,7 +1973,7 @@ export function useGeneration({
       mm.restructuring = true;
       syncMm();
       try {
-        const improved = await restructureOutlineSections(sections, mm.title || 'Notes', language, DEEP_PRO_MODEL);
+        const improved = await restructureOutlineSections(sections, mm.title || 'Notes', language, deepModelFor(aiModel));
         if (stale()) return;
         const prevInstructions = new Map<string, string>();
         mm.nodes.forEach(n => { if (n.instruction) prevInstructions.set(n.label, n.instruction); });
@@ -2226,7 +2229,7 @@ export function useGeneration({
             // quality is what makes the rest of the pipeline good, so both
             // levels use the strongest model here; they only diverge on the
             // model used to WRITE each section (see expandOne below).
-            const deep = await generateDeepOutline(topic, language, DEEP_PRO_MODEL, groundingEnabled);
+            const deep = await generateDeepOutline(topic, language, deepModelFor(aiModel), groundingEnabled);
             if (deep) { outline = deep; focusAreas = deep.focusAreas || []; }
           } else {
             outline = await generateTopicOutline(topic, language, aiModel, level, groundingEnabled);
@@ -2280,7 +2283,7 @@ export function useGeneration({
     // differs. Medium keeps the lighter expandTopicSection + user's model.
     // groundingSafeModel swaps a Flash-Lite pick for the grounding-safe
     // Flash — see runLeveledChunkPipeline for why.
-    const expandModel = level === 'deep' ? DEEP_PRO_MODEL : groundingSafeModel(DETAILED_FLASH_MODEL, groundingEnabled);
+    const expandModel = level === 'deep' ? deepModelFor(aiModel) : groundingSafeModel(DETAILED_FLASH_MODEL, groundingEnabled);
     const expandOne = (i: number) => (level === 'deep' || level === 'detailed')
       ? expandDeepSection(topic, sections[i], i + 1, allHeadings, focusAreas, language, expandModel, refineFor(i), groundingEnabled)
       : expandTopicSection(topic, sections[i], i + 1, allHeadings, language, groundingSafeModel(aiModel, groundingEnabled), level as 'medium', refineFor(i), groundingEnabled);
@@ -2289,12 +2292,12 @@ export function useGeneration({
     // used — carrying the existing draft + any typed instruction as a
     // revision pass rather than a blind rewrite.
     const deepenOne = (i: number, instruction?: string, existingHtml?: string) =>
-      expandDeepSection(topic, sections[i], i + 1, allHeadings, [sections[i].heading], language, DEEP_PRO_MODEL, { existingHtml, customInstruction: instruction }, groundingEnabled);
+      expandDeepSection(topic, sections[i], i + 1, allHeadings, [sections[i].heading], language, deepModelFor(aiModel), { existingHtml, customInstruction: instruction }, groundingEnabled);
     // Completeness pass always runs on Pro for both Deep and Detailed — it's
     // the final accuracy check over the whole topic, same as the outline.
     const runCompleteness = (instruction?: string, existingHtml?: string) => generateAdditionalTopicAspects(
       topic, allHeadings, sections.length + 1, language,
-      (level === 'deep' || level === 'detailed') ? DEEP_PRO_MODEL : groundingSafeModel(aiModel, groundingEnabled),
+      (level === 'deep' || level === 'detailed') ? deepModelFor(aiModel) : groundingSafeModel(aiModel, groundingEnabled),
       { existingHtml, customInstruction: instruction }, groundingEnabled,
     );
 

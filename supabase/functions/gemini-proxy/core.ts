@@ -245,7 +245,7 @@ export async function forwardGemini(pathname: string, body: any, env: ProxyEnv):
   // Gemini 3 models are only served on Vertex's *global* endpoint — regional
   // endpoints return 404 for gemini-3.x. Force it regardless of GCP_REGION
   // so a stale region setting can't silently break every gemini-3 call.
-  if (vertexModel.startsWith("gemini-3")) gcpRegion = "global";
+  if (vertexModel.startsWith("gemini-3") || vertexModel.startsWith("gemini-4")) gcpRegion = "global";
 
   const useVertex = !!gcpSaKey && !!gcpProjectId && isGenerateCall;
   let upstreamRes: Response;
@@ -256,7 +256,9 @@ export async function forwardGemini(pathname: string, body: any, env: ProxyEnv):
     // global-aiplatform... which doesn't resolve.
     const hostname = gcpRegion === "global" ? "aiplatform.googleapis.com" : `${gcpRegion}-aiplatform.googleapis.com`;
     const url = `https://${hostname}/v1/projects/${gcpProjectId}/locations/${gcpRegion}/publishers/google/models/${vertexModel}:generateContent`;
-    const vertexBody = translateForVertex(body);
+    // Gemini 4 Argon takes thinking levels (low/medium/high) natively; older
+    // models get them translated to a token budget
+    const vertexBody = vertexModel.startsWith("gemini-4") ? body : translateForVertex(body);
     // Vertex on a fresh GCP project enforces strict per-minute quotas
     // (often 30-60 RPM). Retry with short exponential backoff so most
     // transient 429s recover before we surface an error.

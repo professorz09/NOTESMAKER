@@ -11,6 +11,8 @@ interface SidebarLanguageModelProps {
 const MODELS = [
   { id: 'gemini-3.8-flash',       label: 'Flash 3.8', isFlash: true },
   { id: 'gemini-3.1-pro-preview', label: 'Pro 3.1', isFlash: false },
+  // Newest and most careful with facts; thinks longer, so slower and pricier
+  { id: 'gemini-4-argon',         label: 'Argon 4', isFlash: false },
   { id: 'gemini-3.1-flash-lite',  label: 'Flash Lite', isFlash: true  },
 ];
 

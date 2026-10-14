@@ -129,6 +129,7 @@ export const RewriteModal: React.FC<RewriteModalProps> = ({
       <option value="gemini-3.1-flash-lite">Flash Lite (Fast)</option>
       <option value="gemini-3.8-flash">Flash 3.8</option>
       <option value="gemini-3.1-pro-preview">Pro (Deep)</option>
+      <option value="gemini-4-argon">Argon 4 (Best)</option>
     </select>
   );
 
